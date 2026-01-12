@@ -60,7 +60,36 @@ button.secondary{ background:#eee; color:#111; }
   border:1px solid #ccc;
   background:#7a1c5c;
 }
+/* =========================================================
+   BUILDER CREDIT (Harpoon branding)
+   ========================================================= */
 
+.harpoon-builder-credit{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+
+  margin: 32px auto 8px;
+  padding-top: 16px;
+
+  font-size: 12px;
+  color: #888;
+}
+
+.harpoon-builder-credit__logo{
+  width:22px;
+  height:22px;
+  border-radius:50%;
+  object-fit:cover;
+}
+
+.harpoon-builder-credit__text{
+  font-weight:600;
+  letter-spacing:0.02em;
+}
+
+   
 /* =========================================================
    PREVIEW FRAME (builder only)
    ========================================================= */
@@ -479,5 +508,16 @@ ${entries.map(e=>`    <div class="harpoon-timeline__item">
   applyVars(); render();
 })();
 </script>
+<footer class="harpoon-builder-credit" aria-hidden="true">
+  <img
+    src="https://pbs.twimg.com/profile_images/1200397581333024768/kEKej87-_400x400.jpg"
+    alt=""
+    class="harpoon-builder-credit__logo"
+  >
+  <span class="harpoon-builder-credit__text">
+    Harpoon Productions
+  </span>
+</footer>
+
 </body>
 </html>

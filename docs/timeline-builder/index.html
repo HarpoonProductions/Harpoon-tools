@@ -81,7 +81,6 @@ button.secondary{ background:#eee; color:#111; }
 
 /* =========================================================
    RUNTIME PREVIEW CSS (matches exported CSS)
-   Scoped to .harpoon-timeline*
    ========================================================= */
 
 .harpoon-timeline-wrapper{
@@ -97,4 +96,388 @@ button.secondary{ background:#eee; color:#111; }
 
   --harpoon-dot-color: #7a1c5c;
   --harpoon-dot-size: 12px;
-  --harpoon-
+  --harpoon-dot-border: 0px;
+  --harpoon-dot-fill: var(--harpoon-dot-color);
+
+  position: relative;
+  display: flex;
+  gap: 32px;
+  padding: 0 20px 20px;
+  width: max-content;
+}
+
+.harpoon-timeline__line{
+  position:absolute;
+  top: var(--harpoon-line-y);
+  left:0;
+  right:0;
+  height: var(--harpoon-line-thickness);
+  background: var(--harpoon-line-color);
+  opacity: .4;
+  transform: translateY(-50%);
+  pointer-events:none;
+}
+
+.harpoon-timeline__item{
+  position:relative;
+  width: min(320px, 88vw);
+  flex-shrink:0;
+  padding-top: calc(var(--harpoon-line-y) + var(--harpoon-dot-size) + 8px);
+}
+
+.harpoon-timeline__marker{
+  position:absolute;
+  top: var(--harpoon-line-y);
+  left: 50%;
+  width: var(--harpoon-dot-size);
+  height: var(--harpoon-dot-size);
+  transform: translate(-50%, -50%);
+  background: var(--harpoon-dot-fill);
+  border: var(--harpoon-dot-border) solid var(--harpoon-dot-color);
+  border-radius:50%;
+  z-index:2;
+}
+
+.harpoon-timeline__date{
+  margin: 0 0 12px;
+  font-weight:700;
+  text-align:center;
+}
+
+.harpoon-timeline__card{
+  background:#fff;
+  border-radius:16px;
+  padding:16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+
+.harpoon-timeline__image{
+  width:100%;
+  aspect-ratio: 16 / 9;
+  border-radius:12px;
+  background-size:cover;
+  background-position:center;
+  margin-bottom:6px;
+}
+
+.harpoon-timeline__credit{
+  font-size:11px;
+  text-align:right;
+  opacity:.65;
+  font-variant: all-small-caps;
+  letter-spacing: .04em;
+  margin: 0 0 10px;
+}
+
+/* =========================================================
+   MODAL (builder only)
+   ========================================================= */
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+}
+.modal.open{ display:flex; }
+.modal__box{
+  width:min(980px, 92vw);
+  background:#fff;
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow: 0 20px 80px rgba(0,0,0,.25);
+}
+.modal__tabs{
+  display:flex;
+  border-bottom:1px solid #ddd;
+  background:#f7f7f7;
+}
+.modal__tabs button{
+  flex:1;
+  border-radius:0;
+  background:transparent;
+  font-weight:800;
+  padding:12px;
+}
+.modal__tabs button.active{ background:#fff; }
+.modal__content{
+  padding:14px 16px;
+  max-height: 60vh;
+  overflow:auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12.5px;
+  white-space: pre;
+}
+.modal__footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 16px;
+  border-top:1px solid #ddd;
+}
+.toast{
+  position:fixed;
+  right:16px;
+  bottom:16px;
+  background:#111;
+  color:#fff;
+  padding:10px 12px;
+  border-radius:10px;
+  font-size:13px;
+  opacity:0;
+  transform: translateY(6px);
+  transition: opacity .18s ease, transform .18s ease;
+  pointer-events:none;
+}
+.toast.show{ opacity:1; transform: translateY(0); }
+</style>
+</head>
+
+<body>
+<div class="builder">
+  <h1>Harpoon Timeline Builder v1.6.0</h1>
+
+  <fieldset>
+    <div class="row">
+      <div>
+        <label>Line colour</label>
+        <input type="color" id="lineColor" value="#d0a3c4">
+      </div>
+
+      <div>
+        <label>Marker colour</label>
+        <div class="dot-picker">
+          <span class="dot-preview" id="dotPreview"></span>
+          <input type="color" id="dotColor" value="#7a1c5c">
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <div>
+        <label>Marker style</label>
+        <select id="markerStyle">
+          <option value="dot-small">Small dot</option>
+          <option value="dot-big">Big dot</option>
+          <option value="circle-open">Open circle</option>
+        </select>
+      </div>
+      <div>
+        <label>Line thickness</label>
+        <select id="lineThickness">
+          <option value="2">2px</option>
+          <option value="3" selected>3px</option>
+          <option value="4">4px</option>
+        </select>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <label>Date</label>
+    <input type="text" id="dateInput">
+
+    <label>Body text (HTML allowed)</label>
+    <textarea id="textInput"></textarea>
+
+    <label>Image URL (optional)</label>
+    <input type="text" id="imageInput">
+
+    <label>Image credit (optional)</label>
+    <input type="text" id="creditInput">
+
+    <div class="actions">
+      <button class="primary" id="addBtn">Add entry</button>
+      <button class="secondary" id="exportBtn">Export HTML / CSS</button>
+      <button class="secondary" id="clearBtn">Clear all</button>
+    </div>
+  </fieldset>
+
+  <div class="preview">
+    <div class="preview__scroller" id="previewScroller">
+      <div class="harpoon-timeline-wrapper">
+        <div class="harpoon-timeline" id="previewTimeline">
+          <div class="harpoon-timeline__line"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal__box">
+    <div class="modal__tabs">
+      <button id="tabHtml" class="active">HTML</button>
+      <button id="tabCss">CSS</button>
+    </div>
+    <div class="modal__content" id="modalContent"></div>
+    <div class="modal__footer">
+      <button class="secondary" id="closeModalBtn">Close</button>
+      <button class="primary" id="copyBtn">Copy</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Copied</div>
+
+<script>
+/* =============================
+   JS (unchanged except branding)
+   ============================= */
+(() => {
+  const entries = [];
+  let activeTab = "html";
+  let lastAddedIndex = null;
+  const $ = id => document.getElementById(id);
+
+  const previewTimeline = $("previewTimeline");
+  const previewScroller = $("previewScroller");
+
+  const lineColor = $("lineColor");
+  const dotColor = $("dotColor");
+  const dotPreview = $("dotPreview");
+  const markerStyle = $("markerStyle");
+  const lineThickness = $("lineThickness");
+
+  const dateInput = $("dateInput");
+  const textInput = $("textInput");
+  const imageInput = $("imageInput");
+  const creditInput = $("creditInput");
+
+  const modal = $("modal");
+  const modalContent = $("modalContent");
+  const tabHtml = $("tabHtml");
+  const tabCss = $("tabCss");
+  const toast = $("toast");
+
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 900);
+  }
+
+  function markerVars(){
+    if(markerStyle.value==="dot-big") return {s:16,b:0,f:"var(--harpoon-dot-color)"};
+    if(markerStyle.value==="circle-open") return {s:14,b:2,f:"transparent"};
+    return {s:10,b:0,f:"var(--harpoon-dot-color)"};
+  }
+
+  function applyVars(){
+    const m = markerVars();
+    previewTimeline.style.setProperty("--harpoon-line-color", lineColor.value);
+    previewTimeline.style.setProperty("--harpoon-dot-color", dotColor.value);
+    previewTimeline.style.setProperty("--harpoon-line-thickness", lineThickness.value+"px");
+    previewTimeline.style.setProperty("--harpoon-dot-size", m.s+"px");
+    previewTimeline.style.setProperty("--harpoon-dot-border", m.b+"px");
+    previewTimeline.style.setProperty("--harpoon-dot-fill", m.f);
+    dotPreview.style.background = dotColor.value;
+  }
+
+  function render(){
+    previewTimeline.innerHTML = '<div class="harpoon-timeline__line"></div>';
+    entries.forEach((e,i)=>{
+      const d = document.createElement("div");
+      d.className="harpoon-timeline__item";
+      d.dataset.idx=i;
+      d.innerHTML = `
+        <div class="harpoon-timeline__marker"></div>
+        <div class="harpoon-timeline__date">${e.date}</div>
+        <div class="harpoon-timeline__card">
+          ${e.image?`<div class="harpoon-timeline__image" style="background-image:url('${e.image}')"></div>`:""}
+          ${e.credit?`<div class="harpoon-timeline__credit">${e.credit}</div>`:""}
+          ${e.text}
+        </div>`;
+      previewTimeline.appendChild(d);
+    });
+    applyVars();
+    if(lastAddedIndex!==null){
+      const el = previewTimeline.querySelector(`[data-idx="${lastAddedIndex}"]`);
+      el?.scrollIntoView({inline:"center"});
+    }
+  }
+
+  $("addBtn").onclick = () => {
+    entries.push({
+      date: dateInput.value,
+      text: textInput.value,
+      image: imageInput.value,
+      credit: creditInput.value
+    });
+    lastAddedIndex = entries.length-1;
+    dateInput.value=textInput.value=imageInput.value=creditInput.value="";
+    render();
+  };
+
+  $("clearBtn").onclick = () => { entries.length=0; render(); };
+
+  $("exportBtn").onclick = () => {
+    modal.classList.add("open");
+    tabHtml.click();
+  };
+
+  $("closeModalBtn").onclick = () => modal.classList.remove("open");
+
+  tabHtml.onclick = () => {
+    tabHtml.classList.add("active"); tabCss.classList.remove("active");
+    modalContent.textContent = exportHTML();
+    activeTab="html";
+  };
+  tabCss.onclick = () => {
+    tabCss.classList.add("active"); tabHtml.classList.remove("active");
+    modalContent.textContent = exportCSS();
+    activeTab="css";
+  };
+
+  $("copyBtn").onclick = async () => {
+    await navigator.clipboard.writeText(modalContent.textContent);
+    showToast("Copied");
+  };
+
+  function exportHTML(){
+    return `<div class="harpoon-timeline-wrapper">
+  <div class="harpoon-timeline">
+    <div class="harpoon-timeline__line"></div>
+${entries.map(e=>`    <div class="harpoon-timeline__item">
+      <div class="harpoon-timeline__marker"></div>
+      <div class="harpoon-timeline__date">${e.date}</div>
+      <div class="harpoon-timeline__card">
+        ${e.image?`<div class="harpoon-timeline__image" style="background-image:url('${e.image}')"></div>`:""}
+        ${e.credit?`<div class="harpoon-timeline__credit">${e.credit}</div>`:""}
+        ${e.text}
+      </div>
+    </div>`).join("\n")}
+  </div>
+</div>`;
+  }
+
+  function exportCSS(){
+    const m = markerVars();
+    return `/* Harpoon Timeline runtime CSS */
+.harpoon-timeline-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.harpoon-timeline{
+  --harpoon-line-y:40px;
+  --harpoon-line-thickness:${lineThickness.value}px;
+  --harpoon-line-color:${lineColor.value};
+  --harpoon-dot-color:${dotColor.value};
+  --harpoon-dot-size:${m.s}px;
+  --harpoon-dot-border:${m.b}px;
+  --harpoon-dot-fill:${m.f};
+  position:relative;display:flex;gap:32px;padding:0 20px 20px;width:max-content
+}
+.harpoon-timeline__line{position:absolute;top:var(--harpoon-line-y);left:0;right:0;height:var(--harpoon-line-thickness);background:var(--harpoon-line-color);opacity:.4;transform:translateY(-50%)}
+.harpoon-timeline__item{position:relative;width:min(320px,88vw);flex-shrink:0;padding-top:calc(var(--harpoon-line-y) + var(--harpoon-dot-size) + 8px)}
+.harpoon-timeline__marker{position:absolute;top:var(--harpoon-line-y);left:50%;width:var(--harpoon-dot-size);height:var(--harpoon-dot-size);transform:translate(-50%,-50%);background:var(--harpoon-dot-fill);border:var(--harpoon-dot-border) solid var(--harpoon-dot-color);border-radius:50%}
+.harpoon-timeline__date{margin:0 0 12px;font-weight:700;text-align:center}
+.harpoon-timeline__card{background:#fff;border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.04)}
+.harpoon-timeline__image{width:100%;aspect-ratio:16/9;border-radius:12px;background-size:cover;background-position:center;margin-bottom:6px}
+.harpoon-timeline__credit{font-size:11px;text-align:right;opacity:.65;font-variant:all-small-caps;letter-spacing:.04em;margin:0 0 10px}`;
+  }
+
+  applyVars(); render();
+})();
+</script>
+</body>
+</html>

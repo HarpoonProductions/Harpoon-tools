@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Harpoon Timeline Builder v1.7.4</title>
+<title>Harpoon Timeline Builder v1.7.4a</title>
 
 <style>
 /* =========================================================
@@ -25,7 +25,12 @@ fieldset{
   padding:16px;
   margin-bottom:16px
 }
-label{display:block;font-size:12px;font-weight:700;margin:10px 0 6px}
+label{
+  display:block;
+  font-size:12px;
+  font-weight:700;
+  margin:10px 0 6px
+}
 input,textarea,select{
   width:100%;
   padding:10px;
@@ -35,8 +40,24 @@ input,textarea,select{
   box-sizing:border-box
 }
 textarea{min-height:90px}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+
+.controls-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+}
+
+.control-stack > * + *{
+  margin-top:12px;
+}
+
+.actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:12px
+}
+
 button{
   border:0;
   border-radius:10px;
@@ -47,10 +68,28 @@ button{
 .primary{background:#111;color:#fff}
 .secondary{background:#eee}
 
-.dot-picker{display:flex;align-items:center;gap:10px}
+.dot-picker{
+  display:flex;
+  align-items:center;
+  gap:10px
+}
 .dot-preview{
-  width:14px;height:14px;border-radius:50%;
+  width:14px;
+  height:14px;
+  border-radius:50%;
   border:1px solid #ccc
+}
+
+.inline-toggle{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:6px
+}
+.inline-toggle label{
+  margin:0;
+  font-weight:600;
+  font-size:13px
 }
 
 .required{color:#c00;font-weight:700}
@@ -72,7 +111,7 @@ button{
 }
 
 /* =========================================================
-   TIMELINE RUNTIME (PREVIEW MATCHES EXPORT)
+   TIMELINE RUNTIME
    ========================================================= */
 .harpoon-timeline-block{position:relative}
 
@@ -197,39 +236,20 @@ button{
 <body>
 
 <div class="builder">
-<h1>Harpoon Timeline Builder v1.7.4</h1>
+<h1>Harpoon Timeline Builder v1.7.4a</h1>
 
-<!-- CONTROLS -->
 <fieldset>
   <label>Timeline title</label>
   <input id="timelineTitle" placeholder="e.g. The career of Tom Whidden">
 </fieldset>
 
 <fieldset>
-  <div class="row">
-    <div>
+  <div class="controls-grid">
+    <!-- LINE CONTROLS -->
+    <div class="control-stack">
       <label>Line colour</label>
       <input type="color" id="lineColor" value="#a3a3a3">
-    </div>
-    <div>
-      <label>Marker colour</label>
-      <div class="dot-picker">
-        <span class="dot-preview" id="dotPreview"></span>
-        <input type="color" id="dotColor" value="#000000">
-      </div>
-    </div>
-  </div>
 
-  <div class="row">
-    <div>
-      <label>Marker style</label>
-      <select id="markerStyle">
-        <option value="small">Small dot</option>
-        <option value="big">Big dot</option>
-        <option value="open">Open circle</option>
-      </select>
-    </div>
-    <div>
       <label>Line thickness</label>
       <select id="lineThickness">
         <option>2</option>
@@ -237,10 +257,25 @@ button{
         <option>4</option>
       </select>
     </div>
+
+    <!-- MARKER CONTROLS -->
+    <div class="control-stack">
+      <label>Marker colour</label>
+      <div class="dot-picker">
+        <span class="dot-preview" id="dotPreview"></span>
+        <input type="color" id="dotColor" value="#000000">
+      </div>
+
+      <label>Marker style</label>
+      <select id="markerStyle">
+        <option value="small">Small dot</option>
+        <option value="big">Big dot</option>
+        <option value="open">Open circle</option>
+      </select>
+    </div>
   </div>
 </fieldset>
 
-<!-- ENTRY -->
 <fieldset>
   <label>Date</label>
   <input id="dateInput">
@@ -252,12 +287,12 @@ button{
   <input id="imageInput">
 
   <label>Image alt text <span class="required">*</span></label>
-  <input id="altInput" placeholder="Describe the image">
+  <input id="altInput">
 
-  <label>
+  <div class="inline-toggle">
     <input type="checkbox" id="cropToggle" checked>
-    Crop image to 16:9
-  </label>
+    <label for="cropToggle">Crop image to 16:9</label>
+  </div>
 
   <label>Image credit</label>
   <input id="creditInput">
@@ -269,9 +304,8 @@ button{
   </div>
 </fieldset>
 
-<!-- PREVIEW -->
 <div class="preview">
-  <div class="preview__scroller" id="scroller">
+  <div class="preview__scroller">
     <div class="harpoon-timeline-block">
       <div class="harpoon-timeline__title" id="previewTitle"></div>
       <div class="harpoon-timeline-wrapper">
@@ -290,106 +324,97 @@ button{
 </div>
 
 <script>
-/* =========================================================
-   JS — v1.7.4
-   ========================================================= */
+/* JS unchanged from v1.7.4 */
 (() => {
-const entries=[];
-let editIndex=null;
+  const entries=[];
+  let editIndex=null;
+  const $=id=>document.getElementById(id);
+  const timeline=$("timeline");
 
-const $=id=>document.getElementById(id);
-const timeline=$("timeline");
+  function markerVars(){
+    if($("markerStyle").value==="big") return {s:16,b:0,f:"var(--harpoon-dot-color)"};
+    if($("markerStyle").value==="open") return {s:14,b:2,f:"transparent"};
+    return {s:10,b:0,f:"var(--harpoon-dot-color)"};
+  }
 
-function markerVars(){
-  if($("markerStyle").value==="big") return {s:16,b:0,f:"var(--harpoon-dot-color)"};
-  if($("markerStyle").value==="open") return {s:14,b:2,f:"transparent"};
-  return {s:10,b:0,f:"var(--harpoon-dot-color)"};
-}
+  function applyVars(){
+    const m=markerVars();
+    timeline.style.setProperty("--harpoon-line-color",$("lineColor").value);
+    timeline.style.setProperty("--harpoon-dot-color",$("dotColor").value);
+    timeline.style.setProperty("--harpoon-dot-size",m.s+"px");
+    timeline.style.setProperty("--harpoon-dot-border",m.b+"px");
+    timeline.style.setProperty("--harpoon-dot-fill",m.f);
+    timeline.style.setProperty("--harpoon-line-thickness",$("lineThickness").value+"px");
+    $("dotPreview").style.background=$("dotColor").value;
+  }
 
-function applyVars(){
-  const m=markerVars();
-  timeline.style.setProperty("--harpoon-line-color",$("lineColor").value);
-  timeline.style.setProperty("--harpoon-dot-color",$("dotColor").value);
-  timeline.style.setProperty("--harpoon-dot-size",m.s+"px");
-  timeline.style.setProperty("--harpoon-dot-border",m.b+"px");
-  timeline.style.setProperty("--harpoon-dot-fill",m.f);
-  timeline.style.setProperty("--harpoon-line-thickness",$("lineThickness").value+"px");
-  $("dotPreview").style.background=$("dotColor").value;
-}
+  function render(){
+    timeline.innerHTML='<div class="harpoon-timeline__line"></div>';
+    $("previewTitle").textContent=$("timelineTitle").value;
 
-function render(){
-  timeline.innerHTML='<div class="harpoon-timeline__line"></div>';
-  $("previewTitle").textContent=$("timelineTitle").value;
+    entries.forEach((e,i)=>{
+      const el=document.createElement("div");
+      el.className="harpoon-timeline__item";
+      el.tabIndex=0;
+      el.innerHTML=`
+        <div class="harpoon-timeline__marker"></div>
+        <div class="harpoon-timeline__date">${e.date}</div>
+        <div class="harpoon-timeline__card">
+          ${e.image?`<img class="harpoon-timeline__image ${e.crop?'harpoon-timeline__image--crop':'harpoon-timeline__image--contain'}" src="${e.image}" alt="${e.alt}">`:""}
+          ${e.credit?`<div class="harpoon-timeline__credit">${e.credit}</div>`:""}
+          ${e.text}
+        </div>`;
+      el.onclick=()=>loadEntry(i);
+      timeline.appendChild(el);
+    });
+    applyVars();
+  }
 
-  entries.forEach((e,i)=>{
-    const el=document.createElement("div");
-    el.className="harpoon-timeline__item";
-    el.tabIndex=0;
-    el.setAttribute("role","group");
-    el.setAttribute("aria-labelledby","date-"+i);
+  function loadEntry(i){
+    const e=entries[i];
+    editIndex=i;
+    $("saveBtn").textContent="Update entry";
+    $("dateInput").value=e.date;
+    $("textInput").value=e.text;
+    $("imageInput").value=e.image;
+    $("altInput").value=e.alt;
+    $("creditInput").value=e.credit;
+    $("cropToggle").checked=e.crop;
+  }
 
-    el.innerHTML=`
-      <div class="harpoon-timeline__marker"></div>
-      <div class="harpoon-timeline__date" id="date-${i}">${e.date}</div>
-      <div class="harpoon-timeline__card">
-        ${e.image?`
-          <img class="harpoon-timeline__image ${e.crop?'harpoon-timeline__image--crop':'harpoon-timeline__image--contain'}"
-               src="${e.image}" alt="${e.alt}">
-        `:""}
-        ${e.credit?`<div class="harpoon-timeline__credit">${e.credit}</div>`:""}
-        ${e.text}
-      </div>`;
-    el.onclick=()=>loadEntry(i);
-    timeline.appendChild(el);
+  $("saveBtn").onclick=()=>{
+    if($("imageInput").value && !$("altInput").value){
+      alert("Alt text is required when an image is used.");
+      return;
+    }
+    const data={
+      date:$("dateInput").value,
+      text:$("textInput").value,
+      image:$("imageInput").value,
+      alt:$("altInput").value,
+      credit:$("creditInput").value,
+      crop:$("cropToggle").checked
+    };
+    if(editIndex!==null){
+      entries[editIndex]=data;
+      editIndex=null;
+      $("saveBtn").textContent="Add entry";
+    }else{
+      entries.push(data);
+    }
+    ["dateInput","textInput","imageInput","altInput","creditInput"].forEach(id=>$(id).value="");
+    render();
+  };
+
+  $("clearBtn").onclick=()=>{entries.length=0;render();};
+
+  ["lineColor","dotColor","markerStyle","lineThickness","timelineTitle"].forEach(id=>{
+    $(id).oninput=()=>{applyVars();render();};
   });
 
   applyVars();
-}
-
-function loadEntry(i){
-  const e=entries[i];
-  editIndex=i;
-  $("saveBtn").textContent="Update entry";
-  $("dateInput").value=e.date;
-  $("textInput").value=e.text;
-  $("imageInput").value=e.image;
-  $("altInput").value=e.alt;
-  $("creditInput").value=e.credit;
-  $("cropToggle").checked=e.crop;
-}
-
-$("saveBtn").onclick=()=>{
-  if($("imageInput").value && !$("altInput").value){
-    alert("Alt text is required when an image is used.");
-    return;
-  }
-  const data={
-    date:$("dateInput").value,
-    text:$("textInput").value,
-    image:$("imageInput").value,
-    alt:$("altInput").value,
-    credit:$("creditInput").value,
-    crop:$("cropToggle").checked
-  };
-  if(editIndex!==null){
-    entries[editIndex]=data;
-    editIndex=null;
-    $("saveBtn").textContent="Add entry";
-  }else{
-    entries.push(data);
-  }
-  ["dateInput","textInput","imageInput","altInput","creditInput"].forEach(id=>$(id).value="");
-  render();
-};
-
-$("clearBtn").onclick=()=>{entries.length=0;render();};
-
-["lineColor","dotColor","markerStyle","lineThickness","timelineTitle"].forEach(id=>{
-  $(id).oninput=()=>{applyVars();render();};
-});
-
-applyVars();
 })();
 </script>
+
 </body>
 </html>

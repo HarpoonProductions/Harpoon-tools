@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Harpoon Timeline Builder v1.7.5</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harpoon Timeline Builder v1.7.4b</title>
 
-<!-- =========================================================
-     BUILDER + PREVIEW CSS (NEVER EXPORTED)
-     ========================================================= -->
 <style>
+/* =========================================================
+   BUILDER UI ONLY
+   ========================================================= */
 body{
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   margin:0;
@@ -18,6 +18,7 @@ body{
 }
 h1{font-size:22px;margin:0 0 14px}
 .builder{max-width:980px;margin:0 auto 40px}
+
 fieldset{
   background:#fff;
   border:1px solid #ddd;
@@ -25,12 +26,14 @@ fieldset{
   padding:16px;
   margin-bottom:16px
 }
+
 label{
   display:block;
   font-size:12px;
   font-weight:700;
   margin:10px 0 6px
 }
+
 input,textarea,select{
   width:100%;
   padding:10px;
@@ -40,6 +43,7 @@ input,textarea,select{
   box-sizing:border-box
 }
 textarea{min-height:90px}
+
 .controls-grid{
   display:grid;
   grid-template-columns:1fr 1fr;
@@ -89,6 +93,9 @@ button{
 
 .required{color:#c00;font-weight:700}
 
+/* =========================================================
+   PREVIEW
+   ========================================================= */
 .preview{
   background:#fff;
   border:1px solid #ddd;
@@ -102,24 +109,9 @@ button{
   cursor:grab
 }
 
-.footer-credit{
-  margin-top:24px;
-  text-align:center;
-  font-size:12px;
-  color:#777
-}
-.footer-credit img{
-  width:18px;
-  height:18px;
-  vertical-align:middle;
-  margin-right:6px
-}
-</style>
-
-<!-- =========================================================
-     HARPOON TIMELINE — RUNTIME CSS (EXPORTED)
-     ========================================================= -->
-<style id="harpoon-runtime-css">
+/* =========================================================
+   TIMELINE RUNTIME (matches export)
+   ========================================================= */
 .harpoon-timeline-block{position:relative}
 
 .harpoon-timeline__title{
@@ -221,164 +213,302 @@ button{
   text-align:right;
   margin-bottom:6px
 }
+
+/* =========================================================
+   EXPORT MODAL
+   ========================================================= */
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999
+}
+.modal.open{display:flex}
+.modal__box{
+  width:min(980px,92vw);
+  background:#fff;
+  border-radius:14px;
+  overflow:hidden
+}
+.modal__tabs{
+  display:flex;
+  border-bottom:1px solid #ddd;
+  background:#f7f7f7
+}
+.modal__tabs button{
+  flex:1;
+  padding:12px;
+  font-weight:800;
+  background:none
+}
+.modal__tabs .active{background:#fff}
+.modal__content{
+  padding:14px 16px;
+  max-height:60vh;
+  overflow:auto;
+  font-family:ui-monospace,monospace;
+  font-size:12.5px;
+  white-space:pre
+}
+.modal__footer{
+  display:flex;
+  justify-content:space-between;
+  padding:12px 16px;
+  border-top:1px solid #ddd
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+.builder-footer{
+  margin-top:24px;
+  text-align:center;
+  font-size:13px;
+  opacity:.6
+}
+.builder-footer img{
+  width:22px;
+  vertical-align:middle;
+  margin-right:6px
+}
 </style>
 </head>
 
 <body>
 
 <div class="builder">
-  <h1>Harpoon Timeline Builder v1.7.5</h1>
+<h1>Harpoon Timeline Builder v1.7.4b</h1>
 
-  <fieldset>
-    <label>Timeline title</label>
-    <input id="titleInput" type="text" placeholder="e.g. Tom Whidden timeline">
-  </fieldset>
+<fieldset>
+  <label>Timeline title</label>
+  <input id="titleInput" type="text" placeholder="e.g. Tom Whidden — Career Timeline">
+</fieldset>
 
-  <fieldset>
-    <div class="controls-grid">
-      <div class="control-stack">
-        <label>Line colour</label>
-        <input type="color" id="lineColor" value="#a3a3a3">
-        <label>Line thickness</label>
-        <select id="lineThickness">
-          <option value="2">2px</option>
-          <option value="3" selected>3px</option>
-          <option value="4">4px</option>
-        </select>
+<fieldset>
+  <div class="controls-grid">
+    <div class="control-stack">
+      <label>Line colour</label>
+      <input type="color" id="lineColor" value="#a3a3a3">
+      <label>Line thickness</label>
+      <select id="lineThickness">
+        <option value="2">2px</option>
+        <option value="3" selected>3px</option>
+        <option value="4">4px</option>
+      </select>
+    </div>
+
+    <div class="control-stack">
+      <label>Marker colour</label>
+      <div class="dot-picker">
+        <span class="dot-preview" id="dotPreview"></span>
+        <input type="color" id="dotColor" value="#000000">
       </div>
-
-      <div class="control-stack">
-        <label>Marker colour</label>
-        <div class="dot-picker">
-          <span class="dot-preview" id="dotPreview"></span>
-          <input type="color" id="dotColor" value="#000000">
-        </div>
-        <label>Marker style</label>
-        <select id="markerStyle">
-          <option value="dot-small">Small dot</option>
-          <option value="dot-big">Big dot</option>
-          <option value="circle-open">Open circle</option>
-        </select>
-      </div>
-    </div>
-  </fieldset>
-
-  <fieldset>
-    <label>Date</label>
-    <input id="dateInput" type="text">
-
-    <label>Body text (HTML allowed)</label>
-    <textarea id="textInput"></textarea>
-
-    <label>Image URL (optional)</label>
-    <input id="imageInput" type="text">
-
-    <label>Image alt text <span class="required">*</span></label>
-    <input id="altInput" type="text">
-
-    <div class="inline-toggle">
-      <input type="checkbox" id="cropToggle" checked>
-      <label for="cropToggle">Crop image to 16:9</label>
-    </div>
-
-    <label>Image credit (optional)</label>
-    <input id="creditInput" type="text">
-
-    <div class="actions">
-      <button class="primary" id="addBtn">Add / Update entry</button>
-      <button class="secondary" id="exportBtn">Export HTML / CSS</button>
-      <button class="secondary" id="clearBtn">Clear all</button>
-    </div>
-  </fieldset>
-
-  <div class="preview">
-    <div class="preview__scroller" id="previewScroller">
-      <div id="previewBlock" class="harpoon-timeline-block"></div>
+      <label>Marker style</label>
+      <select id="markerStyle">
+        <option value="dot-small">Small dot</option>
+        <option value="dot-big">Big dot</option>
+        <option value="circle-open">Open circle</option>
+      </select>
     </div>
   </div>
+</fieldset>
 
-  <div class="footer-credit">
-    <img src="https://pbs.twimg.com/profile_images/1200397581333024768/kEKej87-_400x400.jpg" alt="">
-    Harpoon Productions — Timeline Builder
+<fieldset>
+  <label>Date</label>
+  <input id="dateInput" type="text">
+
+  <label>Body text (HTML allowed)</label>
+  <textarea id="textInput"></textarea>
+
+  <label>Image URL</label>
+  <input id="imageInput" type="text">
+
+  <label>Image alt text <span class="required">*</span></label>
+  <input id="altInput" type="text">
+
+  <div class="inline-toggle">
+    <input type="checkbox" id="cropToggle" checked>
+    <label for="cropToggle">Crop image to 16:9</label>
+  </div>
+
+  <label>Image credit (optional)</label>
+  <input id="creditInput" type="text">
+
+  <div class="actions">
+    <button class="primary" id="addBtn">Add / Update entry</button>
+    <button class="secondary" id="exportBtn">Export HTML / CSS</button>
+    <button class="secondary" id="importBtn">Import existing timeline</button>
+    <button class="secondary" id="clearBtn">Clear all</button>
+  </div>
+</fieldset>
+
+<div class="preview">
+  <div class="preview__scroller" id="previewScroller">
+    <div class="harpoon-timeline-block">
+      <div class="harpoon-timeline__title" id="previewTitle"></div>
+      <div class="harpoon-timeline-wrapper">
+        <div class="harpoon-timeline" id="previewTimeline">
+          <div class="harpoon-timeline__line"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal" id="modal">
+  <div class="modal__box">
+    <div class="modal__tabs">
+      <button id="tabHtml" class="active">HTML</button>
+      <button id="tabCss">CSS</button>
+    </div>
+    <div class="modal__content" id="modalContent"></div>
+    <div class="modal__footer">
+      <button class="secondary" id="closeModalBtn">Close</button>
+      <button class="primary" id="copyBtn">Copy</button>
+    </div>
   </div>
 </div>
 
-<!-- =========================================================
-     JS
-     ========================================================= -->
+<div class="builder-footer">
+  <img src="https://pbs.twimg.com/profile_images/1200397581333024768/kEKej87-_400x400.jpg" alt="">
+  Harpoon Productions
+</div>
+
 <script>
 (() => {
-  const $ = id => document.getElementById(id);
-  const entries = [];
-  let editIndex = null;
+  const entries=[];
+  let editIndex=null;
 
-  const render = () => {
-    const block = $("previewBlock");
-    block.innerHTML = "";
+  const $=id=>document.getElementById(id);
+  const previewTimeline=$("previewTimeline");
+  const previewTitle=$("previewTitle");
 
-    if ($("titleInput").value) {
-      block.innerHTML += `<div class="harpoon-timeline__title">${$("titleInput").value}</div>`;
-    }
+  function markerVars(){
+    if(markerStyle.value==="dot-big")return{size:16,border:0,fill:"var(--harpoon-dot-color)"};
+    if(markerStyle.value==="circle-open")return{size:14,border:2,fill:"transparent"};
+    return{size:10,border:0,fill:"var(--harpoon-dot-color)"};
+  }
 
-    let html = `<div class="harpoon-timeline-wrapper"><div class="harpoon-timeline"><div class="harpoon-timeline__line"></div>`;
+  function applyVars(){
+    const m=markerVars();
+    previewTimeline.style.setProperty("--harpoon-line-color",lineColor.value);
+    previewTimeline.style.setProperty("--harpoon-dot-color",dotColor.value);
+    previewTimeline.style.setProperty("--harpoon-line-thickness",lineThickness.value+"px");
+    previewTimeline.style.setProperty("--harpoon-dot-size",m.size+"px");
+    previewTimeline.style.setProperty("--harpoon-dot-border",m.border+"px");
+    previewTimeline.style.setProperty("--harpoon-dot-fill",m.fill);
+    dotPreview.style.background=dotColor.value;
+  }
 
-    entries.forEach((e,i) => {
-      html += `
-      <div class="harpoon-timeline__item" tabindex="0" role="group">
+  function render(){
+    previewTimeline.innerHTML='<div class="harpoon-timeline__line"></div>';
+    previewTitle.textContent=titleInput.value;
+
+    entries.forEach((e,i)=>{
+      const d=document.createElement("div");
+      d.className="harpoon-timeline__item";
+      d.tabIndex=0;
+      d.innerHTML=`
         <div class="harpoon-timeline__marker"></div>
         <div class="harpoon-timeline__date">${e.date}</div>
         <div class="harpoon-timeline__card">
-          ${e.image ? `<img class="harpoon-timeline__image ${e.crop?'harpoon-timeline__image--crop':'harpoon-timeline__image--contain'}" src="${e.image}" alt="${e.alt}">` : ""}
-          ${e.credit ? `<div class="harpoon-timeline__credit">${e.credit}</div>` : ""}
+          ${e.image?`<img class="harpoon-timeline__image ${e.crop?"harpoon-timeline__image--crop":"harpoon-timeline__image--contain"}" src="${e.image}" alt="${e.alt}">`:""}
+          ${e.credit?`<div class="harpoon-timeline__credit">${e.credit}</div>`:""}
           ${e.text}
-        </div>
-      </div>`;
+        </div>`;
+      d.onclick=()=>loadForEdit(i);
+      previewTimeline.appendChild(d);
     });
 
-    html += `</div></div>`;
-    block.innerHTML += html;
+    applyVars();
+  }
 
-    const t = block.querySelector(".harpoon-timeline");
-    t.style.setProperty("--harpoon-line-color", $("lineColor").value);
-    t.style.setProperty("--harpoon-line-thickness", $("lineThickness").value+"px");
-    t.style.setProperty("--harpoon-dot-color", $("dotColor").value);
+  function loadForEdit(i){
+    const e=entries[i];
+    editIndex=i;
+    dateInput.value=e.date;
+    textInput.value=e.text;
+    imageInput.value=e.image;
+    altInput.value=e.alt;
+    creditInput.value=e.credit;
+    cropToggle.checked=e.crop;
+  }
 
-    const style = $("markerStyle").value;
-    t.style.setProperty("--harpoon-dot-size", style==="dot-big"? "16px": style==="circle-open"? "14px":"10px");
-    t.style.setProperty("--harpoon-dot-border", style==="circle-open"? "2px":"0px");
-    t.style.setProperty("--harpoon-dot-fill", style==="circle-open"? "transparent":"var(--harpoon-dot-color)");
-  };
-
-  $("addBtn").onclick = () => {
-    if ($("imageInput").value && !$("altInput").value.trim()) {
+  addBtn.onclick=()=>{
+    if(!altInput.value.trim() && imageInput.value.trim()){
       alert("Alt text is required when an image is used.");
       return;
     }
-    const data = {
-      date:$("dateInput").value,
-      text:$("textInput").value,
-      image:$("imageInput").value,
-      alt:$("altInput").value,
-      credit:$("creditInput").value,
-      crop:$("cropToggle").checked
+    const data={
+      date:dateInput.value,
+      text:textInput.value,
+      image:imageInput.value,
+      alt:altInput.value,
+      credit:creditInput.value,
+      crop:cropToggle.checked
     };
-    if (editIndex!==null) entries[editIndex]=data;
-    else entries.push(data);
-    editIndex=null;
-    $("dateInput").value=$("textInput").value=$("imageInput").value=$("altInput").value=$("creditInput").value="";
+    if(editIndex!==null){
+      entries[editIndex]=data;
+      editIndex=null;
+    }else{
+      entries.push(data);
+    }
+    dateInput.value=textInput.value=imageInput.value=altInput.value=creditInput.value="";
+    cropToggle.checked=true;
     render();
   };
 
-  $("clearBtn").onclick = () => { entries.length=0; render(); };
+  clearBtn.onclick=()=>{entries.length=0;render();};
 
-  $("exportBtn").onclick = () => {
-    const html = $("previewBlock").innerHTML;
-    const css = document.getElementById("harpoon-runtime-css").innerText.trim();
-    navigator.clipboard.writeText(html+"\n\n"+css);
-    alert("HTML + CSS copied");
+  exportBtn.onclick=()=>{
+    modal.classList.add("open");
+    tabHtml.click();
   };
+  closeModalBtn.onclick=()=>modal.classList.remove("open");
 
-  render();
+  tabHtml.onclick=()=>{
+    tabHtml.classList.add("active");
+    tabCss.classList.remove("active");
+    modalContent.textContent=exportHTML();
+  };
+  tabCss.onclick=()=>{
+    tabCss.classList.add("active");
+    tabHtml.classList.remove("active");
+    modalContent.textContent=exportCSS();
+  };
+  copyBtn.onclick=()=>navigator.clipboard.writeText(modalContent.textContent);
+
+  function exportHTML(){
+    return `<div class="harpoon-timeline-block">
+  ${titleInput.value?`<div class="harpoon-timeline__title">${titleInput.value}</div>`:""}
+  <div class="harpoon-timeline-wrapper">
+    <div class="harpoon-timeline">
+      <div class="harpoon-timeline__line"></div>
+${entries.map(e=>`      <div class="harpoon-timeline__item" tabindex="0">
+        <div class="harpoon-timeline__marker"></div>
+        <div class="harpoon-timeline__date">${e.date}</div>
+        <div class="harpoon-timeline__card">
+          ${e.image?`<img class="harpoon-timeline__image ${e.crop?"harpoon-timeline__image--crop":"harpoon-timeline__image--contain"}" src="${e.image}" alt="${e.alt}">`:""}
+          ${e.credit?`<div class="harpoon-timeline__credit">${e.credit}</div>`:""}
+          ${e.text}
+        </div>
+      </div>`).join("\n")}
+    </div>
+  </div>
+</div>`;
+  }
+
+  function exportCSS(){
+    return document.querySelector("style").innerText.split("/* =========================================================\n   EXPORT MODAL")[0];
+  }
+
+  [lineColor,dotColor,markerStyle,lineThickness,titleInput].forEach(el=>el.oninput=render);
+  applyVars();render();
 })();
 </script>
 

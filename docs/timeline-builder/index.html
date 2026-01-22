@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Harpoon Timeline Builder v1.7.0</title>
+<title>Harpoon Timeline Builder v1.7.1</title>
 
 <style>
 /* =========================================================
@@ -18,7 +18,6 @@ body{
 }
 h1{ font-size:22px; margin:0 0 14px; }
 .builder{ max-width: 980px; margin:0 auto 40px; }
-
 fieldset{
   background:#fff;
   border:1px solid #ddd;
@@ -26,17 +25,8 @@ fieldset{
   padding:16px;
   margin:0 0 16px;
 }
-
-label{
-  display:block;
-  font-size:12px;
-  font-weight:700;
-  margin:10px 0 6px;
-}
-
-input[type="text"],
-textarea,
-select{
+label{ display:block; font-size:12px; font-weight:700; margin:10px 0 6px; }
+input[type="text"], textarea, select{
   width:100%;
   box-sizing:border-box;
   padding:10px;
@@ -44,23 +34,9 @@ select{
   border-radius:10px;
   font-size:14px;
 }
-
 textarea{ min-height:92px; resize:vertical; }
-
-.row{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:14px;
-  align-items:end;
-}
-
-.actions{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-top:12px;
-}
-
+.row{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; align-items:end; }
+.actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
 button{
   appearance:none;
   border:0;
@@ -69,19 +45,24 @@ button{
   font-size:14px;
   cursor:pointer;
 }
-
 button.primary{ background:#111; color:#fff; }
 button.secondary{ background:#eee; color:#111; }
-button.warn{ background:#f5dcdc; color:#700; }
 
-.helper{
-  font-size:12px;
-  color:#666;
-  margin-top:4px;
+.dot-picker{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.dot-preview{
+  width:14px;
+  height:14px;
+  border-radius:50%;
+  border:1px solid #ccc;
+  background:#7a1c5c;
 }
 
 /* =========================================================
-   PREVIEW FRAME (builder only)
+   PREVIEW FRAME
    ========================================================= */
 .preview{
   background:#fff;
@@ -89,7 +70,6 @@ button.warn{ background:#f5dcdc; color:#700; }
   border-radius:12px;
   overflow:hidden;
 }
-
 .preview__scroller{
   overflow-x:auto;
   -webkit-overflow-scrolling: touch;
@@ -100,34 +80,20 @@ button.warn{ background:#f5dcdc; color:#700; }
 .preview__scroller:active{ cursor: grabbing; }
 
 /* =========================================================
-   RUNTIME PREVIEW CSS (matches exported CSS)
+   RUNTIME PREVIEW (matches export)
    ========================================================= */
-
-.harpoon-timeline-block{
-  position: relative;
-}
-
-.harpoon-timeline__title{
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  text-align: center;
-  padding: 8px 0;
-  margin-bottom: 12px;
-  font-weight: 700;
-  font-size: 1.5rem;
-  background: #fff;
-}
 
 .harpoon-timeline-wrapper{
   overflow-x:auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
 }
 
 .harpoon-timeline{
   --harpoon-line-y: 40px;
   --harpoon-line-thickness: 3px;
   --harpoon-line-color: #d0a3c4;
+
   --harpoon-dot-color: #7a1c5c;
   --harpoon-dot-size: 12px;
   --harpoon-dot-border: 0px;
@@ -143,36 +109,40 @@ button.warn{ background:#f5dcdc; color:#700; }
 .harpoon-timeline__line{
   position:absolute;
   top: var(--harpoon-line-y);
-  left:0;
-  right:0;
+  left:0; right:0;
   height: var(--harpoon-line-thickness);
   background: var(--harpoon-line-color);
-  opacity: .4;
+  opacity:.4;
   transform: translateY(-50%);
 }
 
 .harpoon-timeline__item{
   position:relative;
-  width: min(320px, 88vw);
+  width:min(320px,88vw);
   flex-shrink:0;
   padding-top: calc(var(--harpoon-line-y) + var(--harpoon-dot-size) + 8px);
-  cursor: pointer;
+  cursor:pointer;
+}
+
+.harpoon-timeline__item.is-editing{
+  outline:2px solid #111;
+  outline-offset:4px;
 }
 
 .harpoon-timeline__marker{
   position:absolute;
   top: var(--harpoon-line-y);
-  left: 50%;
-  width: var(--harpoon-dot-size);
-  height: var(--harpoon-dot-size);
-  transform: translate(-50%, -50%);
-  background: var(--harpoon-dot-fill);
-  border: var(--harpoon-dot-border) solid var(--harpoon-dot-color);
+  left:50%;
+  width:var(--harpoon-dot-size);
+  height:var(--harpoon-dot-size);
+  transform:translate(-50%,-50%);
+  background:var(--harpoon-dot-fill);
+  border:var(--harpoon-dot-border) solid var(--harpoon-dot-color);
   border-radius:50%;
 }
 
 .harpoon-timeline__date{
-  margin: 0 0 12px;
+  margin:0 0 12px;
   font-weight:700;
   text-align:center;
 }
@@ -181,8 +151,8 @@ button.warn{ background:#f5dcdc; color:#700; }
   background:#fff;
   border-radius:16px;
   padding:16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-  border: 1px solid rgba(0,0,0,0.04);
+  box-shadow:0 10px 30px rgba(0,0,0,.08);
+  border:1px solid rgba(0,0,0,.04);
 }
 
 .harpoon-timeline__image{
@@ -194,25 +164,24 @@ button.warn{ background:#f5dcdc; color:#700; }
 }
 
 .harpoon-timeline__image--crop{
-  aspect-ratio: 16 / 9;
-  background-size: cover;
+  aspect-ratio:16/9;
+  background-size:cover;
 }
 
 .harpoon-timeline__image:not(.harpoon-timeline__image--crop){
-  background-size: contain;
-  min-height: 160px;
+  background-size:contain;
+  min-height:160px;
 }
 
 .harpoon-timeline__credit{
   font-size:11px;
   text-align:right;
   opacity:.65;
-  letter-spacing:.04em;
-  margin:0 0 6px;
+  margin:0 0 10px;
 }
 
 /* =========================================================
-   MODAL (builder only)
+   MODAL
    ========================================================= */
 .modal{
   position:fixed;
@@ -224,204 +193,194 @@ button.warn{ background:#f5dcdc; color:#700; }
   z-index:9999;
 }
 .modal.open{ display:flex; }
-
 .modal__box{
-  width:min(980px, 92vw);
+  width:min(980px,92vw);
   background:#fff;
   border-radius:14px;
   overflow:hidden;
 }
-
 .modal__tabs{
   display:flex;
   border-bottom:1px solid #ddd;
+  background:#f7f7f7;
 }
-
 .modal__tabs button{
   flex:1;
-  font-weight:700;
-  background:#f5f5f5;
+  background:none;
+  font-weight:800;
+  padding:12px;
 }
-
 .modal__tabs button.active{ background:#fff; }
-
 .modal__content{
-  padding:14px;
+  padding:14px 16px;
   max-height:60vh;
   overflow:auto;
-  font-family: monospace;
-  font-size:12px;
+  font-family:monospace;
+  font-size:12.5px;
   white-space:pre;
 }
-
 .modal__footer{
   display:flex;
   justify-content:space-between;
-  padding:12px;
+  padding:12px 16px;
   border-top:1px solid #ddd;
 }
+.toast{
+  position:fixed;
+  right:16px;
+  bottom:16px;
+  background:#111;
+  color:#fff;
+  padding:10px 12px;
+  border-radius:10px;
+  font-size:13px;
+  opacity:0;
+  transform:translateY(6px);
+  transition:.2s;
+}
+.toast.show{ opacity:1; transform:none; }
 </style>
 </head>
 
 <body>
-
 <div class="builder">
-  <h1>Harpoon Timeline Builder v1.7.0</h1>
+<h1>Harpoon Timeline Builder v1.7.1</h1>
 
-  <fieldset>
-    <label>Timeline title</label>
-    <input type="text" id="titleInput" placeholder="e.g. Tom Whidden: A Life in Sailing">
-  </fieldset>
+<fieldset>
+<label>Date</label>
+<input type="text" id="dateInput">
 
-  <fieldset>
-    <label>Date</label>
-    <input type="text" id="dateInput">
+<label>Body text (HTML allowed)</label>
+<textarea id="textInput"></textarea>
 
-    <label>Body text (HTML allowed)</label>
-    <textarea id="textInput"></textarea>
+<label>Image URL (optional)</label>
+<input type="text" id="imageInput">
 
-    <label>Image URL (optional)</label>
-    <input type="text" id="imageInput">
+<label>
+  <input type="checkbox" id="cropInput" checked>
+  Crop image to 16:9
+</label>
 
-    <label>
-      <input type="checkbox" id="cropInput" checked>
-      Crop image to 16:9
-    </label>
+<label>Image credit (optional)</label>
+<input type="text" id="creditInput">
 
-    <label>Image credit (optional)</label>
-    <input type="text" id="creditInput">
+<div class="actions">
+<button class="primary" id="addBtn">Add entry</button>
+<button class="secondary" id="cancelBtn" hidden>Cancel edit</button>
+<button class="secondary" id="exportBtn">Export HTML / CSS</button>
+<button class="secondary" id="clearBtn">Clear all</button>
+</div>
+</fieldset>
 
-    <div class="actions">
-      <button class="primary" id="addBtn">Add entry</button>
-      <button class="secondary" id="cancelEditBtn" style="display:none">Cancel edit</button>
-      <button class="secondary" id="exportBtn">Export HTML / CSS</button>
-      <button class="warn" id="clearBtn">Clear all</button>
-    </div>
-  </fieldset>
-
-  <div class="preview">
-    <div class="preview__scroller" id="previewScroller">
-      <div class="harpoon-timeline-block">
-        <div class="harpoon-timeline__title" id="previewTitle"></div>
-        <div class="harpoon-timeline-wrapper">
-          <div class="harpoon-timeline" id="previewTimeline">
-            <div class="harpoon-timeline__line"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+<div class="preview">
+<div class="preview__scroller" id="previewScroller">
+<div class="harpoon-timeline-wrapper">
+<div class="harpoon-timeline" id="previewTimeline">
+<div class="harpoon-timeline__line"></div>
+</div>
+</div>
+</div>
+</div>
 </div>
 
 <div class="modal" id="modal">
-  <div class="modal__box">
-    <div class="modal__tabs">
-      <button id="tabHtml" class="active">HTML</button>
-      <button id="tabCss">CSS</button>
-    </div>
-    <div class="modal__content" id="modalContent"></div>
-    <div class="modal__footer">
-      <button class="secondary" id="closeModalBtn">Close</button>
-      <button class="primary" id="copyBtn">Copy</button>
-    </div>
-  </div>
+<div class="modal__box">
+<div class="modal__tabs">
+<button id="tabHtml" class="active">HTML</button>
+<button id="tabCss">CSS</button>
 </div>
+<div class="modal__content" id="modalContent"></div>
+<div class="modal__footer">
+<button class="secondary" id="closeModalBtn">Close</button>
+<button class="primary" id="copyBtn">Copy</button>
+</div>
+</div>
+</div>
+
+<div class="toast" id="toast">Copied</div>
 
 <script>
 (() => {
-  const entries = [];
-  let editingIndex = null;
+const entries=[];
+let editingIndex=null;
+const $=id=>document.getElementById(id);
 
-  const $ = id => document.getElementById(id);
+const dateInput=$("dateInput");
+const textInput=$("textInput");
+const imageInput=$("imageInput");
+const creditInput=$("creditInput");
+const cropInput=$("cropInput");
 
-  const titleInput = $("titleInput");
-  const previewTitle = $("previewTitle");
+const addBtn=$("addBtn");
+const cancelBtn=$("cancelBtn");
+const previewTimeline=$("previewTimeline");
+const previewScroller=$("previewScroller");
 
-  const dateInput = $("dateInput");
-  const textInput = $("textInput");
-  const imageInput = $("imageInput");
-  const creditInput = $("creditInput");
-  const cropInput = $("cropInput");
+function render(){
+previewTimeline.innerHTML='<div class="harpoon-timeline__line"></div>';
+entries.forEach((e,i)=>{
+const d=document.createElement("div");
+d.className="harpoon-timeline__item"+(editingIndex===i?" is-editing":"");
+d.onclick=()=>loadEdit(i);
+d.innerHTML=`
+<div class="harpoon-timeline__marker"></div>
+<div class="harpoon-timeline__date">${e.date}</div>
+<div class="harpoon-timeline__card">
+${e.image?`<div class="harpoon-timeline__image ${e.crop?"harpoon-timeline__image--crop":""}" style="background-image:url('${e.image}')"></div>`:""}
+${e.credit?`<div class="harpoon-timeline__credit">${e.credit}</div>`:""}
+${e.text}
+</div>`;
+previewTimeline.appendChild(d);
+});
+}
 
-  const addBtn = $("addBtn");
-  const cancelEditBtn = $("cancelEditBtn");
+function loadEdit(i){
+const e=entries[i];
+editingIndex=i;
+dateInput.value=e.date;
+textInput.value=e.text;
+imageInput.value=e.image;
+creditInput.value=e.credit;
+cropInput.checked=e.crop;
+addBtn.textContent="Update entry";
+cancelBtn.hidden=false;
+render();
+}
 
-  const previewTimeline = $("previewTimeline");
+addBtn.onclick=()=>{
+const data={
+date:dateInput.value,
+text:textInput.value,
+image:imageInput.value,
+credit:creditInput.value,
+crop:cropInput.checked
+};
+if(editingIndex!==null){
+entries[editingIndex]=data;
+editingIndex=null;
+addBtn.textContent="Add entry";
+cancelBtn.hidden=true;
+}else{
+entries.push(data);
+}
+dateInput.value=textInput.value=imageInput.value=creditInput.value="";
+cropInput.checked=true;
+render();
+};
 
-  function render(){
-    previewTitle.textContent = titleInput.value;
+cancelBtn.onclick=()=>{
+editingIndex=null;
+addBtn.textContent="Add entry";
+cancelBtn.hidden=true;
+dateInput.value=textInput.value=imageInput.value=creditInput.value="";
+cropInput.checked=true;
+render();
+};
 
-    previewTimeline.innerHTML = '<div class="harpoon-timeline__line"></div>';
+$("clearBtn").onclick=()=>{entries.length=0;render();};
 
-    entries.forEach((e,i)=>{
-      const el = document.createElement("div");
-      el.className = "harpoon-timeline__item";
-      el.onclick = () => editEntry(i);
-
-      el.innerHTML = `
-        <div class="harpoon-timeline__marker"></div>
-        <div class="harpoon-timeline__date">${e.date}</div>
-        <div class="harpoon-timeline__card">
-          ${e.image ? `
-            <div class="harpoon-timeline__image ${e.crop ? 'harpoon-timeline__image--crop' : ''}"
-                 style="background-image:url('${e.image}')"></div>` : ""}
-          ${e.credit ? `<div class="harpoon-timeline__credit">${e.credit}</div>` : ""}
-          ${e.text}
-        </div>
-      `;
-      previewTimeline.appendChild(el);
-    });
-  }
-
-  function editEntry(i){
-    const e = entries[i];
-    editingIndex = i;
-    dateInput.value = e.date;
-    textInput.value = e.text;
-    imageInput.value = e.image;
-    creditInput.value = e.credit;
-    cropInput.checked = e.crop;
-    addBtn.textContent = "Update entry";
-    cancelEditBtn.style.display = "inline-block";
-  }
-
-  cancelEditBtn.onclick = () => {
-    editingIndex = null;
-    dateInput.value = textInput.value = imageInput.value = creditInput.value = "";
-    cropInput.checked = true;
-    addBtn.textContent = "Add entry";
-    cancelEditBtn.style.display = "none";
-  };
-
-  addBtn.onclick = () => {
-    const data = {
-      date: dateInput.value,
-      text: textInput.value,
-      image: imageInput.value,
-      credit: creditInput.value,
-      crop: cropInput.checked
-    };
-
-    if(editingIndex !== null){
-      entries[editingIndex] = data;
-    } else {
-      entries.push(data);
-    }
-
-    cancelEditBtn.onclick();
-    render();
-  };
-
-  titleInput.oninput = render;
-
-  $("clearBtn").onclick = () => {
-    entries.length = 0;
-    render();
-  };
-
-  render();
+render();
 })();
 </script>
-
 </body>
 </html>

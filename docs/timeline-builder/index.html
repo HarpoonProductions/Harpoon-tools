@@ -1,90 +1,59 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Harpoon Timeline Builder v1.7.3</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harpoon Timeline Builder v1.7.4</title>
 
 <style>
 /* =========================================================
    BUILDER UI ONLY
    ========================================================= */
 body{
-  font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   margin:0;
   padding:24px;
   background:#fafafa;
   color:#111;
 }
-h1{ font-size:22px; margin:0 0 14px; }
-.builder{ max-width:980px; margin:0 auto 40px; }
-
+h1{font-size:22px;margin:0 0 14px}
+.builder{max-width:980px;margin:0 auto 40px}
 fieldset{
   background:#fff;
   border:1px solid #ddd;
   border-radius:12px;
   padding:16px;
-  margin:0 0 16px;
+  margin-bottom:16px
 }
-
-label{
-  display:block;
-  font-size:12px;
-  font-weight:700;
-  margin:10px 0 6px;
-}
-
-input[type="text"],
-textarea,
-select,
-input[type="color"]{
+label{display:block;font-size:12px;font-weight:700;margin:10px 0 6px}
+input,textarea,select{
   width:100%;
-  box-sizing:border-box;
   padding:10px;
   border:1px solid #ccc;
   border-radius:10px;
   font-size:14px;
+  box-sizing:border-box
 }
-
-textarea{ min-height:92px; resize:vertical; }
-
-.row{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:14px;
-  align-items:end;
-}
-
-.actions{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-top:12px;
-}
-
+textarea{min-height:90px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 button{
-  appearance:none;
   border:0;
   border-radius:10px;
   padding:10px 14px;
   font-size:14px;
-  cursor:pointer;
+  cursor:pointer
 }
-button.primary{ background:#111; color:#fff; }
-button.secondary{ background:#eee; color:#111; }
+.primary{background:#111;color:#fff}
+.secondary{background:#eee}
 
-.dot-picker{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
+.dot-picker{display:flex;align-items:center;gap:10px}
 .dot-preview{
-  width:14px;
-  height:14px;
-  border-radius:50%;
-  border:2px solid #000;
-  background:#000;
+  width:14px;height:14px;border-radius:50%;
+  border:1px solid #ccc
 }
+
+.required{color:#c00;font-weight:700}
 
 /* =========================================================
    PREVIEW
@@ -93,19 +62,19 @@ button.secondary{ background:#eee; color:#111; }
   background:#fff;
   border:1px solid #ddd;
   border-radius:12px;
-  overflow:hidden;
+  overflow:hidden
 }
 .preview__scroller{
   overflow-x:auto;
   -webkit-overflow-scrolling:touch;
   padding:18px 0;
+  cursor:grab
 }
 
 /* =========================================================
-   TIMELINE (runtime preview)
+   TIMELINE RUNTIME (PREVIEW MATCHES EXPORT)
    ========================================================= */
-
-.harpoon-timeline-block{ position:relative; }
+.harpoon-timeline-block{position:relative}
 
 .harpoon-timeline__title{
   position:sticky;
@@ -115,53 +84,50 @@ button.secondary{ background:#eee; color:#111; }
   padding:10px 0;
   background:#fff;
   font-weight:700;
-  font-size:1.4rem;
+  font-size:1.5rem
 }
 
 .harpoon-timeline-wrapper{
   overflow-x:auto;
   -webkit-overflow-scrolling:touch;
-  touch-action:pan-x;
+  touch-action:pan-x
 }
 
 .harpoon-timeline{
   --harpoon-line-y:40px;
   --harpoon-line-thickness:3px;
-  --harpoon-line-color:#999;
-
+  --harpoon-line-color:#a3a3a3;
   --harpoon-dot-color:#000;
   --harpoon-dot-size:12px;
   --harpoon-dot-border:0px;
   --harpoon-dot-fill:var(--harpoon-dot-color);
-
   position:relative;
   display:flex;
   gap:32px;
   padding:0 20px 20px;
-  width:max-content;
+  width:max-content
 }
 
 .harpoon-timeline__line{
   position:absolute;
   top:var(--harpoon-line-y);
-  left:0; right:0;
+  left:0;right:0;
   height:var(--harpoon-line-thickness);
   background:var(--harpoon-line-color);
   opacity:.4;
-  transform:translateY(-50%);
+  transform:translateY(-50%)
 }
 
 .harpoon-timeline__item{
   position:relative;
   width:min(320px,88vw);
   flex-shrink:0;
-  padding-top:calc(var(--harpoon-line-y) + var(--harpoon-dot-size) + 8px);
-  cursor:pointer;
+  padding-top:calc(var(--harpoon-line-y) + var(--harpoon-dot-size) + 8px)
 }
 
-.harpoon-timeline__item.is-editing{
-  outline:2px solid #111;
-  outline-offset:4px;
+.harpoon-timeline__item:focus-visible{
+  outline:3px solid rgba(0,0,0,.35);
+  outline-offset:6px
 }
 
 .harpoon-timeline__marker{
@@ -173,13 +139,13 @@ button.secondary{ background:#eee; color:#111; }
   transform:translate(-50%,-50%);
   background:var(--harpoon-dot-fill);
   border:var(--harpoon-dot-border) solid var(--harpoon-dot-color);
-  border-radius:50%;
+  border-radius:50%
 }
 
 .harpoon-timeline__date{
   margin:0 0 12px;
   font-weight:700;
-  text-align:center;
+  text-align:center
 }
 
 .harpoon-timeline__card{
@@ -187,139 +153,129 @@ button.secondary{ background:#eee; color:#111; }
   border-radius:16px;
   padding:16px;
   box-shadow:0 10px 30px rgba(0,0,0,.08);
-  border:1px solid rgba(0,0,0,.04);
+  border:1px solid rgba(0,0,0,.04)
 }
 
 .harpoon-timeline__image{
   width:100%;
   border-radius:12px;
-  background-position:center;
-  background-repeat:no-repeat;
-  margin-bottom:6px;
+  display:block;
+  margin-bottom:6px
 }
-
 .harpoon-timeline__image--crop{
   aspect-ratio:16/9;
-  background-size:cover;
+  object-fit:cover
 }
-
-.harpoon-timeline__image:not(.harpoon-timeline__image--crop){
-  background-size:contain;
-  min-height:160px;
+.harpoon-timeline__image--contain{
+  object-fit:contain
 }
 
 .harpoon-timeline__credit{
   font-size:11px;
-  text-align:right;
   opacity:.65;
-  margin:0 0 10px;
+  text-align:right;
+  margin-bottom:6px
 }
 
 /* =========================================================
-   FOOTER BRANDING
+   FOOTER
    ========================================================= */
 .builder-footer{
-  margin-top:32px;
-  display:flex;
-  align-items:center;
-  gap:12px;
-  justify-content:center;
-  opacity:.75;
+  margin-top:24px;
+  text-align:center;
   font-size:13px;
+  opacity:.6
 }
 .builder-footer img{
-  width:28px;
-  height:28px;
-  border-radius:50%;
+  width:22px;
+  vertical-align:middle;
+  margin-right:6px
 }
-.builder-footer span{ font-weight:600; }
 </style>
 </head>
 
 <body>
 
 <div class="builder">
-<h1>Harpoon Timeline Builder v1.7.3</h1>
+<h1>Harpoon Timeline Builder v1.7.4</h1>
 
 <!-- CONTROLS -->
 <fieldset>
-
-<label>Timeline title</label>
-<input type="text" id="titleInput">
-
-<div class="row">
-  <div>
-    <label>Line colour</label>
-    <input type="color" id="lineColor" value="#999999">
-  </div>
-  <div>
-    <label>Marker colour</label>
-    <div class="dot-picker">
-      <span class="dot-preview" id="dotPreview"></span>
-      <input type="color" id="dotColor" value="#000000">
-    </div>
-  </div>
-</div>
-
-<div class="row">
-  <div>
-    <label>Line thickness</label>
-    <select id="lineThickness">
-      <option value="2">2px</option>
-      <option value="3" selected>3px</option>
-      <option value="4">4px</option>
-    </select>
-  </div>
-  <div>
-    <label>Marker style</label>
-    <select id="markerStyle">
-      <option value="dot-small">Small dot</option>
-      <option value="dot-big">Big dot</option>
-      <option value="circle-open">Open circle</option>
-    </select>
-  </div>
-</div>
-
-<div class="actions">
-  <button class="secondary" id="importBtn">Import existing timeline</button>
-</div>
-
+  <label>Timeline title</label>
+  <input id="timelineTitle" placeholder="e.g. The career of Tom Whidden">
 </fieldset>
 
-<!-- ENTRY EDITOR -->
 <fieldset>
-<label>Date</label>
-<input type="text" id="dateInput">
+  <div class="row">
+    <div>
+      <label>Line colour</label>
+      <input type="color" id="lineColor" value="#a3a3a3">
+    </div>
+    <div>
+      <label>Marker colour</label>
+      <div class="dot-picker">
+        <span class="dot-preview" id="dotPreview"></span>
+        <input type="color" id="dotColor" value="#000000">
+      </div>
+    </div>
+  </div>
 
-<label>Body text (HTML allowed)</label>
-<textarea id="textInput"></textarea>
+  <div class="row">
+    <div>
+      <label>Marker style</label>
+      <select id="markerStyle">
+        <option value="small">Small dot</option>
+        <option value="big">Big dot</option>
+        <option value="open">Open circle</option>
+      </select>
+    </div>
+    <div>
+      <label>Line thickness</label>
+      <select id="lineThickness">
+        <option>2</option>
+        <option selected>3</option>
+        <option>4</option>
+      </select>
+    </div>
+  </div>
+</fieldset>
 
-<label>Image URL (optional)</label>
-<input type="text" id="imageInput">
+<!-- ENTRY -->
+<fieldset>
+  <label>Date</label>
+  <input id="dateInput">
 
-<label>
-  <input type="checkbox" id="cropInput" checked>
-  Crop image to 16:9
-</label>
+  <label>Body text (HTML allowed)</label>
+  <textarea id="textInput"></textarea>
 
-<label>Image credit (optional)</label>
-<input type="text" id="creditInput">
+  <label>Image URL</label>
+  <input id="imageInput">
 
-<div class="actions">
-  <button class="primary" id="addBtn">Add entry</button>
-  <button class="secondary" id="cancelBtn" hidden>Cancel edit</button>
-  <button class="secondary" id="exportBtn">Export HTML / CSS</button>
-  <button class="secondary" id="clearBtn">Clear all</button>
-</div>
+  <label>Image alt text <span class="required">*</span></label>
+  <input id="altInput" placeholder="Describe the image">
+
+  <label>
+    <input type="checkbox" id="cropToggle" checked>
+    Crop image to 16:9
+  </label>
+
+  <label>Image credit</label>
+  <input id="creditInput">
+
+  <div class="actions">
+    <button class="primary" id="saveBtn">Add entry</button>
+    <button class="secondary" id="exportBtn">Export HTML / CSS</button>
+    <button class="secondary" id="clearBtn">Clear all</button>
+  </div>
 </fieldset>
 
 <!-- PREVIEW -->
 <div class="preview">
-  <div class="preview__scroller">
+  <div class="preview__scroller" id="scroller">
     <div class="harpoon-timeline-block">
       <div class="harpoon-timeline__title" id="previewTitle"></div>
       <div class="harpoon-timeline-wrapper">
-        <div class="harpoon-timeline" id="previewTimeline">
+        <div class="harpoon-timeline" id="timeline">
           <div class="harpoon-timeline__line"></div>
         </div>
       </div>
@@ -327,16 +283,113 @@ button.secondary{ background:#eee; color:#111; }
   </div>
 </div>
 
-</div>
-
 <div class="builder-footer">
-<img src="https://pbs.twimg.com/profile_images/1200397581333024768/kEKej87-_400x400.jpg" alt="">
-<span>Harpoon Productions</span>
+  <img src="https://pbs.twimg.com/profile_images/1200397581333024768/kEKej87-_400x400.jpg" alt="">
+  Harpoon Productions
+</div>
 </div>
 
 <script>
-/* JS unchanged from v1.7.3 */
-</script>
+/* =========================================================
+   JS — v1.7.4
+   ========================================================= */
+(() => {
+const entries=[];
+let editIndex=null;
 
+const $=id=>document.getElementById(id);
+const timeline=$("timeline");
+
+function markerVars(){
+  if($("markerStyle").value==="big") return {s:16,b:0,f:"var(--harpoon-dot-color)"};
+  if($("markerStyle").value==="open") return {s:14,b:2,f:"transparent"};
+  return {s:10,b:0,f:"var(--harpoon-dot-color)"};
+}
+
+function applyVars(){
+  const m=markerVars();
+  timeline.style.setProperty("--harpoon-line-color",$("lineColor").value);
+  timeline.style.setProperty("--harpoon-dot-color",$("dotColor").value);
+  timeline.style.setProperty("--harpoon-dot-size",m.s+"px");
+  timeline.style.setProperty("--harpoon-dot-border",m.b+"px");
+  timeline.style.setProperty("--harpoon-dot-fill",m.f);
+  timeline.style.setProperty("--harpoon-line-thickness",$("lineThickness").value+"px");
+  $("dotPreview").style.background=$("dotColor").value;
+}
+
+function render(){
+  timeline.innerHTML='<div class="harpoon-timeline__line"></div>';
+  $("previewTitle").textContent=$("timelineTitle").value;
+
+  entries.forEach((e,i)=>{
+    const el=document.createElement("div");
+    el.className="harpoon-timeline__item";
+    el.tabIndex=0;
+    el.setAttribute("role","group");
+    el.setAttribute("aria-labelledby","date-"+i);
+
+    el.innerHTML=`
+      <div class="harpoon-timeline__marker"></div>
+      <div class="harpoon-timeline__date" id="date-${i}">${e.date}</div>
+      <div class="harpoon-timeline__card">
+        ${e.image?`
+          <img class="harpoon-timeline__image ${e.crop?'harpoon-timeline__image--crop':'harpoon-timeline__image--contain'}"
+               src="${e.image}" alt="${e.alt}">
+        `:""}
+        ${e.credit?`<div class="harpoon-timeline__credit">${e.credit}</div>`:""}
+        ${e.text}
+      </div>`;
+    el.onclick=()=>loadEntry(i);
+    timeline.appendChild(el);
+  });
+
+  applyVars();
+}
+
+function loadEntry(i){
+  const e=entries[i];
+  editIndex=i;
+  $("saveBtn").textContent="Update entry";
+  $("dateInput").value=e.date;
+  $("textInput").value=e.text;
+  $("imageInput").value=e.image;
+  $("altInput").value=e.alt;
+  $("creditInput").value=e.credit;
+  $("cropToggle").checked=e.crop;
+}
+
+$("saveBtn").onclick=()=>{
+  if($("imageInput").value && !$("altInput").value){
+    alert("Alt text is required when an image is used.");
+    return;
+  }
+  const data={
+    date:$("dateInput").value,
+    text:$("textInput").value,
+    image:$("imageInput").value,
+    alt:$("altInput").value,
+    credit:$("creditInput").value,
+    crop:$("cropToggle").checked
+  };
+  if(editIndex!==null){
+    entries[editIndex]=data;
+    editIndex=null;
+    $("saveBtn").textContent="Add entry";
+  }else{
+    entries.push(data);
+  }
+  ["dateInput","textInput","imageInput","altInput","creditInput"].forEach(id=>$(id).value="");
+  render();
+};
+
+$("clearBtn").onclick=()=>{entries.length=0;render();};
+
+["lineColor","dotColor","markerStyle","lineThickness","timelineTitle"].forEach(id=>{
+  $(id).oninput=()=>{applyVars();render();};
+});
+
+applyVars();
+})();
+</script>
 </body>
 </html>

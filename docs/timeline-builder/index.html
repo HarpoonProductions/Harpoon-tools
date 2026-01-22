@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Harpoon Timeline Builder v1.6.0</title>
+<title>Harpoon Timeline Builder v1.7.0</title>
 
 <style>
 /* =========================================================
@@ -18,6 +18,7 @@ body{
 }
 h1{ font-size:22px; margin:0 0 14px; }
 .builder{ max-width: 980px; margin:0 auto 40px; }
+
 fieldset{
   background:#fff;
   border:1px solid #ddd;
@@ -25,8 +26,17 @@ fieldset{
   padding:16px;
   margin:0 0 16px;
 }
-label{ display:block; font-size:12px; font-weight:700; margin:10px 0 6px; }
-input[type="text"], textarea, select{
+
+label{
+  display:block;
+  font-size:12px;
+  font-weight:700;
+  margin:10px 0 6px;
+}
+
+input[type="text"],
+textarea,
+select{
   width:100%;
   box-sizing:border-box;
   padding:10px;
@@ -34,9 +44,23 @@ input[type="text"], textarea, select{
   border-radius:10px;
   font-size:14px;
 }
+
 textarea{ min-height:92px; resize:vertical; }
-.row{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; align-items:end; }
-.actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+
+.row{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:14px;
+  align-items:end;
+}
+
+.actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:12px;
+}
+
 button{
   appearance:none;
   border:0;
@@ -45,51 +69,17 @@ button{
   font-size:14px;
   cursor:pointer;
 }
+
 button.primary{ background:#111; color:#fff; }
 button.secondary{ background:#eee; color:#111; }
+button.warn{ background:#f5dcdc; color:#700; }
 
-.dot-picker{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-.dot-preview{
-  width:14px;
-  height:14px;
-  border-radius:50%;
-  border:1px solid #ccc;
-  background:#7a1c5c;
-}
-/* =========================================================
-   BUILDER CREDIT (Harpoon branding)
-   ========================================================= */
-
-.harpoon-builder-credit{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:10px;
-
-  margin: 32px auto 8px;
-  padding-top: 16px;
-
-  font-size: 12px;
-  color: #888;
+.helper{
+  font-size:12px;
+  color:#666;
+  margin-top:4px;
 }
 
-.harpoon-builder-credit__logo{
-  width:22px;
-  height:22px;
-  border-radius:50%;
-  object-fit:cover;
-}
-
-.harpoon-builder-credit__text{
-  font-weight:600;
-  letter-spacing:0.02em;
-}
-
-   
 /* =========================================================
    PREVIEW FRAME (builder only)
    ========================================================= */
@@ -99,6 +89,7 @@ button.secondary{ background:#eee; color:#111; }
   border-radius:12px;
   overflow:hidden;
 }
+
 .preview__scroller{
   overflow-x:auto;
   -webkit-overflow-scrolling: touch;
@@ -112,17 +103,31 @@ button.secondary{ background:#eee; color:#111; }
    RUNTIME PREVIEW CSS (matches exported CSS)
    ========================================================= */
 
+.harpoon-timeline-block{
+  position: relative;
+}
+
+.harpoon-timeline__title{
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  text-align: center;
+  padding: 8px 0;
+  margin-bottom: 12px;
+  font-weight: 700;
+  font-size: 1.5rem;
+  background: #fff;
+}
+
 .harpoon-timeline-wrapper{
   overflow-x:auto;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x;
 }
 
 .harpoon-timeline{
   --harpoon-line-y: 40px;
   --harpoon-line-thickness: 3px;
   --harpoon-line-color: #d0a3c4;
-
   --harpoon-dot-color: #7a1c5c;
   --harpoon-dot-size: 12px;
   --harpoon-dot-border: 0px;
@@ -144,7 +149,6 @@ button.secondary{ background:#eee; color:#111; }
   background: var(--harpoon-line-color);
   opacity: .4;
   transform: translateY(-50%);
-  pointer-events:none;
 }
 
 .harpoon-timeline__item{
@@ -152,6 +156,7 @@ button.secondary{ background:#eee; color:#111; }
   width: min(320px, 88vw);
   flex-shrink:0;
   padding-top: calc(var(--harpoon-line-y) + var(--harpoon-dot-size) + 8px);
+  cursor: pointer;
 }
 
 .harpoon-timeline__marker{
@@ -164,7 +169,6 @@ button.secondary{ background:#eee; color:#111; }
   background: var(--harpoon-dot-fill);
   border: var(--harpoon-dot-border) solid var(--harpoon-dot-color);
   border-radius:50%;
-  z-index:2;
 }
 
 .harpoon-timeline__date{
@@ -183,20 +187,28 @@ button.secondary{ background:#eee; color:#111; }
 
 .harpoon-timeline__image{
   width:100%;
-  aspect-ratio: 16 / 9;
   border-radius:12px;
-  background-size:cover;
   background-position:center;
+  background-repeat:no-repeat;
   margin-bottom:6px;
+}
+
+.harpoon-timeline__image--crop{
+  aspect-ratio: 16 / 9;
+  background-size: cover;
+}
+
+.harpoon-timeline__image:not(.harpoon-timeline__image--crop){
+  background-size: contain;
+  min-height: 160px;
 }
 
 .harpoon-timeline__credit{
   font-size:11px;
   text-align:right;
   opacity:.65;
-  font-variant: all-small-caps;
-  letter-spacing: .04em;
-  margin: 0 0 10px;
+  letter-spacing:.04em;
+  margin:0 0 6px;
 }
 
 /* =========================================================
@@ -212,97 +224,53 @@ button.secondary{ background:#eee; color:#111; }
   z-index:9999;
 }
 .modal.open{ display:flex; }
+
 .modal__box{
   width:min(980px, 92vw);
   background:#fff;
   border-radius:14px;
   overflow:hidden;
-  box-shadow: 0 20px 80px rgba(0,0,0,.25);
 }
+
 .modal__tabs{
   display:flex;
   border-bottom:1px solid #ddd;
-  background:#f7f7f7;
 }
+
 .modal__tabs button{
   flex:1;
-  border-radius:0;
-  background:transparent;
-  font-weight:800;
-  padding:12px;
+  font-weight:700;
+  background:#f5f5f5;
 }
+
 .modal__tabs button.active{ background:#fff; }
+
 .modal__content{
-  padding:14px 16px;
-  max-height: 60vh;
+  padding:14px;
+  max-height:60vh;
   overflow:auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 12.5px;
-  white-space: pre;
+  font-family: monospace;
+  font-size:12px;
+  white-space:pre;
 }
+
 .modal__footer{
   display:flex;
-  align-items:center;
   justify-content:space-between;
-  padding:12px 16px;
+  padding:12px;
   border-top:1px solid #ddd;
 }
-.toast{
-  position:fixed;
-  right:16px;
-  bottom:16px;
-  background:#111;
-  color:#fff;
-  padding:10px 12px;
-  border-radius:10px;
-  font-size:13px;
-  opacity:0;
-  transform: translateY(6px);
-  transition: opacity .18s ease, transform .18s ease;
-  pointer-events:none;
-}
-.toast.show{ opacity:1; transform: translateY(0); }
 </style>
 </head>
 
 <body>
+
 <div class="builder">
-  <h1>Harpoon Timeline Builder v1.6.0</h1>
+  <h1>Harpoon Timeline Builder v1.7.0</h1>
 
   <fieldset>
-    <div class="row">
-      <div>
-        <label>Line colour</label>
-        <input type="color" id="lineColor" value="#d0a3c4">
-      </div>
-
-      <div>
-        <label>Marker colour</label>
-        <div class="dot-picker">
-          <span class="dot-preview" id="dotPreview"></span>
-          <input type="color" id="dotColor" value="#7a1c5c">
-        </div>
-      </div>
-    </div>
-
-    <div class="row" style="margin-top:10px">
-      <div>
-        <label>Marker style</label>
-        <select id="markerStyle">
-          <option value="dot-small">Small dot</option>
-          <option value="dot-big">Big dot</option>
-          <option value="circle-open">Open circle</option>
-        </select>
-      </div>
-      <div>
-        <label>Line thickness</label>
-        <select id="lineThickness">
-          <option value="2">2px</option>
-          <option value="3" selected>3px</option>
-          <option value="4">4px</option>
-        </select>
-      </div>
-    </div>
+    <label>Timeline title</label>
+    <input type="text" id="titleInput" placeholder="e.g. Tom Whidden: A Life in Sailing">
   </fieldset>
 
   <fieldset>
@@ -315,21 +283,30 @@ button.secondary{ background:#eee; color:#111; }
     <label>Image URL (optional)</label>
     <input type="text" id="imageInput">
 
+    <label>
+      <input type="checkbox" id="cropInput" checked>
+      Crop image to 16:9
+    </label>
+
     <label>Image credit (optional)</label>
     <input type="text" id="creditInput">
 
     <div class="actions">
       <button class="primary" id="addBtn">Add entry</button>
+      <button class="secondary" id="cancelEditBtn" style="display:none">Cancel edit</button>
       <button class="secondary" id="exportBtn">Export HTML / CSS</button>
-      <button class="secondary" id="clearBtn">Clear all</button>
+      <button class="warn" id="clearBtn">Clear all</button>
     </div>
   </fieldset>
 
   <div class="preview">
     <div class="preview__scroller" id="previewScroller">
-      <div class="harpoon-timeline-wrapper">
-        <div class="harpoon-timeline" id="previewTimeline">
-          <div class="harpoon-timeline__line"></div>
+      <div class="harpoon-timeline-block">
+        <div class="harpoon-timeline__title" id="previewTitle"></div>
+        <div class="harpoon-timeline-wrapper">
+          <div class="harpoon-timeline" id="previewTimeline">
+            <div class="harpoon-timeline__line"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -350,174 +327,101 @@ button.secondary{ background:#eee; color:#111; }
   </div>
 </div>
 
-<div class="toast" id="toast">Copied</div>
-
 <script>
-/* =============================
-   JS (unchanged except branding)
-   ============================= */
 (() => {
   const entries = [];
-  let activeTab = "html";
-  let lastAddedIndex = null;
+  let editingIndex = null;
+
   const $ = id => document.getElementById(id);
 
-  const previewTimeline = $("previewTimeline");
-  const previewScroller = $("previewScroller");
-
-  const lineColor = $("lineColor");
-  const dotColor = $("dotColor");
-  const dotPreview = $("dotPreview");
-  const markerStyle = $("markerStyle");
-  const lineThickness = $("lineThickness");
+  const titleInput = $("titleInput");
+  const previewTitle = $("previewTitle");
 
   const dateInput = $("dateInput");
   const textInput = $("textInput");
   const imageInput = $("imageInput");
   const creditInput = $("creditInput");
+  const cropInput = $("cropInput");
 
-  const modal = $("modal");
-  const modalContent = $("modalContent");
-  const tabHtml = $("tabHtml");
-  const tabCss = $("tabCss");
-  const toast = $("toast");
+  const addBtn = $("addBtn");
+  const cancelEditBtn = $("cancelEditBtn");
 
-  function showToast(msg){
-    toast.textContent = msg;
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 900);
-  }
-
-  function markerVars(){
-    if(markerStyle.value==="dot-big") return {s:16,b:0,f:"var(--harpoon-dot-color)"};
-    if(markerStyle.value==="circle-open") return {s:14,b:2,f:"transparent"};
-    return {s:10,b:0,f:"var(--harpoon-dot-color)"};
-  }
-
-  function applyVars(){
-    const m = markerVars();
-    previewTimeline.style.setProperty("--harpoon-line-color", lineColor.value);
-    previewTimeline.style.setProperty("--harpoon-dot-color", dotColor.value);
-    previewTimeline.style.setProperty("--harpoon-line-thickness", lineThickness.value+"px");
-    previewTimeline.style.setProperty("--harpoon-dot-size", m.s+"px");
-    previewTimeline.style.setProperty("--harpoon-dot-border", m.b+"px");
-    previewTimeline.style.setProperty("--harpoon-dot-fill", m.f);
-    dotPreview.style.background = dotColor.value;
-  }
+  const previewTimeline = $("previewTimeline");
 
   function render(){
+    previewTitle.textContent = titleInput.value;
+
     previewTimeline.innerHTML = '<div class="harpoon-timeline__line"></div>';
+
     entries.forEach((e,i)=>{
-      const d = document.createElement("div");
-      d.className="harpoon-timeline__item";
-      d.dataset.idx=i;
-      d.innerHTML = `
+      const el = document.createElement("div");
+      el.className = "harpoon-timeline__item";
+      el.onclick = () => editEntry(i);
+
+      el.innerHTML = `
         <div class="harpoon-timeline__marker"></div>
         <div class="harpoon-timeline__date">${e.date}</div>
         <div class="harpoon-timeline__card">
-          ${e.image?`<div class="harpoon-timeline__image" style="background-image:url('${e.image}')"></div>`:""}
-          ${e.credit?`<div class="harpoon-timeline__credit">${e.credit}</div>`:""}
+          ${e.image ? `
+            <div class="harpoon-timeline__image ${e.crop ? 'harpoon-timeline__image--crop' : ''}"
+                 style="background-image:url('${e.image}')"></div>` : ""}
+          ${e.credit ? `<div class="harpoon-timeline__credit">${e.credit}</div>` : ""}
           ${e.text}
-        </div>`;
-      previewTimeline.appendChild(d);
+        </div>
+      `;
+      previewTimeline.appendChild(el);
     });
-    applyVars();
-    if(lastAddedIndex!==null){
-      const el = previewTimeline.querySelector(`[data-idx="${lastAddedIndex}"]`);
-      el?.scrollIntoView({inline:"center"});
-    }
   }
 
-  $("addBtn").onclick = () => {
-    entries.push({
+  function editEntry(i){
+    const e = entries[i];
+    editingIndex = i;
+    dateInput.value = e.date;
+    textInput.value = e.text;
+    imageInput.value = e.image;
+    creditInput.value = e.credit;
+    cropInput.checked = e.crop;
+    addBtn.textContent = "Update entry";
+    cancelEditBtn.style.display = "inline-block";
+  }
+
+  cancelEditBtn.onclick = () => {
+    editingIndex = null;
+    dateInput.value = textInput.value = imageInput.value = creditInput.value = "";
+    cropInput.checked = true;
+    addBtn.textContent = "Add entry";
+    cancelEditBtn.style.display = "none";
+  };
+
+  addBtn.onclick = () => {
+    const data = {
       date: dateInput.value,
       text: textInput.value,
       image: imageInput.value,
-      credit: creditInput.value
-    });
-    lastAddedIndex = entries.length-1;
-    dateInput.value=textInput.value=imageInput.value=creditInput.value="";
+      credit: creditInput.value,
+      crop: cropInput.checked
+    };
+
+    if(editingIndex !== null){
+      entries[editingIndex] = data;
+    } else {
+      entries.push(data);
+    }
+
+    cancelEditBtn.onclick();
     render();
   };
 
-  $("clearBtn").onclick = () => { entries.length=0; render(); };
+  titleInput.oninput = render;
 
-  $("exportBtn").onclick = () => {
-    modal.classList.add("open");
-    tabHtml.click();
+  $("clearBtn").onclick = () => {
+    entries.length = 0;
+    render();
   };
 
-  $("closeModalBtn").onclick = () => modal.classList.remove("open");
-
-  tabHtml.onclick = () => {
-    tabHtml.classList.add("active"); tabCss.classList.remove("active");
-    modalContent.textContent = exportHTML();
-    activeTab="html";
-  };
-  tabCss.onclick = () => {
-    tabCss.classList.add("active"); tabHtml.classList.remove("active");
-    modalContent.textContent = exportCSS();
-    activeTab="css";
-  };
-
-  $("copyBtn").onclick = async () => {
-    await navigator.clipboard.writeText(modalContent.textContent);
-    showToast("Copied");
-  };
-
-  function exportHTML(){
-    return `<div class="harpoon-timeline-wrapper">
-  <div class="harpoon-timeline">
-    <div class="harpoon-timeline__line"></div>
-${entries.map(e=>`    <div class="harpoon-timeline__item">
-      <div class="harpoon-timeline__marker"></div>
-      <div class="harpoon-timeline__date">${e.date}</div>
-      <div class="harpoon-timeline__card">
-        ${e.image?`<div class="harpoon-timeline__image" style="background-image:url('${e.image}')"></div>`:""}
-        ${e.credit?`<div class="harpoon-timeline__credit">${e.credit}</div>`:""}
-        ${e.text}
-      </div>
-    </div>`).join("\n")}
-  </div>
-</div>`;
-  }
-
-  function exportCSS(){
-    const m = markerVars();
-    return `/* Harpoon Timeline runtime CSS */
-.harpoon-timeline-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.harpoon-timeline{
-  --harpoon-line-y:40px;
-  --harpoon-line-thickness:${lineThickness.value}px;
-  --harpoon-line-color:${lineColor.value};
-  --harpoon-dot-color:${dotColor.value};
-  --harpoon-dot-size:${m.s}px;
-  --harpoon-dot-border:${m.b}px;
-  --harpoon-dot-fill:${m.f};
-  position:relative;display:flex;gap:32px;padding:0 20px 20px;width:max-content
-}
-.harpoon-timeline__line{position:absolute;top:var(--harpoon-line-y);left:0;right:0;height:var(--harpoon-line-thickness);background:var(--harpoon-line-color);opacity:.4;transform:translateY(-50%)}
-.harpoon-timeline__item{position:relative;width:min(320px,88vw);flex-shrink:0;padding-top:calc(var(--harpoon-line-y) + var(--harpoon-dot-size) + 8px)}
-.harpoon-timeline__marker{position:absolute;top:var(--harpoon-line-y);left:50%;width:var(--harpoon-dot-size);height:var(--harpoon-dot-size);transform:translate(-50%,-50%);background:var(--harpoon-dot-fill);border:var(--harpoon-dot-border) solid var(--harpoon-dot-color);border-radius:50%}
-.harpoon-timeline__date{margin:0 0 12px;font-weight:700;text-align:center}
-.harpoon-timeline__card{background:#fff;border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.04)}
-.harpoon-timeline__image{width:100%;aspect-ratio:16/9;border-radius:12px;background-size:cover;background-position:center;margin-bottom:6px}
-.harpoon-timeline__credit{font-size:11px;text-align:right;opacity:.65;font-variant:all-small-caps;letter-spacing:.04em;margin:0 0 10px}`;
-  }
-
-  applyVars(); render();
+  render();
 })();
 </script>
-<footer class="harpoon-builder-credit" aria-hidden="true">
-  <img
-    src="https://pbs.twimg.com/profile_images/1200397581333024768/kEKej87-_400x400.jpg"
-    alt=""
-    class="harpoon-builder-credit__logo"
-  >
-  <span class="harpoon-builder-credit__text">
-    Harpoon Productions
-  </span>
-</footer>
 
 </body>
 </html>

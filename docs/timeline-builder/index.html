@@ -1,1248 +1,328 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Harpoon Timeline Builder v1.7.4c</title>
+    <head>
+        <meta charset="utf-8" />
+        <title>Harpoon Timeline Builder</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<style>
-/* =========================================================
-   BUILDER UI ONLY (never exported)
-   ========================================================= */
-body{
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  margin:0;
-  padding:24px;
-  background:#fafafa;
-  color:#111;
-}
-h1{font-size:22px;margin:0 0 14px}
-.builder{max-width:980px;margin:0 auto 28px}
+        <style>
+            /* ===============================
+   BUILDER UI
+   =============================== */
 
-fieldset{
-  background:#fff;
-  border:1px solid #ddd;
-  border-radius:12px;
-  padding:16px;
-  margin:0 0 16px;
-}
-legend{
-  font-size:12px;
-  font-weight:800;
-  padding:0 6px;
-}
-label{
-  display:block;
-  font-size:12px;
-  font-weight:800;
-  margin:10px 0 6px;
-}
-input[type="text"], textarea, select, input[type="color"]{
-  width:100%;
-  padding:10px;
-  border:1px solid #ccc;
-  border-radius:10px;
-  font-size:14px;
-  box-sizing:border-box;
-}
-textarea{min-height:90px;resize:vertical}
+            body {
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    sans-serif;
+                margin: 0;
+                padding: 24px;
+                background: #fafafa;
+                color: #111;
+            }
 
-.required{color:#c00;font-weight:900}
+            h1 {
+                font-size: 22px;
+                margin-bottom: 16px;
+            }
 
-.controls-grid{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:18px;
-  align-items:end;
-}
-.control-stack{display:flex;flex-direction:column;gap:10px}
-.control-stack > .control-group{display:flex;flex-direction:column;gap:6px}
+            .builder {
+                max-width: 920px;
+                margin: 0 auto 40px;
+            }
 
-.dot-picker{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-.dot-preview{
-  width:14px;
-  height:14px;
-  border-radius:50%;
-  border:1px solid #ccc;
-  background:#7a1c5c;
-  flex:0 0 auto;
-}
+            .builder fieldset {
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 16px;
+                margin-bottom: 16px;
+                background: #fff;
+            }
 
-.inline-toggle{
-  display:inline-flex;     /* keep checkbox next to label */
-  align-items:center;
-  gap:8px;
-  margin-top:6px;
-}
-.inline-toggle input{width:auto;padding:0;margin:0}
-.inline-toggle label{
-  margin:0;
-  font-weight:700;
-  font-size:13px;
-}
+            .builder label {
+                display: block;
+                font-size: 13px;
+                margin-bottom: 4px;
+            }
 
-.actions{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-top:12px;
-}
-button{
-  appearance:none;
-  border:0;
-  border-radius:10px;
-  padding:10px 14px;
-  font-size:14px;
-  cursor:pointer;
-}
-.primary{background:#111;color:#fff}
-.secondary{background:#eee;color:#111}
-.danger{background:#ffe8e8;color:#7a0000}
-.mini{padding:8px 10px;font-size:13px;border-radius:10px}
+            .builder input,
+            .builder textarea {
+                width: 100%;
+                padding: 8px 10px;
+                margin-bottom: 12px;
+                border-radius: 6px;
+                border: 1px solid #ccc;
+                font-size: 14px;
+            }
 
-.helper{
-  font-size:13px;
-  color:#444;
-  margin:6px 0 0;
-  line-height:1.35;
-}
+            .builder textarea {
+                resize: vertical;
+                min-height: 70px;
+            }
 
-/* =========================================================
-   PREVIEW (builder only)
-   ========================================================= */
-.preview{
-  background:#fff;
-  border:1px solid #ddd;
-  border-radius:12px;
-  overflow:hidden;
-}
-.preview__bar{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:10px 12px;
-  border-bottom:1px solid #eee;
-  background:#fafafa;
-}
-.preview__bar .left{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  min-width:0;
-}
-.pill{
-  font-size:12px;
-  font-weight:800;
-  background:#111;
-  color:#fff;
-  padding:6px 10px;
-  border-radius:999px;
-}
-.smallnote{
-  font-size:12px;
-  color:#555;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  max-width:55vw;
-}
-.preview__scroller{
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-  padding:18px 0;
-  cursor:grab;
-  user-select:none;
-}
-.preview__scroller:active{cursor:grabbing}
+            .builder .row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
 
-/* =========================================================
-   TIMELINE RUNTIME (for preview only; export is generated)
-   ========================================================= */
-.harpoon-timeline-block{position:relative}
-.harpoon-timeline__title{
-  position:sticky;
-  top:0;
-  z-index:5;
-  text-align:center;
-  padding:10px 0;
-  background:#fff;
-  font-weight:800;
-  font-size:1.5rem;
-  border-bottom:1px solid rgba(0,0,0,0.06);
-}
+            .builder button {
+                appearance: none;
+                border: 0;
+                background: #111;
+                color: #fff;
+                padding: 10px 14px;
+                border-radius: 6px;
+                font-size: 14px;
+                cursor: pointer;
+            }
 
-.harpoon-timeline-wrapper{
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-  touch-action:pan-x;
-}
-.harpoon-timeline{
-  --harpoon-line-y:40px;
-  --harpoon-line-thickness:3px;
-  --harpoon-line-color:#d0a3c4;
+            .builder button.secondary {
+                background: #eee;
+                color: #111;
+            }
 
-  --harpoon-dot-color:#7a1c5c;
-  --harpoon-dot-size:12px;
-  --harpoon-dot-border:0px;
-  --harpoon-dot-fill:var(--harpoon-dot-color);
+            .builder .actions {
+                display: flex;
+                gap: 10px;
+                margin-top: 12px;
+            }
 
-  position:relative;
-  display:flex;
-  gap:32px;
-  padding:0 20px 20px;
-  width:max-content;
-}
-.harpoon-timeline__line{
-  position:absolute;
-  top:var(--harpoon-line-y);
-  left:0;right:0;
-  height:var(--harpoon-line-thickness);
-  background:var(--harpoon-line-color);
-  opacity:.4;
-  transform:translateY(-50%);
-  pointer-events:none;
-}
-.harpoon-timeline__item{
-  position:relative;
-  width:min(320px,88vw);
-  flex-shrink:0;
-  padding-top:calc(var(--harpoon-line-y) + var(--harpoon-dot-size) + 8px);
-}
-.harpoon-timeline__item[aria-selected="true"] .harpoon-timeline__card{
-  outline:3px solid rgba(0,0,0,.14);
-  outline-offset:4px;
-}
-.harpoon-timeline__item:focus-visible{
-  outline:3px solid rgba(0,0,0,.35);
-  outline-offset:6px;
-  border-radius:14px;
-}
-.harpoon-timeline__marker{
-  position:absolute;
-  top:var(--harpoon-line-y);
-  left:50%;
-  width:var(--harpoon-dot-size);
-  height:var(--harpoon-dot-size);
-  transform:translate(-50%,-50%);
-  background:var(--harpoon-dot-fill);
-  border:var(--harpoon-dot-border) solid var(--harpoon-dot-color);
-  border-radius:50%;
-}
-.harpoon-timeline__date{
-  margin:0 0 12px;
-  font-weight:800;
-  text-align:center;
-}
-.harpoon-timeline__card{
-  background:#fff;
-  border-radius:16px;
-  padding:16px;
-  box-shadow:0 10px 30px rgba(0,0,0,.08);
-  border:1px solid rgba(0,0,0,.04);
-}
-.harpoon-timeline__image{
-  width:100%;
-  border-radius:12px;
-  display:block;
-  margin:0 0 6px;
-  background:#f4f4f4;
-}
-.harpoon-timeline__image--crop{
-  aspect-ratio:16/9;
-  object-fit:cover;
-}
-.harpoon-timeline__image--contain{
-  aspect-ratio:auto;
-  object-fit:contain;
-  max-height:260px;
-}
-.harpoon-timeline__credit{
-  font-size:11px;
-  opacity:.65;
-  text-align:right;
-  margin:0 0 6px;
-}
+            .copy-note {
+                font-size: 12px;
+                color: #555;
+                margin-top: 6px;
+            }
 
-/* =========================================================
-   IMPORT PANEL (builder only)
-   ========================================================= */
-details{
-  background:#fff;
-  border:1px solid #ddd;
-  border-radius:12px;
-  padding:12px 14px;
-  margin:0 0 16px;
-}
-summary{
-  cursor:pointer;
-  font-weight:900;
-  font-size:13px;
-}
-.import-grid{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:10px;
-  margin-top:10px;
-}
-.import-grid textarea{min-height:160px}
+            /* ===============================
+   PREVIEW TIMELINE
+   =============================== */
 
-/* =========================================================
-   MODAL (builder only) — HTML/CSS separate, manual copy
-   ========================================================= */
-.modal{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.45);
-  display:none;
-  align-items:center;
-  justify-content:center;
-  z-index:9999;
-}
-.modal.open{display:flex}
-.modal__box{
-  width:min(980px,92vw);
-  background:#fff;
-  border-radius:14px;
-  overflow:hidden;
-  box-shadow:0 20px 80px rgba(0,0,0,.25);
-}
-.modal__tabs{
-  display:flex;
-  border-bottom:1px solid #ddd;
-  background:#f7f7f7;
-}
-.modal__tabs button{
-  flex:1;
-  border-radius:0;
-  background:transparent;
-  font-weight:900;
-  padding:12px;
-}
-.modal__tabs button.active{background:#fff}
-.modal__content{
-  padding:14px 16px;
-  max-height:60vh;
-  overflow:auto;
-  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
-  font-size:12.5px;
-  white-space:pre;
-}
-.modal__footer{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:12px 16px;
-  border-top:1px solid #ddd;
-}
-.toast{
-  position:fixed;
-  right:16px;
-  bottom:16px;
-  background:#111;
-  color:#fff;
-  padding:10px 12px;
-  border-radius:10px;
-  font-size:13px;
-  opacity:0;
-  transform:translateY(6px);
-  transition:opacity .18s ease, transform .18s ease;
-  pointer-events:none;
-}
-.toast.show{opacity:1;transform:translateY(0)}
+            .hp-timeline {
+                --line-color: #7a1c5c;
+                --dot-color: #7a1c5c;
+                --line-y: 40px;
 
-/* =========================================================
-   FOOTER CREDIT (builder only)
-   ========================================================= */
-.builder-credit{
-  max-width:980px;
-  margin:0 auto;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:10px;
-  padding:14px 0 6px;
-  color:#666;
-  font-size:13px;
-}
-.builder-credit img{
-  width:22px;height:22px;border-radius:50%;
-}
-.builder-credit a{
-  color:#666;text-decoration:none;font-weight:800;
-}
-.builder-credit a:hover{text-decoration:underline}
-</style>
-</head>
+                margin-top: 40px;
+                padding-bottom: 40px;
+                overflow-x: auto;
+            }
 
-<body>
-<div class="builder">
-  <h1>Harpoon Timeline Builder v1.7.4c</h1>
+            .hp-timeline__track {
+                position: relative;
+                display: flex;
+                gap: 32px;
+                padding: 60px 20px 20px;
+                width: max-content;
+                min-width: 100%; /* ensures line spans full width */
+                justify-content: center; /* centers items when sparse */
+            }
 
-  <details>
-    <summary>Import existing timeline (paste exported HTML)</summary>
-    <div class="import-grid">
-      <div class="helper">
-        Paste previously exported timeline HTML (from this tool). This will repopulate entries so you can edit and re-export.
-      </div>
-      <textarea id="importHtml" placeholder="Paste timeline HTML here…"></textarea>
-      <div class="actions">
-        <button type="button" class="secondary" id="importBtn">Import</button>
-        <button type="button" class="secondary" id="importClearBtn">Clear</button>
-      </div>
-    </div>
-  </details>
+            /* timeline line */
+            .hp-timeline__line {
+                position: absolute;
+                top: var(--line-y);
+                left: 0;
+                right: 0;
+                height: 3px;
+                background: var(--line-color);
+                opacity: 0.35;
+            }
 
-  <fieldset>
-    <legend>Timeline settings</legend>
+            /* item */
+            .hp-timeline__item {
+                position: relative;
+                width: 320px;
+                flex-shrink: 0;
+            }
 
-    <label>Timeline title (optional)</label>
-    <input type="text" id="titleInput" placeholder="e.g. Tom Whidden timeline" />
+            /* marker */
+            .hp-timeline__marker {
+                position: absolute;
+                top: var(--line-y);
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 12px;
+                height: 12px;
+                background: var(--dot-color);
+                border-radius: 50%;
+                z-index: 2;
+            }
 
-    <div class="controls-grid" style="margin-top:10px">
-      <!-- LEFT: Line colour + thickness (thickness beneath its own color selector) -->
-      <div class="control-stack">
-        <div class="control-group">
-          <label>Line colour</label>
-          <input type="color" id="lineColor" value="#d0a3c4" />
+            /* date */
+            .hp-timeline__date {
+                text-align: center;
+                margin-top: calc(var(--line-y) + 10px);
+                margin-bottom: 10px;
+                font-weight: 700;
+            }
+
+            /* card */
+            .hp-timeline__card {
+                background: #fff;
+                border-radius: 12px;
+                padding: 16px;
+                box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+            }
+
+            .hp-timeline__image {
+                width: 100%;
+                aspect-ratio: 16 / 9;
+                border-radius: 8px;
+                background-size: cover;
+                background-position: center;
+                margin-bottom: 6px;
+            }
+
+            .hp-timeline__image-credit {
+                font-size: 10px;
+                text-align: right !important;
+                color: #888;
+                font-family: sans-serif;
+                letter-spacing: 0.04em;
+                margin-bottom: 8px;
+            }
+
+            .hp-timeline__text {
+                font-size: 15px;
+                line-height: 1.5;
+            }
+
+            /* mobile */
+            @media (max-width: 768px) {
+                .hp-timeline__item {
+                    width: min(88vw, 340px);
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="builder">
+            <h1>Harpoon Timeline Builder</h1>
+
+            <fieldset>
+                <label>Line colour</label>
+                <input type="color" id="lineColor" value="#7a1c5c" />
+
+                <label>Dot colour</label>
+                <input type="color" id="dotColor" value="#7a1c5c" />
+            </fieldset>
+
+            <fieldset>
+                <label>Date</label>
+                <input id="dateInput" />
+
+                <label>Text</label>
+                <textarea id="textInput"></textarea>
+
+                <label>Image URL (optional)</label>
+                <input id="imageInput" />
+
+                <label>Image credit (optional)</label>
+                <input id="creditInput" />
+
+                <div class="actions">
+                    <button onclick="addEntry()">Add entry</button>
+                    <button class="secondary" onclick="copyHTML()">
+                        Copy HTML
+                    </button>
+                    <button class="secondary" onclick="copyCSS()">
+                        Copy CSS
+                    </button>
+                </div>
+
+                <div class="copy-note" id="copyNote"></div>
+            </fieldset>
         </div>
-        <div class="control-group">
-          <label>Line thickness</label>
-          <select id="lineThickness">
-            <option value="2">2px</option>
-            <option value="3" selected>3px</option>
-            <option value="4">4px</option>
-          </select>
+
+        <div class="hp-timeline" id="previewTimeline">
+            <div class="hp-timeline__track" id="previewTrack">
+                <div class="hp-timeline__line"></div>
+            </div>
         </div>
+
+        <script>
+            const entries = [];
+            let activeIndex = null;
+
+            function addEntry() {
+                const entry = {
+                    date: dateInput.value,
+                    text: textInput.value,
+                    image: imageInput.value,
+                    credit: creditInput.value,
+                };
+                entries.push(entry);
+                activeIndex = entries.length - 1;
+                render();
+            }
+
+            function render() {
+                const track = document.getElementById("previewTrack");
+                const scrollX = track.scrollLeft;
+
+                track.innerHTML = '<div class="hp-timeline__line"></div>';
+
+                entries.forEach((e, i) => {
+                    const item = document.createElement("div");
+                    item.className = "hp-timeline__item";
+                    item.dataset.index = i;
+
+                    item.innerHTML = `
+      <div class="hp-timeline__marker"></div>
+      <div class="hp-timeline__date">${e.date}</div>
+      <div class="hp-timeline__card">
+        ${e.image ? `<div class="hp-timeline__image" style="background-image:url('${e.image}')"></div>` : ""}
+        ${e.credit ? `<div class="hp-timeline__image-credit">${e.credit}</div>` : ""}
+        <div class="hp-timeline__text">${e.text}</div>
       </div>
-
-      <!-- RIGHT: Dot colour + marker style (marker style beneath its own color selector) -->
-      <div class="control-stack">
-        <div class="control-group">
-          <label>Marker colour</label>
-          <div class="dot-picker">
-            <span class="dot-preview" id="dotPreview" aria-hidden="true"></span>
-            <input type="color" id="dotColor" value="#7a1c5c" />
-          </div>
-        </div>
-        <div class="control-group">
-          <label>Marker style</label>
-          <select id="markerStyle">
-            <option value="dot-small">Small dot</option>
-            <option value="dot-big">Big dot</option>
-            <option value="circle-open">Open circle</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  </fieldset>
-
-  <fieldset>
-    <legend>Entry editor</legend>
-
-    <div class="helper" id="modeHint">
-      Add an entry. Click an existing card in the preview to edit it.
-    </div>
-
-    <label>Date</label>
-    <input type="text" id="dateInput" placeholder="e.g. 1972" />
-
-    <label>Body text (HTML allowed)</label>
-    <textarea id="textInput" placeholder="e.g. <p>Started Sobstad Sails…</p>"></textarea>
-
-    <label>Image URL (optional)</label>
-    <input type="text" id="imageInput" placeholder="https://…" />
-
-    <div class="inline-toggle">
-      <input type="checkbox" id="cropToggle" checked />
-      <label for="cropToggle">Crop image to 16:9</label>
-    </div>
-
-    <label>Image alt text <span class="required">*</span></label>
-    <input type="text" id="altInput" placeholder="Describe the image (required if an image URL is provided)" />
-
-    <label>Image credit (optional)</label>
-    <input type="text" id="creditInput" placeholder="e.g. Photo: Rolls Press - Popperfoto via Getty Images" />
-
-    <div class="actions">
-      <button type="button" class="primary" id="addOrSaveBtn">Add entry</button>
-      <button type="button" class="secondary" id="exportBtn">Export HTML / CSS</button>
-      <button type="button" class="secondary" id="clearBtn">Clear all</button>
-      <button type="button" class="danger" id="deleteBtn" style="display:none">Delete this entry</button>
-      <button type="button" class="secondary" id="cancelEditBtn" style="display:none">Cancel edit</button>
-    </div>
-  </fieldset>
-
-  <div class="preview">
-    <div class="preview__bar">
-      <div class="left">
-        <span class="pill">Preview</span>
-        <span class="smallnote" id="previewNote">Tip: drag/scroll sideways; click a card to edit.</span>
-      </div>
-      <button type="button" class="secondary mini" id="scrollToCurrentBtn">Jump to current</button>
-    </div>
-
-    <div class="preview__scroller" id="previewScroller" aria-label="Timeline preview scroller">
-      <div class="harpoon-timeline-block">
-        <div class="harpoon-timeline__title" id="previewTitle" style="display:none"></div>
-        <div class="harpoon-timeline-wrapper">
-          <div class="harpoon-timeline" id="previewTimeline" aria-label="Timeline preview">
-            <div class="harpoon-timeline__line"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Export modal -->
-<div class="modal" id="modal" aria-hidden="true">
-  <div class="modal__box" role="dialog" aria-modal="true" aria-label="Export HTML and CSS">
-    <div class="modal__tabs">
-      <button type="button" id="tabHtml" class="active">HTML</button>
-      <button type="button" id="tabCss">CSS</button>
-    </div>
-    <div class="modal__content" id="modalContent"></div>
-    <div class="modal__footer">
-      <button type="button" class="secondary" id="closeModalBtn">Close</button>
-      <button type="button" class="primary" id="copyBtn">Copy</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast">Copied</div>
-
-<div class="builder-credit">
-  <img alt="" src="https://pbs.twimg.com/profile_images/1200397581333024768/kEKej87-_400x400.jpg" />
-  <span>Built by</span>
-  <a href="https://harpoonproductions.co" target="_blank" rel="noopener">Harpoon Productions</a>
-</div>
-
-<script>
-(() => {
-  // -----------------------------
-  // State
-  // -----------------------------
-  const state = {
-    title: "",
-    entries: [],
-    activeTab: "html",
-    editingIndex: null,   // null means add mode
-    lastTouchedIndex: null,
-  };
-
-  // -----------------------------
-  // DOM helpers
-  // -----------------------------
-  const $ = (id) => document.getElementById(id);
-
-  const titleInput = $("titleInput");
-
-  const lineColor = $("lineColor");
-  const dotColor = $("dotColor");
-  const dotPreview = $("dotPreview");
-  const markerStyle = $("markerStyle");
-  const lineThickness = $("lineThickness");
-
-  const dateInput = $("dateInput");
-  const textInput = $("textInput");
-  const imageInput = $("imageInput");
-  const cropToggle = $("cropToggle");
-  const altInput = $("altInput");
-  const creditInput = $("creditInput");
-
-  const addOrSaveBtn = $("addOrSaveBtn");
-  const cancelEditBtn = $("cancelEditBtn");
-  const deleteBtn = $("deleteBtn");
-  const clearBtn = $("clearBtn");
-  const exportBtn = $("exportBtn");
-
-  const previewTitle = $("previewTitle");
-  const previewTimeline = $("previewTimeline");
-  const previewScroller = $("previewScroller");
-  const previewNote = $("previewNote");
-  const scrollToCurrentBtn = $("scrollToCurrentBtn");
-
-  const importHtml = $("importHtml");
-  const importBtn = $("importBtn");
-  const importClearBtn = $("importClearBtn");
-
-  const modeHint = $("modeHint");
-
-  const modal = $("modal");
-  const tabHtml = $("tabHtml");
-  const tabCss = $("tabCss");
-  const modalContent = $("modalContent");
-  const closeModalBtn = $("closeModalBtn");
-  const copyBtn = $("copyBtn");
-  const toast = $("toast");
-
-  // -----------------------------
-  // Toast
-  // -----------------------------
-  function showToast(msg="Copied") {
-    toast.textContent = msg;
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 1000);
-  }
-
-  // -----------------------------
-  // Marker vars + preview vars
-  // -----------------------------
-  function markerVars() {
-    // IMPORTANT: dot color selector must always be a dot (dotPreview)
-    if (markerStyle.value === "dot-big")      return { size: 16, border: 0, fill: "var(--harpoon-dot-color)" };
-    if (markerStyle.value === "circle-open")  return { size: 14, border: 2, fill: "transparent" };
-    return { size: 10, border: 0, fill: "var(--harpoon-dot-color)" };
-  }
-
-  function applyVarsTo(el) {
-    const m = markerVars();
-
-    el.style.setProperty("--harpoon-line-color", lineColor.value);
-    el.style.setProperty("--harpoon-dot-color", dotColor.value);
-    el.style.setProperty("--harpoon-line-thickness", `${Number(lineThickness.value)}px`);
-    el.style.setProperty("--harpoon-dot-size", `${m.size}px`);
-    el.style.setProperty("--harpoon-dot-border", `${m.border}px`);
-    el.style.setProperty("--harpoon-dot-fill", m.fill);
-
-    // Keep preview dot as dot
-    dotPreview.style.background = dotColor.value;
-    dotPreview.style.borderColor = (markerStyle.value === "circle-open") ? dotColor.value : "#ccc";
-  }
-
-  // -----------------------------
-  // Entry validation
-  // -----------------------------
-  function validateEntry(entry) {
-    // Only require alt if image exists. If image exists, alt must be non-empty.
-    if (entry.image && !String(entry.alt || "").trim()) {
-      return { ok: false, message: "Alt text is required when an image URL is provided." };
-    }
-    return { ok: true };
-  }
-
-  // -----------------------------
-  // Preview render
-  // -----------------------------
-  function renderPreview({ preserveScroll = true } = {}) {
-    const prevX = preserveScroll ? previewScroller.scrollLeft : 0;
-
-    // Title preview
-    state.title = titleInput.value.trim();
-    if (state.title) {
-      previewTitle.textContent = state.title;
-      previewTitle.style.display = "block";
-    } else {
-      previewTitle.textContent = "";
-      previewTitle.style.display = "none";
-    }
-
-    // Keep line as first child
-    previewTimeline.innerHTML = '<div class="harpoon-timeline__line"></div>';
-
-    state.entries.forEach((e, i) => {
-      const item = document.createElement("div");
-      item.className = "harpoon-timeline__item";
-      item.dataset.idx = String(i);
-
-      // Make each card focusable for accessibility in embedded timelines:
-      // In preview we do it too (so you can test tabbing).
-      item.tabIndex = 0;
-
-      if (state.editingIndex === i) item.setAttribute("aria-selected", "true");
-
-      // Build image element if present
-      const imgHTML = e.image
-        ? `<img
-             class="harpoon-timeline__image ${e.crop ? "harpoon-timeline__image--crop" : "harpoon-timeline__image--contain"}"
-             src="${escapeAttr(e.image)}"
-             alt="${escapeAttr(e.alt || "")}"
-           >`
-        : "";
-
-      const creditHTML = e.credit
-        ? `<div class="harpoon-timeline__credit">${escapeHTML(e.credit)}</div>`
-        : "";
-
-      // Body text is producer-controlled HTML
-      const bodyHTML = e.text || "";
-
-      item.innerHTML = `
-        <div class="harpoon-timeline__marker"></div>
-        <div class="harpoon-timeline__date">${escapeHTML(e.date)}</div>
-        <div class="harpoon-timeline__card">
-          ${imgHTML}
-          ${creditHTML}
-          ${bodyHTML}
-        </div>
-      `;
-
-      // Click to edit
-      item.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        startEdit(i);
-      });
-
-      // Keyboard: Enter/Space to edit
-      item.addEventListener("keydown", (ev) => {
-        if (ev.key === "Enter" || ev.key === " ") {
-          ev.preventDefault();
-          startEdit(i);
-        }
-      });
-
-      previewTimeline.appendChild(item);
-    });
-
-    applyVarsTo(previewTimeline);
-
-    if (preserveScroll) previewScroller.scrollLeft = prevX;
-
-    // Keep view near the edited/added card
-    if (state.lastTouchedIndex !== null) {
-      const el = previewTimeline.querySelector(`[data-idx="${state.lastTouchedIndex}"]`);
-      if (el) el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-    }
-
-    previewNote.textContent =
-      state.entries.length
-        ? "Tip: drag/scroll sideways; click a card to edit."
-        : "Add your first entry to see the preview.";
-  }
-
-  // -----------------------------
-  // Edit mode helpers
-  // -----------------------------
-  function setModeAdd() {
-    state.editingIndex = null;
-    modeHint.textContent = "Add an entry. Click an existing card in the preview to edit it.";
-
-    addOrSaveBtn.textContent = "Add entry";
-    cancelEditBtn.style.display = "none";
-    deleteBtn.style.display = "none";
-
-    // clear inputs
-    dateInput.value = "";
-    textInput.value = "";
-    imageInput.value = "";
-    cropToggle.checked = true;
-    altInput.value = "";
-    creditInput.value = "";
-  }
-
-  function startEdit(index) {
-    const e = state.entries[index];
-    if (!e) return;
-
-    state.editingIndex = index;
-    state.lastTouchedIndex = index;
-
-    modeHint.textContent = `Editing entry ${index + 1} of ${state.entries.length}.`;
-
-    addOrSaveBtn.textContent = "Save changes";
-    cancelEditBtn.style.display = "";
-    deleteBtn.style.display = "";
-
-    dateInput.value = e.date || "";
-    textInput.value = e.text || "";
-    imageInput.value = e.image || "";
-    cropToggle.checked = !!e.crop;
-    altInput.value = e.alt || "";
-    creditInput.value = e.credit || "";
-
-    renderPreview({ preserveScroll: true });
-  }
-
-  function upsertEntry() {
-    const entry = {
-      date: dateInput.value.trim(),
-      text: textInput.value.trim(),
-      image: imageInput.value.trim(),
-      crop: !!cropToggle.checked,
-      alt: altInput.value.trim(),
-      credit: creditInput.value.trim(),
-    };
-
-    const validation = validateEntry(entry);
-    if (!validation.ok) {
-      alert(validation.message);
-      return;
-    }
-
-    if (state.editingIndex === null) {
-      state.entries.push(entry);
-      state.lastTouchedIndex = state.entries.length - 1;
-    } else {
-      state.entries[state.editingIndex] = entry;
-      state.lastTouchedIndex = state.editingIndex;
-    }
-
-    renderPreview({ preserveScroll: true });
-    if (state.editingIndex === null) {
-      // remain in add mode, but keep the newly added in view
-      setModeAdd();
-      renderPreview({ preserveScroll: true });
-    } else {
-      // stay editing the same entry so tweaks are easy
-      startEdit(state.editingIndex);
-    }
-  }
-
-  function deleteEntry() {
-    if (state.editingIndex === null) return;
-    const idx = state.editingIndex;
-
-    if (!confirm("Delete this entry?")) return;
-
-    state.entries.splice(idx, 1);
-    state.editingIndex = null;
-
-    state.lastTouchedIndex = Math.max(0, idx - 1);
-    setModeAdd();
-    renderPreview({ preserveScroll: true });
-  }
-
-  // -----------------------------
-  // Export (runtime-only CSS)
-  // -----------------------------
-  function exportHTML() {
-    const title = titleInput.value.trim();
-
-    const lines = [];
-
-    // Wrapper that allows sticky title
-    lines.push('<div class="harpoon-timeline-block">');
-
-    if (title) {
-      lines.push(`  <div class="harpoon-timeline__title">${escapeHTML(title)}</div>`);
-    }
-
-    lines.push('  <div class="harpoon-timeline-wrapper">');
-    lines.push('    <div class="harpoon-timeline">');
-    lines.push('      <div class="harpoon-timeline__line"></div>');
-
-    state.entries.forEach((e) => {
-      const imgLine = e.image
-        ? `          <img class="harpoon-timeline__image ${e.crop ? "harpoon-timeline__image--crop" : "harpoon-timeline__image--contain"}" src="${escapeAttr(e.image)}" alt="${escapeAttr(e.alt || "")}">`
-        : "";
-
-      const creditLine = e.credit
-        ? `          <div class="harpoon-timeline__credit">${escapeHTML(e.credit)}</div>`
-        : "";
-
-      lines.push('      <div class="harpoon-timeline__item" tabindex="0">');
-      lines.push('        <div class="harpoon-timeline__marker"></div>');
-      lines.push(`        <div class="harpoon-timeline__date">${escapeHTML(e.date)}</div>`);
-      lines.push('        <div class="harpoon-timeline__card">');
-      if (imgLine) lines.push(imgLine);
-      if (creditLine) lines.push(creditLine);
-
-      // Body text is producer-controlled HTML; do not escape
-      // (Assumes producers are pasting safe, intended HTML.)
-      lines.push(`          ${e.text || ""}`);
-
-      lines.push('        </div>');
-      lines.push('      </div>');
-    });
-
-    lines.push('    </div>');
-    lines.push('  </div>');
-    lines.push('</div>');
-
-    return lines.join("\n");
-  }
-
-  function exportCSS() {
-    const m = markerVars();
-
-    return [
-`/* =========================================
-   Harpoon Timeline — runtime CSS (v1.7.4c)
-   Paste this into your story CSS (NOT the builder CSS)
-   ========================================= */`,
-``,
-`/* Title wrapper (sticky title stays put while timeline scrolls) */`,
-`.harpoon-timeline-block{`,
-`  position: relative;`,
-`}`,
-``,
-`.harpoon-timeline__title{`,
-`  position: sticky;`,
-`  top: 0;`,
-`  z-index: 5;`,
-`  text-align: center;`,
-`  padding: 10px 0;`,
-`  background: #fff;`,
-`  font-weight: 700;`,
-`  font-size: 1.5rem;`,
-`}`,
-``,
-`/* Horizontal scroll wrapper */`,
-`.harpoon-timeline-wrapper{`,
-`  overflow-x: auto;`,
-`  -webkit-overflow-scrolling: touch;`,
-`  touch-action: pan-x;`,
-`}`,
-``,
-`/* Timeline track */`,
-`.harpoon-timeline{`,
-`  --harpoon-line-y: 40px;`,
-`  --harpoon-line-thickness: ${Number(lineThickness.value)}px;`,
-`  --harpoon-line-color: ${lineColor.value};`,
-``,
-`  --harpoon-dot-color: ${dotColor.value};`,
-`  --harpoon-dot-size: ${m.size}px;`,
-`  --harpoon-dot-border: ${m.border}px;`,
-`  --harpoon-dot-fill: ${m.fill};`,
-``,
-`  position: relative;`,
-`  display: flex;`,
-`  gap: 32px;`,
-`  padding: 0 20px 20px;`,
-`  width: max-content;`,
-`}`,
-``,
-`/* Timeline line */`,
-`.harpoon-timeline__line{`,
-`  position: absolute;`,
-`  top: var(--harpoon-line-y);`,
-`  left: 0;`,
-`  right: 0;`,
-`  height: var(--harpoon-line-thickness);`,
-`  background: var(--harpoon-line-color);`,
-`  opacity: .4;`,
-`  transform: translateY(-50%);`,
-`  pointer-events: none;`,
-`}`,
-``,
-`/* Each item is focusable for keyboard users */`,
-`.harpoon-timeline__item{`,
-`  position: relative;`,
-`  width: min(320px, 88vw);`,
-`  flex-shrink: 0;`,
-`  padding-top: calc(var(--harpoon-line-y) + var(--harpoon-dot-size) + 8px);`,
-`}`,
-``,
-`.harpoon-timeline__item:focus-visible{`,
-`  outline: 3px solid rgba(0,0,0,.35);`,
-`  outline-offset: 6px;`,
-`  border-radius: 14px;`,
-`}`,
-``,
-`/* Marker sits on the line */`,
-`.harpoon-timeline__marker{`,
-`  position: absolute;`,
-`  top: var(--harpoon-line-y);`,
-`  left: 50%;`,
-`  width: var(--harpoon-dot-size);`,
-`  height: var(--harpoon-dot-size);`,
-`  transform: translate(-50%, -50%);`,
-`  background: var(--harpoon-dot-fill);`,
-`  border: var(--harpoon-dot-border) solid var(--harpoon-dot-color);`,
-`  border-radius: 50%;`,
-`}`,
-``,
-`/* Date */`,
-`.harpoon-timeline__date{`,
-`  margin: 0 0 12px;`,
-`  font-weight: 700;`,
-`  text-align: center;`,
-`}`,
-``,
-`/* Card */`,
-`.harpoon-timeline__card{`,
-`  background: #fff;`,
-`  border-radius: 16px;`,
-`  padding: 16px;`,
-`  box-shadow: 0 10px 30px rgba(0,0,0,.08);`,
-`  border: 1px solid rgba(0,0,0,.04);`,
-`}`,
-``,
-`/* Image (two modes) */`,
-`.harpoon-timeline__image{`,
-`  width: 100%;`,
-`  border-radius: 12px;`,
-`  display: block;`,
-`  margin: 0 0 6px;`,
-`  background: #f4f4f4;`,
-`}`,
-``,
-`.harpoon-timeline__image--crop{`,
-`  aspect-ratio: 16 / 9;`,
-`  object-fit: cover;`,
-`}`,
-``,
-`.harpoon-timeline__image--contain{`,
-`  aspect-ratio: auto;`,
-`  object-fit: contain;`,
-`  max-height: 260px;`,
-`}`,
-``,
-`/* Credit */`,
-`.harpoon-timeline__credit{`,
-`  font-size: 11px;`,
-`  opacity: .65;`,
-`  text-align: right;`,
-`  margin: 0 0 6px;`,
-`}`,
-    ].join("\n");
-  }
-
-  // -----------------------------
-  // Export modal controls
-  // -----------------------------
-  function openModal() {
-    modal.classList.add("open");
-    modal.setAttribute("aria-hidden", "false");
-    setTab("html");
-  }
-  function closeModal() {
-    modal.classList.remove("open");
-    modal.setAttribute("aria-hidden", "true");
-  }
-  function setTab(which) {
-    state.activeTab = which;
-    tabHtml.classList.toggle("active", which === "html");
-    tabCss.classList.toggle("active", which === "css");
-    modalContent.textContent = (which === "html") ? exportHTML() : exportCSS();
-  }
-
-  // -----------------------------
-  // Import existing timeline HTML
-  // -----------------------------
-  function parseTimelineFromHTML(html) {
-    const doc = new DOMParser().parseFromString(html, "text/html");
-
-    // Title
-    const titleEl = doc.querySelector(".harpoon-timeline__title");
-    const title = titleEl ? titleEl.textContent.trim() : "";
-
-    const items = [...doc.querySelectorAll(".harpoon-timeline__item")];
-    const entries = items.map(item => {
-      const date = (item.querySelector(".harpoon-timeline__date")?.textContent || "").trim();
-
-      // Image (prefer <img>, fallback to old background div)
-      let image = "";
-      let alt = "";
-      let crop = true;
-
-      const img = item.querySelector("img.harpoon-timeline__image");
-      if (img) {
-        image = img.getAttribute("src") || "";
-        alt = img.getAttribute("alt") || "";
-        crop = img.classList.contains("harpoon-timeline__image--crop");
-        if (!img.classList.contains("harpoon-timeline__image--crop") && img.classList.contains("harpoon-timeline__image--contain")) {
-          crop = false;
-        }
-      } else {
-        const bgDiv = item.querySelector(".harpoon-timeline__image");
-        if (bgDiv) {
-          const style = bgDiv.getAttribute("style") || "";
-          const m = style.match(/background-image\s*:\s*url\(['"]?([^'")]+)['"]?\)/i);
-          image = m ? m[1] : "";
-          crop = true; // old exports were 16:9 crop by default
-          alt = "";    // old exports didn't carry alt
-        }
-      }
-
-      const credit = (item.querySelector(".harpoon-timeline__credit")?.textContent || "").trim();
-
-      // Body HTML = everything in card except image + credit nodes
-      const card = item.querySelector(".harpoon-timeline__card");
-      let bodyHTML = "";
-      if (card) {
-        const clone = card.cloneNode(true);
-        [...clone.querySelectorAll(".harpoon-timeline__image, .harpoon-timeline__credit")].forEach(n => n.remove());
-        bodyHTML = clone.innerHTML.trim();
-      }
-
-      return { date, text: bodyHTML, image, crop, alt, credit };
-    });
-
-    return { title, entries };
-  }
-
-  function doImport() {
-    const html = importHtml.value.trim();
-    if (!html) return;
-
-    try {
-      const parsed = parseTimelineFromHTML(html);
-
-      titleInput.value = parsed.title || "";
-      state.entries = parsed.entries || [];
-      state.editingIndex = null;
-      state.lastTouchedIndex = state.entries.length ? 0 : null;
-
-      setModeAdd();
-      renderPreview({ preserveScroll: false });
-      showToast("Imported");
-    } catch (e) {
-      alert("Import failed. Make sure you pasted the exported timeline HTML.");
-    }
-  }
-
-  // -----------------------------
-  // Drag-to-scroll (mouse) for preview scroller (no libraries)
-  // -----------------------------
-  function enableMouseDragScroll(scrollerEl) {
-    let isDown = false;
-    let startX = 0;
-    let startScrollLeft = 0;
-
-    scrollerEl.addEventListener("mousedown", (e) => {
-      isDown = true;
-      startX = e.pageX;
-      startScrollLeft = scrollerEl.scrollLeft;
-    });
-
-    window.addEventListener("mouseup", () => { isDown = false; });
-
-    scrollerEl.addEventListener("mousemove", (e) => {
-      if (!isDown) return;
-      e.preventDefault();
-      const dx = e.pageX - startX;
-      scrollerEl.scrollLeft = startScrollLeft - dx;
-    });
-  }
-
-  // -----------------------------
-  // Escaping helpers
-  // -----------------------------
-  function escapeHTML(str="") {
-    return String(str)
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;");
-  }
-  function escapeAttr(str="") {
-    return String(str)
-      .replaceAll("&","&amp;")
-      .replaceAll("'","&#39;")
-      .replaceAll("\"","&quot;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;");
-  }
-
-  // -----------------------------
-  // Wire up events
-  // -----------------------------
-  // Settings that affect preview vars
-  [lineColor, dotColor].forEach(el => el.addEventListener("input", () => {
-    applyVarsTo(previewTimeline);
-  }));
-  markerStyle.addEventListener("change", () => {
-    applyVarsTo(previewTimeline);
-    renderPreview({ preserveScroll: true });
-  });
-  lineThickness.addEventListener("change", () => {
-    applyVarsTo(previewTimeline);
-    renderPreview({ preserveScroll: true });
-  });
-  titleInput.addEventListener("input", () => renderPreview({ preserveScroll: true }));
-
-  // Live crop preview + live image URL preview
-  imageInput.addEventListener("input", () => {
-    // do not mutate state until add/save; preview updates only when rendering entries
-  });
-  cropToggle.addEventListener("change", () => {
-    // live effect is via the currently edited entry preview; easiest is no-op here
-    // but if in edit mode, update the entry in place and rerender (so you see toggle immediately)
-    if (state.editingIndex !== null) {
-      const e = state.entries[state.editingIndex];
-      if (e) {
-        e.crop = !!cropToggle.checked;
-        state.lastTouchedIndex = state.editingIndex;
-        renderPreview({ preserveScroll: true });
-      }
-    }
-  });
-  // While editing, updating image URL should live-preview too
-  imageInput.addEventListener("input", () => {
-    if (state.editingIndex !== null) {
-      const e = state.entries[state.editingIndex];
-      if (e) {
-        e.image = imageInput.value.trim();
-        e.alt = altInput.value.trim();
-        e.credit = creditInput.value.trim();
-        e.text = textInput.value.trim();
-        e.date = dateInput.value.trim();
-        state.lastTouchedIndex = state.editingIndex;
-        renderPreview({ preserveScroll: true });
-      }
-    }
-  });
-  // Keep alt changes previewed in edit mode
-  altInput.addEventListener("input", () => {
-    if (state.editingIndex !== null) {
-      const e = state.entries[state.editingIndex];
-      if (e) {
-        e.alt = altInput.value.trim();
-        state.lastTouchedIndex = state.editingIndex;
-        renderPreview({ preserveScroll: true });
-      }
-    }
-  });
-
-  addOrSaveBtn.addEventListener("click", upsertEntry);
-  cancelEditBtn.addEventListener("click", () => {
-    setModeAdd();
-    renderPreview({ preserveScroll: true });
-  });
-  deleteBtn.addEventListener("click", deleteEntry);
-
-  clearBtn.addEventListener("click", () => {
-    if (!confirm("Clear all entries?")) return;
-    state.entries = [];
-    state.editingIndex = null;
-    state.lastTouchedIndex = null;
-    setModeAdd();
-    renderPreview({ preserveScroll: false });
-  });
-
-  exportBtn.addEventListener("click", () => {
-    // Ensure any live edits are reflected in preview state *without*
-    // auto-saving (we only export saved entries).
-    openModal();
-  });
-
-  tabHtml.addEventListener("click", () => setTab("html"));
-  tabCss.addEventListener("click", () => setTab("css"));
-  closeModalBtn.addEventListener("click", closeModal);
-  modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
-
-  copyBtn.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(modalContent.textContent);
-      showToast("Copied");
-    } catch {
-      showToast("Copy failed");
-    }
-  });
-
-  scrollToCurrentBtn.addEventListener("click", () => {
-    const idx = (state.editingIndex !== null) ? state.editingIndex : state.lastTouchedIndex;
-    if (idx === null) return;
-    const el = previewTimeline.querySelector(`[data-idx="${idx}"]`);
-    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  });
-
-  importBtn.addEventListener("click", doImport);
-  importClearBtn.addEventListener("click", () => { importHtml.value = ""; });
-
-  // -----------------------------
-  // Init
-  // -----------------------------
-  enableMouseDragScroll(previewScroller);
-  setModeAdd();
-  applyVarsTo(previewTimeline);
-  renderPreview({ preserveScroll: false });
-})();
-</script>
-</body>
+    `;
+                    track.appendChild(item);
+                });
+
+                track.scrollLeft = scrollX;
+
+                if (activeIndex !== null) {
+                    const active = track.querySelector(
+                        `[data-index="${activeIndex}"]`,
+                    );
+                    if (active) {
+                        active.scrollIntoView({
+                            inline: "center",
+                            behavior: "smooth",
+                        });
+                    }
+                }
+
+                previewTimeline.style.setProperty(
+                    "--line-color",
+                    lineColor.value,
+                );
+                previewTimeline.style.setProperty(
+                    "--dot-color",
+                    dotColor.value,
+                );
+            }
+
+            function copyHTML() {
+                const html =
+                    document.getElementById("previewTimeline").outerHTML;
+                navigator.clipboard.writeText(html);
+                showCopyNote("HTML copied");
+            }
+
+            function copyCSS() {
+                const css = document.querySelector("style").innerText;
+                navigator.clipboard.writeText(css);
+                showCopyNote("CSS copied");
+            }
+
+            function showCopyNote(text) {
+                copyNote.textContent = text;
+                setTimeout(() => (copyNote.textContent = ""), 2000);
+            }
+        </script>
+    </body>
 </html>

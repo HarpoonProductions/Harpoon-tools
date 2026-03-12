@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FA FutureFit — FAQ JSON-LD Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f3ee;
+  --surface: #ffffff;
+  --surface2: #eceae4;
+  --border: #d8d4cc;
+  --border-focus: #1a1a1a;
+  --accent: #c8102e;
+  --accent-light: rgba(200,16,46,0.08);
+  --text: #1a1a1a;
+  --text-mid: #4a4a4a;
+  --text-muted: #888;
+  --mono: 'DM Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+  --success: #1a7a4a;
+  --success-bg: #e6f4ec;
+  --radius: 2px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ── */
+header {
+  background: var(--text);
+  color: white;
+  padding: 0 32px;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  height: 52px;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-right: 24px;
+  border-right: 1px solid rgba(255,255,255,0.12);
+}
+
+.fa-badge {
+  background: var(--accent);
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: white;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.header-brand h1 {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: white;
+}
+
+.header-brand p {
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  font-family: var(--mono);
+  margin-left: 28px;
+  align-self: center;
+  padding-left: 24px;
+}
+
+/* ── Layout ── */
+.workspace {
+  display: grid;
+  grid-template-columns: 440px 1fr;
+  flex: 1;
+  min-height: 0;
+}
+
+.col {
+  padding: 28px 28px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+}
+
+.col-left {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.col-right {
+  background: var(--bg);
+}
+
+/* ── Section headers ── */
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--text);
+  margin-bottom: 2px;
+}
+
+.section-head h2 {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.section-head .pill {
+  margin-left: auto;
+  background: var(--accent);
+  color: white;
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  letter-spacing: 0.06em;
+}
+
+/* ── Fields ── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field label {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-mid);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.field label .opt {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.field label .key {
+  color: var(--accent);
+  font-size: 10px;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="url"],
+textarea {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 9px 12px;
+  outline: none;
+  width: 100%;
+  border-radius: var(--radius);
+  transition: border-color 0.12s, background 0.12s;
+  line-height: 1.55;
+}
+
+input:focus, textarea:focus {
+  border-color: var(--border-focus);
+  background: white;
+}
+
+textarea { resize: vertical; }
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field-locked input {
+  background: var(--surface2);
+  color: var(--text-mid);
+}
+
+.field-locked label::after {
+  content: '✓ pre-set';
+  font-size: 10px;
+  color: var(--success);
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+/* ── Divider ── */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2px 0;
+}
+
+/* ── Buttons ── */
+.btn-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+button {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  border: none;
+  padding: 10px 18px;
+  border-radius: var(--radius);
+  transition: all 0.12s;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+}
+.btn-primary:hover { background: #a00d25; }
+.btn-primary:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-mid);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--text); color: var(--text); }
+
+.btn-add {
+  background: var(--surface2);
+  color: var(--text-mid);
+  border: 1px solid var(--border);
+  width: 100%;
+  padding: 9px;
+  text-align: center;
+}
+.btn-add:hover { background: var(--border); color: var(--text); }
+
+/* ── FAQ cards (right col) ── */
+.faq-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.faq-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+}
+
+.faq-card:focus-within {
+  box-shadow: 0 0 0 2px var(--text);
+}
+
+.card-head {
+  background: var(--surface2);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-light);
+  padding: 2px 7px;
+  letter-spacing: 0.06em;
+}
+
+.card-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-mid);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-title.empty { color: var(--text-muted); font-style: italic; }
+
+.btn-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  margin-left: auto;
+}
+.btn-remove:hover { color: var(--accent); }
+
+.card-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-field label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.card-field label .schema-key {
+  color: var(--accent);
+  margin-left: 4px;
+  text-transform: none;
+  font-size: 10px;
+}
+
+/* ── Output panels ── */
+.output-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.output-panel {
+  background: #1a1a1a;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.output-panel-head {
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.output-panel-head .faq-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.output-panel-head .faq-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: rgba(255,255,255,0.55);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.copy-btn {
+  margin-left: auto;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.55);
+  padding: 4px 12px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+}
+.copy-btn:hover { background: rgba(255,255,255,0.12); color: white; }
+.copy-btn.copied { border-color: #4ade80; color: #4ade80; background: rgba(74,222,128,0.08); }
+
+.output-code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: #ccc;
+  padding: 14px 16px;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.7;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.output-code .tok-key { color: #79b8ff; }
+.output-code .tok-str { color: #9ecbff; }
+.output-code .tok-num { color: #f0c674; }
+.output-code .tok-url { color: #e8a97e; }
+.output-code .tok-placeholder { color: #f87171; }
+.output-code .tok-type { color: #b392f0; }
+
+.output-global-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.btn-export {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-mid);
+  padding: 7px 14px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius);
+}
+.btn-export:hover { background: var(--border); color: var(--text); }
+
+.output-empty {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 20px 0;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+/* ── Status ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 7px 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+}
+
+footer span {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.status-dot.ready { background: var(--accent); }
+.status-dot.done { background: var(--success); }
+
+@media (max-width: 860px) {
+  .workspace { grid-template-columns: 1fr; }
+  .col-left { border-right: none; border-bottom: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <div class="fa-badge">FA</div>
+    <h1>FutureFit FAQ Generator</h1>
+    <p>schema.org/QAPage · JSON-LD</p>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- LEFT: Global settings -->
+  <div class="col col-left">
+
+    <div class="section-head">
+      <h2>Global settings</h2>
+      <div class="pill">pre-filled</div>
+    </div>
+
+    <div class="field field-locked">
+      <label>Author <span class="key">author.name</span></label>
+      <input type="text" id="authorName" value="The FA">
+    </div>
+
+    <div class="field field-locked">
+      <label>Author type <span class="key">author.@type</span></label>
+      <input type="text" id="authorType" value="Organization">
+    </div>
+
+    <div class="field field-locked">
+      <label>Base URL <span class="key">url prefix</span></label>
+      <input type="url" id="baseUrl" value="https://futurefit.englandfootball.com/futurefit/faqs/">
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Date published <span class="key">datePublished</span></label>
+        <input type="date" id="datePublished" value="2025-04-09">
+      </div>
+      <div class="field">
+        <label>Date modified <span class="key">dateModified</span></label>
+        <input type="date" id="dateModified" id="dateModified">
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-head" style="border-bottom-color: var(--border); margin-bottom:0;">
+      <h2>Schema notes</h2>
+    </div>
+
+    <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); line-height: 1.7; background: var(--surface2); padding: 12px 14px; border: 1px solid var(--border);">
+      <strong style="color: var(--text-mid);">QAPage</strong> — one question per URL ✓<br>
+      <strong style="color: var(--text-mid);">name</strong> — canonical H1 question<br>
+      <strong style="color: var(--text-mid);">text</strong> — alt phrasing for AI matching <span style="color:var(--border-focus); opacity:0.4">(optional)</span><br>
+      <strong style="color: var(--text-mid);">acceptedAnswer.text</strong> — prose only, no tables<br>
+      <strong style="color: var(--text-mid);">url</strong> — leave blank, add post-publish<br>
+      <br>
+      URL slug is auto-generated from <em>name</em>.
+    </div>
+
+    <hr class="divider">
+
+    <div class="btn-row">
+      <button class="btn-primary" id="generateBtn">Generate all blocks</button>
+      <button class="btn-ghost" id="clearFaqsBtn">Clear FAQs</button>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: FAQ cards + output -->
+  <div class="col col-right">
+
+    <div class="section-head">
+      <h2>FAQ entries</h2>
+      <div class="pill" id="faqCountPill">0 FAQs</div>
+    </div>
+
+    <div class="faq-stack" id="faqStack"></div>
+
+    <button class="btn-add" id="addFaqBtn">+ Add FAQ</button>
+
+    <hr class="divider" style="margin-top:4px;">
+
+    <div class="section-head">
+      <h2>Output</h2>
+      <div class="pill" id="outputCountPill" style="display:none;"></div>
+    </div>
+
+    <div class="output-global-bar">
+      <button class="btn-export" id="exportBtn">Export all .txt</button>
+      <button class="btn-ghost" id="copyAllBtn" style="font-size:11px;">Copy all</button>
+    </div>
+
+    <div class="output-stack" id="outputStack">
+      <div class="output-empty" id="outputEmpty">Generate blocks to see output here…</div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="status-dot" id="statusDot"></div>
+  <span id="statusText">Ready — add FAQ entries to begin</span>
+</footer>
+
+<script>
+const authorName    = document.getElementById('authorName');
+const authorType    = document.getElementById('authorType');
+const baseUrl       = document.getElementById('baseUrl');
+const datePublished = document.getElementById('datePublished');
+const dateModified  = document.getElementById('dateModified');
+const faqStack      = document.getElementById('faqStack');
+const addFaqBtn     = document.getElementById('addFaqBtn');
+const generateBtn   = document.getElementById('generateBtn');
+const clearFaqsBtn  = document.getElementById('clearFaqsBtn');
+const outputStack   = document.getElementById('outputStack');
+const outputEmpty   = document.getElementById('outputEmpty');
+const outputCountPill = document.getElementById('outputCountPill');
+const copyAllBtn    = document.getElementById('copyAllBtn');
+const exportBtn     = document.getElementById('exportBtn');
+const faqCountPill  = document.getElementById('faqCountPill');
+const statusDot     = document.getElementById('statusDot');
+const statusText    = document.getElementById('statusText');
+
+const today = new Date().toISOString().split('T')[0];
+dateModified.value = today;
+
+let faqCount = 0;
+let generatedBlocks = []; // { title, raw }
+
+function slugify(str) {
+  return str.toLowerCase()
+    .replace(/['']/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim().replace(/\s+/g, '-').replace(/-+/g, '-');
+}
+
+function updateCount() {
+  const n = faqStack.querySelectorAll('.faq-card').length;
+  faqCountPill.textContent = `${n} FAQ${n !== 1 ? 's' : ''}`;
+}
+
+function cardTitle(nameVal) {
+  if (!nameVal || !nameVal.trim()) return null;
+  return nameVal.trim().length > 55 ? nameVal.trim().slice(0, 52) + '…' : nameVal.trim();
+}
+
+function addFaq(prefill = {}) {
+  faqCount++;
+  const id = faqCount;
+  const card = document.createElement('div');
+  card.className = 'faq-card';
+  card.dataset.id = id;
+
+  card.innerHTML = `
+    <div class="card-head">
+      <span class="card-num">FAQ ${id}</span>
+      <span class="card-title empty" id="ctitle-${id}">Untitled question</span>
+      <button class="btn-remove" title="Remove">×</button>
+    </div>
+    <div class="card-body">
+      <div class="card-field">
+        <label>Question (H1) <span class="schema-key">→ name</span></label>
+        <input type="text" class="f-name" placeholder="Are there any differences between the offer for boys and girls?" value="${esc(prefill.name||'')}">
+      </div>
+      <div class="card-field">
+        <label>Alt phrasing <span class="schema-key">→ text</span> <span style="color:var(--text-muted);font-size:10px;">(optional)</span></label>
+        <input type="text" class="f-text" placeholder="Will boys and girls play the same games?" value="${esc(prefill.text||'')}">
+      </div>
+      <div class="card-field">
+        <label>Answer summary — prose only, no tables <span class="schema-key">→ acceptedAnswer.text</span></label>
+        <textarea class="f-answer" rows="4" placeholder="Our research didn't find there was a need for different formats for boys and girls…">${esc(prefill.answer||'')}</textarea>
+      </div>
+      <div class="card-field">
+        <label>URL <span class="schema-key">→ url</span> <span style="color:var(--text-muted);font-size:10px;">(leave blank until published)</span></label>
+        <input type="url" class="f-url" placeholder="Auto-generated from question slug" value="${esc(prefill.url||'')}">
+      </div>
+    </div>`;
+
+  const nameInput = card.querySelector('.f-name');
+  const titleEl   = card.querySelector(`#ctitle-${id}`);
+  nameInput.addEventListener('input', () => {
+    const t = cardTitle(nameInput.value);
+    titleEl.textContent = t || 'Untitled question';
+    titleEl.classList.toggle('empty', !t);
+  });
+  if (prefill.name) {
+    const t = cardTitle(prefill.name);
+    titleEl.textContent = t || 'Untitled question';
+    titleEl.classList.toggle('empty', !t);
+  }
+
+  card.querySelector('.btn-remove').addEventListener('click', () => {
+    card.remove();
+    updateCount();
+    setStatus('', 'FAQ removed');
+  });
+
+  faqStack.appendChild(card);
+  updateCount();
+  nameInput.focus();
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function getFaqs() {
+  return Array.from(faqStack.querySelectorAll('.faq-card')).map((card, i) => ({
+    index: i + 1,
+    name:   card.querySelector('.f-name').value.trim(),
+    text:   card.querySelector('.f-text').value.trim(),
+    answer: card.querySelector('.f-answer').value.trim(),
+    url:    card.querySelector('.f-url').value.trim(),
+  }));
+}
+
+function buildBlock(faq) {
+  const base = baseUrl.value.trim().replace(/\/$/, '');
+  const slug = slugify(faq.name);
+  const url  = faq.url || (faq.name && base ? `${base}${slug}/index.html` : `URL_PENDING_${faq.index}`);
+
+  const author = { "@type": authorType.value.trim() || "Organization", "name": authorName.value.trim() || "The FA" };
+  const dp = datePublished.value;
+  const dm = dateModified.value;
+
+  const obj = {
+    "@context": "https://schema.org",
+    "@type": "QAPage",
+    "mainEntity": {
+      "@type": "Question",
+      "url": url,
+      "name": faq.name || "QUESTION_MISSING",
+      ...(faq.text ? { "text": faq.text } : {}),
+      "answerCount": 1,
+      "datePublished": dp,
+      "dateModified": dm,
+      "author": author,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer || "ANSWER_MISSING"
+      }
+    }
+  };
+
+  return `<script type="application/ld+json">\n${JSON.stringify(obj, null, 2)}\n<\/script>`;
+}
+
+function syntaxHighlight(raw) {
+  return raw
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/("(?:@context|@type|url|name|text|answerCount|datePublished|dateModified|author|acceptedAnswer)")\s*:/g, '<span class="tok-key">$1</span>:')
+    .replace(/(:\s*)("https?:\/\/[^"]*")/g, (m, p1, p2) => {
+      if (p2.includes('URL_PENDING')) return `${p1}<span class="tok-placeholder">${p2}</span>`;
+      return `${p1}<span class="tok-url">${p2}</span>`;
+    })
+    .replace(/(:\s*)("(?!https?:\/\/)[^"]*")/g, '$1<span class="tok-str">$2</span>')
+    .replace(/(:\s*)(\d+)/g, '$1<span class="tok-num">$2</span>');
+}
+
+function makeCopyBtn(raw) {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn';
+  btn.textContent = 'Copy';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(raw).then(() => {
+      btn.textContent = 'Copied ✓';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  });
+  return btn;
+}
+
+function generate() {
+  const faqs = getFaqs();
+  if (!faqs.length) return;
+
+  generatedBlocks = faqs.map(faq => ({
+    title: faq.name || `FAQ ${faq.index}`,
+    raw: buildBlock(faq)
+  }));
+
+  // Clear and rebuild output stack
+  outputStack.innerHTML = '';
+  outputEmpty.style.display = 'none';
+
+  generatedBlocks.forEach((block, i) => {
+    const panel = document.createElement('div');
+    panel.className = 'output-panel';
+
+    const head = document.createElement('div');
+    head.className = 'output-panel-head';
+
+    const label = document.createElement('span');
+    label.className = 'faq-label';
+    label.textContent = `FAQ ${i + 1}`;
+
+    const title = document.createElement('span');
+    title.className = 'faq-title';
+    title.textContent = block.title.length > 60 ? block.title.slice(0, 57) + '…' : block.title;
+
+    const copyBtn = makeCopyBtn(block.raw);
+
+    head.appendChild(label);
+    head.appendChild(title);
+    head.appendChild(copyBtn);
+
+    const code = document.createElement('div');
+    code.className = 'output-code';
+    code.innerHTML = syntaxHighlight(block.raw);
+
+    panel.appendChild(head);
+    panel.appendChild(code);
+    outputStack.appendChild(panel);
+  });
+
+  outputCountPill.textContent = `${generatedBlocks.length} block${generatedBlocks.length !== 1 ? 's' : ''}`;
+  outputCountPill.style.display = '';
+  setStatus('done', `${generatedBlocks.length} JSON-LD block${generatedBlocks.length !== 1 ? 's' : ''} generated`);
+}
+
+function setStatus(state, msg) {
+  statusDot.className = 'status-dot' + (state ? ' ' + state : '');
+  statusText.textContent = msg;
+}
+
+addFaqBtn.addEventListener('click', () => addFaq());
+generateBtn.addEventListener('click', generate);
+
+clearFaqsBtn.addEventListener('click', () => {
+  faqStack.innerHTML = '';
+  outputStack.innerHTML = '';
+  outputStack.appendChild(outputEmpty);
+  outputEmpty.style.display = '';
+  generatedBlocks = [];
+  outputCountPill.style.display = 'none';
+  updateCount();
+  setStatus('', 'Ready — add FAQ entries to begin');
+});
+
+copyAllBtn.addEventListener('click', () => {
+  if (!generatedBlocks.length) return;
+  const all = generatedBlocks.map(b => b.raw).join('\n\n');
+  navigator.clipboard.writeText(all).then(() => {
+    copyAllBtn.textContent = 'Copied ✓';
+    setTimeout(() => { copyAllBtn.textContent = 'Copy all'; }, 2000);
+  });
+});
+
+exportBtn.addEventListener('click', () => {
+  if (!generatedBlocks.length) return;
+  const all = generatedBlocks.map((b, i) => `<!-- FAQ ${i+1}: ${b.title} -->\n${b.raw}`).join('\n\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([all], { type: 'text/plain' }));
+  a.download = 'fa-futurefit-faq-jsonld.txt';
+  a.click();
+});
+
+[authorName, authorType, baseUrl, datePublished, dateModified].forEach(el => {
+  el.addEventListener('change', () => { if (generatedBlocks.length) generate(); });
+});
+
+addFaq();
+setStatus('ready', 'Ready — fill in the FAQ entry and click Generate');
+</script>
+</body>
+</html>

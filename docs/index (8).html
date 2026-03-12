@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Harpoon Tools</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:      #0f0e0d;
+      --paper:    #f5f2ed;
+      --mid:      #9e9890;
+      --rule:     #ddd8d0;
+      --accent:   #c8410a;
+      --card-bg:  #ffffff;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+      padding: 0 0 80px;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 56px 40px 40px;
+      max-width: 1100px;
+      margin: 0 auto 56px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .header__left { display: flex; align-items: center; gap: 18px; }
+
+    .header__logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+
+    .header__title {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+
+    .header__title em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .header__sub {
+      font-size: 13px;
+      color: var(--mid);
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding-bottom: 4px;
+    }
+
+    /* ── Grid ── */
+    .grid {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 40px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      border: 1px solid var(--rule);
+      padding: 32px 28px 28px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--card-accent, var(--accent));
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.25s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.10);
+      border-color: transparent;
+    }
+
+    .card:hover::before { transform: scaleX(1); }
+
+    .card__icon { font-size: 28px; line-height: 1; margin-bottom: 4px; }
+
+    .card__label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--card-accent, var(--accent));
+    }
+
+    .card__title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px;
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+    }
+
+    .card__desc {
+      font-size: 14px;
+      color: #555;
+      line-height: 1.55;
+      flex: 1;
+    }
+
+    .card__desc code {
+      font-size: 12px;
+      background: #f0ede8;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: ui-monospace, Menlo, monospace;
+    }
+
+    .card__cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--card-accent, var(--accent));
+      margin-top: 8px;
+    }
+
+    .card__cta svg { transition: transform 0.2s ease; }
+    .card:hover .card__cta svg { transform: translateX(4px); }
+
+    /* Per-card accent colours */
+    .card--pan      { --card-accent: #c8410a; }
+    .card--gallery  { --card-accent: #2a5c8f; }
+    .card--faq      { --card-accent: #1a7a4a; }
+    .card--timeline { --card-accent: #7a1c5c; }
+
+    /* ── Footer ── */
+    footer {
+      max-width: 1100px;
+      margin: 64px auto 0;
+      padding: 24px 40px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--mid);
+      font-size: 13px;
+      border-top: 1px solid var(--rule);
+    }
+
+    footer img { width: 20px; height: 20px; border-radius: 50%; }
+    footer a { color: var(--mid); font-weight: 700; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      header { padding: 32px 20px 28px; flex-direction: column; align-items: flex-start; }
+      .grid { padding: 0 20px; gap: 16px; }
+      footer { padding: 24px 20px 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header__left">
+      <img class="header__logo"
+           src="https://pbs.twimg.com/profile_images/1200397581333024768/kEKej87-_400x400.jpg"
+           alt="Harpoon Productions" />
+      <h1 class="header__title">Harpoon <em>Tools</em></h1>
+    </div>
+    <span class="header__sub">Internal publishing toolkit</span>
+  </header>
+
+  <main class="grid">
+
+    <a class="card card--pan" href="mobile-pan-tool.html">
+      <div class="card__icon">📱</div>
+      <span class="card__label">Image</span>
+      <h2 class="card__title">Mobile Pan Builder</h2>
+      <p class="card__desc">Generate a full-screen landscape image section that pans smoothly on mobile, with optional photographer credit and caption. Exports a self-contained HTML block for Shorthand.</p>
+      <span class="card__cta">Open tool <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </a>
+
+    <a class="card card--gallery" href="gallery-builder.html">
+      <div class="card__icon">🖼️</div>
+      <span class="card__label">Gallery</span>
+      <h2 class="card__title">Gallery Builder</h2>
+      <p class="card__desc">Build a scroll-driven image gallery with captions and credits. Configure layout and transitions, and export a ready-to-embed HTML block for Shorthand stories.</p>
+      <span class="card__cta">Open tool <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </a>
+
+    <a class="card card--faq" href="fa-faq-jsonld-generator.html">
+      <div class="card__icon">❓</div>
+      <span class="card__label">SEO</span>
+      <h2 class="card__title">FAQ JSON-LD Generator</h2>
+      <p class="card__desc">Create structured FAQ schema markup for search engine rich results. Enter questions and answers, export clean JSON-LD ready to drop into a page <code>&lt;head&gt;</code>.</p>
+      <span class="card__cta">Open tool <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </a>
+
+    <a class="card card--timeline" href="timeline-builder/index.html">
+      <div class="card__icon">📅</div>
+      <span class="card__label">Timeline</span>
+      <h2 class="card__title">Timeline Builder</h2>
+      <p class="card__desc">Compose a scrollable horizontal timeline with dated entries, images, and rich text. Configurable colours and marker styles. Export HTML and CSS for Shorthand.</p>
+      <span class="card__cta">Open tool <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </a>
+
+  </main>
+
+  <footer>
+    <img src="https://pbs.twimg.com/profile_images/1200397581333024768/kEKej87-_400x400.jpg" alt="Harpoon Productions" />
+    <span>Built by <a href="https://harpoonproductions.co.uk" target="_blank">Harpoon Productions</a></span>
+  </footer>
+
+</body>
+</html>

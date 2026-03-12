@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Harpoon Pan Builder v1.0</title>
+  <style>
+    /* =========================================================
+       BUILDER UI ONLY (never exported)
+       ========================================================= */
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #fafafa;
+      color: #111;
+    }
+    h1 { font-size: 22px; margin: 0 0 6px; }
+    .subtitle { font-size: 13px; color: #555; margin: 0 0 20px; }
+
+    .builder { max-width: 980px; margin: 0 auto 28px; }
+
+    fieldset {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 0 0 16px;
+    }
+    legend { font-size: 12px; font-weight: 800; padding: 0 6px; }
+    label { display: block; font-size: 12px; font-weight: 800; margin: 10px 0 6px; }
+
+    input[type="text"], input[type="url"], select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    input[type="text"]:focus, input[type="url"]:focus, select:focus {
+      outline: 2px solid #111;
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .helper { font-size: 12px; color: #666; margin: 4px 0 0; line-height: 1.4; }
+    .helper code { font-size: 11px; background: #f0f0f0; border-radius: 4px; padding: 1px 5px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #333; }
+    .required { color: #c00; }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .primary { background: #111; color: #fff; }
+    .primary:hover { background: #333; }
+    .secondary { background: #eee; color: #111; }
+    .secondary:hover { background: #e0e0e0; }
+
+    /* =========================================================
+       PREVIEW
+       ========================================================= */
+    .preview {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .preview__bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid #eee;
+      background: #fafafa;
+    }
+    .preview__bar .left { display: flex; gap: 10px; align-items: center; }
+    .pill {
+      font-size: 12px;
+      font-weight: 800;
+      background: #111;
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 999px;
+    }
+    .smallnote { font-size: 12px; color: #666; }
+
+    .preview__viewport {
+      position: relative;
+      width: 100%;
+      height: 420px;
+      overflow: hidden;
+      background: #222;
+    }
+
+    /* Mobile simulation frame */
+    .preview__mobile-frame {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 375px;
+      height: 380px;
+      border: 3px solid #555;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+      background: #000;
+    }
+
+    /* =========================================================
+       EXPORTED BLOCK RUNTIME STYLES
+       (these mirror exactly what is exported)
+       ========================================================= */
+
+    /* The outer section — always full viewport height */
+    .hp-pan-section {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      background: #000;
+    }
+
+    /* Desktop: static cover image */
+    .hp-pan-bg {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+    }
+
+    /* Mobile pan strip — hidden on desktop */
+    .hp-pan-strip {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: stretch;
+      will-change: transform;
+      font-size: 0;
+    }
+    .hp-pan-strip img {
+      height: 100%;
+      width: auto;
+      display: block;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    /* Photographer credit — rotated, pinned bottom-right, always above pan */
+    .hp-pan-credit {
+      position: absolute;
+      right: 32px;
+      bottom: 80px;
+      transform: rotate(90deg);
+      transform-origin: right bottom;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      z-index: 10;
+      pointer-events: none;
+      font-family: 'Apercu', 'Apercu Pro', Arial, sans-serif;
+    }
+
+    /* Caption block — white bar at bottom of viewport */
+    .hp-pan-caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      padding: 10px 14px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .hp-pan-caption p {
+      margin: 0;
+      font-size: 13px;
+      color: #4a4a4a;
+      font-style: italic;
+      font-family: 'Apercu', 'Apercu Pro', Arial, sans-serif;
+      line-height: 1.4;
+    }
+
+
+    /* Mobile breakpoint — activate pan */
+    @media (max-width: 619px) {
+      .hp-pan-bg { display: none; }
+      .hp-pan-strip { display: block; }
+    }
+
+    /* =========================================================
+       MODAL
+       ========================================================= */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .modal.open { display: flex; }
+    .modal__box {
+      width: min(860px, 92vw);
+      background: #fff;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 20px 80px rgba(0,0,0,0.25);
+    }
+    .modal__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid #ddd;
+      background: #fafafa;
+    }
+    .modal__header h2 { margin: 0; font-size: 15px; }
+    .modal__content {
+      padding: 14px 16px;
+      max-height: 55vh;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12.5px;
+      white-space: pre;
+      tab-size: 2;
+    }
+    .modal__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-top: 1px solid #ddd;
+    }
+    .modal__note { font-size: 12px; color: #777; }
+
+    /* =========================================================
+       TOAST
+       ========================================================= */
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      background: #111;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      pointer-events: none;
+      z-index: 99999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* =========================================================
+       FOOTER
+       ========================================================= */
+    .builder-credit {
+      max-width: 980px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px 0 6px;
+      color: #666;
+      font-size: 13px;
+    }
+    .builder-credit img { width: 20px; height: 20px; border-radius: 50%; display: block; }
+    .builder-credit a { color: #666; text-decoration: none; font-weight: 800; }
+    .builder-credit a:hover { text-decoration: underline; }
+
+    /* =========================================================
+       IMPORT PANEL
+       ========================================================= */
+    details {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin: 0 0 16px;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 900;
+      font-size: 13px;
+      user-select: none;
+    }
+    .import-grid { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .import-grid textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 12.5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+  </style>
+</head>
+<body>
+
+<div class="builder">
+
+  <!-- ── Import ── -->
+  <details id="importDetails">
+    <summary>Import existing pan block (paste exported HTML to re-edit)</summary>
+    <div class="import-grid">
+      <p class="helper">Paste previously exported HTML from this tool. It will repopulate all fields so you can edit and re-export.</p>
+      <textarea id="importHtml" placeholder="Paste exported HTML here…"></textarea>
+      <div class="actions">
+        <button type="button" class="secondary" id="importBtn">Import</button>
+        <button type="button" class="secondary" id="importClearBtn">Clear</button>
+      </div>
+    </div>
+  </details>
+
+  <h1>Harpoon Pan Builder <span style="font-weight:400;color:#888">v1.0</span></h1>
+  <p class="subtitle">Generate a self-contained HTML block with a full-screen landscape image that pans on mobile.</p>
+
+  <!-- ── Image ── -->
+  <fieldset>
+    <legend>Image</legend>
+    <label for="imgUrl">Image URL <span class="required">*</span></label>
+    <input type="url" id="imgUrl" placeholder="https://harpn.s3.amazonaws.com/…/photo.jpg" />
+    <p class="helper">Use the full S3 / CDN URL of the landscape image. The same URL is used for both desktop (cover) and mobile (pan).</p>
+
+    <label for="imgAlt">Alt text</label>
+    <input type="text" id="imgAlt" placeholder="Describe the image for screen readers" />
+  </fieldset>
+
+  <!-- ── Pan settings ── -->
+  <fieldset>
+    <legend>Pan settings</legend>
+    <div class="two-col">
+      <div>
+        <label for="panDir">Pan direction (mobile)</label>
+        <select id="panDir">
+          <option value="ltr">Left to right</option>
+          <option value="rtl">Right to left</option>
+        </select>
+      </div>
+      <div>
+        <label for="panDuration">Pan duration (seconds)</label>
+        <input type="text" id="panDuration" value="20" placeholder="20" />
+        <p class="helper">Typical: 15–25 s</p>
+      </div>
+    </div>
+  </fieldset>
+
+  <!-- ── Text overlays ── -->
+  <fieldset>
+    <legend>Text overlays (optional)</legend>
+
+    <label for="creditText">Photographer credit</label>
+    <input type="text" id="creditText" placeholder="© Jane Smith / Agency Name" />
+    <p class="helper">Displayed in white bold uppercase Apercu, rotated 90° and pinned to the bottom-right corner. Remains static during the pan. For long credits, use <code>&lt;br&gt;</code> to split onto two lines — e.g. <code>© Jane Smith&lt;br&gt;Getty Images</code>.</p>
+
+    <label for="captionText" style="margin-top:14px">Caption</label>
+    <input type="text" id="captionText" placeholder="A brief description of the scene…" />
+    <p class="helper">Displayed in a white bar at the bottom of the viewport in grey italic Apercu. Leave blank to omit.</p>
+  </fieldset>
+
+  <!-- ── Actions ── -->
+  <div class="actions">
+    <button class="primary" id="previewBtn">Preview</button>
+    <button class="secondary" id="exportBtn">Export HTML</button>
+  </div>
+</div>
+
+<!-- ── Preview ── -->
+<div class="builder" id="previewWrap" style="display:none">
+  <div class="preview">
+    <div class="preview__bar">
+      <div class="left">
+        <span class="pill">Preview</span>
+        <span class="smallnote">Mobile frame (375 px) — pan animation active</span>
+      </div>
+      <button class="secondary" id="closePreviewBtn" style="padding:6px 12px;font-size:12px">✕ Close</button>
+    </div>
+    <div class="preview__viewport">
+      <div class="preview__mobile-frame">
+        <iframe id="previewInner" style="border:none;width:375px;height:380px;display:block;" scrolling="no"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal ── -->
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal__box">
+    <div class="modal__header">
+      <h2 id="modalTitle">Export HTML</h2>
+      <button class="secondary" id="closeModalBtn" style="padding:6px 12px;font-size:12px">✕ Close</button>
+    </div>
+    <div class="modal__content" id="modalContent"></div>
+    <div class="modal__footer">
+      <span class="modal__note">Paste into a Shorthand Custom HTML section</span>
+      <button class="primary" id="copyBtn">Copy to clipboard</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── Footer ── -->
+<div class="builder-credit">
+  <img src="https://pbs.twimg.com/profile_images/1200397581333024768/kEKej87-_400x400.jpg" alt="Harpoon Productions" />
+  <span>Built by <a href="https://harpoonproductions.co.uk" target="_blank">Harpoon Productions</a></span>
+</div>
+
+<script>
+(function () {
+
+  /* ── helpers ── */
+  function $$(id) { return document.getElementById(id); }
+
+  function escAttr(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+  function escHTML(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // Like escHTML but allows <br> through for credit line-breaks
+  function escCredit(s) {
+    return escHTML(s).replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+  }
+
+  function showToast(msg) {
+    const t = $$('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  /* ── read form ── */
+  function getValues() {
+    return {
+      imgUrl:      $$('imgUrl').value.trim(),
+      imgAlt:      $$('imgAlt').value.trim(),
+      panDir:      $$('panDir').value,           // 'ltr' | 'rtl'
+      panDuration: parseInt($$('panDuration').value, 10) || 20,
+      credit:      $$('creditText').value.trim(),
+      caption:     $$('captionText').value.trim(),
+    };
+  }
+
+  /* ── validate ── */
+  function validate(v) {
+    if (!v.imgUrl) { showToast('Image URL is required'); return false; }
+    return true;
+  }
+
+  /* ── build the exported HTML block ── */
+  function buildHTML(v, forExport) {
+    const durMs  = v.panDuration * 1000;
+
+    // For ltr: image starts at right, moves left (translateX 0 → negative)
+    // For rtl: image starts at left, moves right (translateX negative → 0)
+    const animName = v.panDir === 'rtl' ? 'hp-pan-rtl' : 'hp-pan-ltr';
+
+    const creditHTML = v.credit
+      ? `\n  <span class="hp-pan-credit">${escCredit(v.credit)}</span>`
+      : '';
+
+    const captionHTML = v.caption
+      ? `\n  <div class="hp-pan-caption"><p>${escHTML(v.caption)}</p></div>`
+      : '';
+
+    // The strip img width ratio: we duplicate images seamlessly.
+    // We use two images side-by-side so the pan loops. Total strip = 200vw worth
+    // of image height. JS nudges the start position for rtl.
+
+    const html = `<div class="hp-pan-section">
+
+  <!-- Desktop: static cover -->
+  <div class="hp-pan-bg" style="background-image:url('${escAttr(v.imgUrl)}')" role="img" aria-label="${escAttr(v.imgAlt)}"></div>
+
+  <!-- Mobile: panning strip -->
+  <div class="hp-pan-strip" aria-hidden="true">
+    <img src="${escAttr(v.imgUrl)}" alt="" />
+    <img src="${escAttr(v.imgUrl)}" alt="" />
+  </div>
+${creditHTML}${captionHTML}
+
+  <style>
+    .hp-pan-section {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      background: transparent;
+    }
+    .hp-pan-bg {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+    }
+    .hp-pan-strip {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: stretch;
+      will-change: transform;
+      font-size: 0;
+      line-height: 0;
+    }
+    .hp-pan-strip img {
+      height: 100%;
+      width: auto;
+      display: block;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    /* Soft fade at the join — slim 2% transition so it's barely perceptible */
+    .hp-pan-strip img:first-child {
+      -webkit-mask-image: linear-gradient(to right, black 98%, transparent 100%);
+      mask-image: linear-gradient(to right, black 98%, transparent 100%);
+    }
+    .hp-pan-strip img:last-child {
+      -webkit-mask-image: linear-gradient(to right, transparent 0%, black 2%);
+      mask-image: linear-gradient(to right, transparent 0%, black 2%);
+    }
+    .hp-pan-credit {
+      position: absolute;
+      right: 32px;
+      bottom: 80px;
+      transform: rotate(90deg);
+      transform-origin: right bottom;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      z-index: 10;
+      pointer-events: none;
+      font-family: 'Apercu', 'Apercu Pro', Arial, sans-serif;
+    }
+    .hp-pan-caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      padding: 10px 14px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .hp-pan-caption p {
+      margin: 0;
+      font-size: 15px;
+      color: #4a4a4a;
+      font-style: italic;
+      font-family: 'Apercu', 'Apercu Pro', Arial, sans-serif;
+      line-height: 1.4;
+    }
+
+    @keyframes hp-pan-ltr {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    @keyframes hp-pan-rtl {
+      0%   { transform: translateX(-50%); }
+      100% { transform: translateX(0); }
+    }
+    @media (max-width: 619px) {
+      .hp-pan-bg    { display: none; }
+      .hp-pan-strip {
+        display: flex;
+        animation: ${animName} ${durMs}ms linear infinite;
+      }
+    }
+  </style>
+
+</div>`;
+
+    return html;
+  }
+
+  /* ── preview ── */
+  $$('previewBtn').addEventListener('click', function () {
+    const v = getValues();
+    if (!validate(v)) return;
+
+    const exportedBlock = buildHTML(v, false);
+
+    // Write into an iframe so the @media query fires at 375px (the iframe's own width)
+    // and the exported HTML is completely isolated from the builder page styles.
+    const doc = `<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=375px, initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { width: 375px; height: 380px; overflow: hidden; background: #111; }
+  /* Force mobile pan always in preview, regardless of media query */
+  .hp-pan-bg    { display: none !important; }
+  .hp-pan-strip { display: flex !important; }
+  .hp-pan-section { height: 380px !important; }
+</style>
+</head><body>${exportedBlock}</body></html>`;
+
+    const iframe = $$('previewInner');
+    iframe.srcdoc = doc;
+
+    $$('previewWrap').style.display = 'block';
+    $$('previewWrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  $$('closePreviewBtn').addEventListener('click', function () {
+    $$('previewWrap').style.display = 'none';
+    $$('previewInner').srcdoc = '';
+  });
+
+  /* ── export ── */
+  $$('exportBtn').addEventListener('click', function () {
+    const v = getValues();
+    if (!validate(v)) return;
+
+    $$('modalContent').textContent = buildHTML(v, true);
+    $$('modal').classList.add('open');
+  });
+
+  $$('closeModalBtn').addEventListener('click', function () {
+    $$('modal').classList.remove('open');
+  });
+  $$('modal').addEventListener('click', function (e) {
+    if (e.target === $$('modal')) $$('modal').classList.remove('open');
+  });
+
+  $$('copyBtn').addEventListener('click', async function () {
+    try {
+      await navigator.clipboard.writeText($$('modalContent').textContent);
+      showToast('Copied to clipboard');
+    } catch {
+      showToast('Copy failed — select and copy manually');
+    }
+  });
+
+  /* ── import ── */
+  function parseAndPopulate(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+
+    // Image URL — from bg div style or strip img src
+    const bg = tmp.querySelector('.hp-pan-bg');
+    const stripImg = tmp.querySelector('.hp-pan-strip img');
+    let imgUrl = '';
+    if (bg) {
+      const m = (bg.getAttribute('style') || '').match(/url\(['"]?([^'"\)\s]+)['"]?\)/);
+      if (m) imgUrl = m[1];
+    }
+    if (!imgUrl && stripImg) imgUrl = stripImg.getAttribute('src') || '';
+
+    // Alt text
+    const imgAlt = bg ? (bg.getAttribute('aria-label') || '') : '';
+
+    // Pan direction — from keyframe name in the style block
+    const styleEl = tmp.querySelector('style');
+    const styleText = styleEl ? styleEl.textContent : '';
+    const panDir = /hp-pan-rtl/.test(styleText) ? 'rtl' : 'ltr';
+
+    // Duration
+    let panDuration = 20;
+    const durMatch = styleText.match(/animation:\s*hp-pan-[a-z]+\s+([\d]+)ms/);
+    if (durMatch) panDuration = Math.round(parseInt(durMatch[1], 10) / 1000);
+
+    // Credit — use innerHTML to preserve <br> tags, strip everything else
+    const creditEl = tmp.querySelector('.hp-pan-credit');
+    let credit = '';
+    if (creditEl) {
+      credit = creditEl.innerHTML
+        .replace(/<br\s*\/?>/gi, '<br>')
+        .replace(/<(?!br)[^>]+>/gi, '')
+        .trim();
+    }
+
+    // Caption
+    const captionEl = tmp.querySelector('.hp-pan-caption p');
+    const caption = captionEl ? captionEl.textContent.trim() : '';
+
+    $$('imgUrl').value      = imgUrl;
+    $$('imgAlt').value      = imgAlt;
+    $$('panDir').value      = panDir;
+    $$('panDuration').value = panDuration;
+    $$('creditText').value  = credit;
+    $$('captionText').value = caption;
+
+    $$('importDetails').removeAttribute('open');
+    $$('importHtml').value = '';
+    showToast('Imported \u2014 edit and re-export');
+  }
+
+  $$('importBtn').addEventListener('click', function () {
+    const html = $$('importHtml').value.trim();
+    if (!html) { showToast('Paste exported HTML first'); return; }
+    try { parseAndPopulate(html); }
+    catch (e) { showToast('Import failed \u2014 paste the full exported block'); }
+  });
+
+  $$('importClearBtn').addEventListener('click', function () {
+    $$('importHtml').value = '';
+  });
+
+  /* ── live preview refresh on input ── */
+  ['imgUrl','imgAlt','panDir','panDuration','creditText','captionText'].forEach(function(id) {
+    $$(id).addEventListener('input', function () {
+      if ($$('previewWrap').style.display !== 'none') {
+        $$('previewBtn').click();
+      }
+    });
+  });
+
+})();
+</script>
+</body>
+</html>

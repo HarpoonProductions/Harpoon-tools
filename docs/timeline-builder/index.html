@@ -217,11 +217,25 @@
                 top: 0;
                 z-index: 5;
                 text-align: center;
-                padding: 10px 0;
+                padding: 10px 0 4px;
                 background: #fff;
                 font-weight: 800;
                 font-size: 1.5rem;
+            }
+            .harpoon-timeline__subtitle {
+                position: sticky;
+                top: 0;
+                z-index: 4;
+                text-align: center;
+                padding: 0 0 10px;
+                background: #fff;
+                font-weight: 500;
+                font-size: 1.05rem;
+                color: #555;
                 border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            }
+            .harpoon-timeline__subtitle:first-child {
+                padding-top: 10px;
             }
 
             .harpoon-timeline-wrapper {
@@ -496,6 +510,13 @@
                     placeholder="e.g. Tom Whidden timeline"
                 />
 
+                <label>Timeline subtitle (optional)</label>
+                <input
+                    type="text"
+                    id="subtitleInput"
+                    placeholder="e.g. A career in competitive sailing"
+                />
+
                 <div class="controls-grid" style="margin-top: 10px">
                     <div class="control-stack">
                         <div class="control-group">
@@ -558,7 +579,7 @@
                 <label>Body text (HTML allowed)</label>
                 <textarea
                     id="textInput"
-                    placeholder="e.g. <p>Started Sobstad Sails…</p>"
+                    placeholder="e.g. &lt;p&gt;Started Sobstad Sails…&lt;/p&gt;"
                 ></textarea>
 
                 <label>Image URL (optional)</label>
@@ -641,6 +662,11 @@
                             id="previewTitle"
                             style="display: none"
                         ></div>
+                        <div
+                            class="harpoon-timeline__subtitle"
+                            id="previewSubtitle"
+                            style="display: none"
+                        ></div>
                         <div class="harpoon-timeline-wrapper">
                             <div
                                 class="harpoon-timeline"
@@ -704,6 +730,7 @@
                 // -----------------------------
                 const state = {
                     title: "",
+                    subtitle: "",
                     entries: [],
                     activeTab: "html",
                     editingIndex: null,
@@ -716,6 +743,7 @@
                 const $ = (id) => document.getElementById(id);
 
                 const titleInput = $("titleInput");
+                const subtitleInput = $("subtitleInput");
 
                 const lineColor = $("lineColor");
                 const dotColor = $("dotColor");
@@ -737,6 +765,7 @@
                 const exportBtn = $("exportBtn");
 
                 const previewTitle = $("previewTitle");
+                const previewSubtitle = $("previewSubtitle");
                 const previewTimeline = $("previewTimeline");
                 const previewScroller = $("previewScroller");
                 const previewNote = $("previewNote");
@@ -839,6 +868,15 @@
                     } else {
                         previewTitle.textContent = "";
                         previewTitle.style.display = "none";
+                    }
+
+                    state.subtitle = subtitleInput.value.trim();
+                    if (state.subtitle) {
+                        previewSubtitle.textContent = state.subtitle;
+                        previewSubtitle.style.display = "block";
+                    } else {
+                        previewSubtitle.textContent = "";
+                        previewSubtitle.style.display = "none";
                     }
 
                     previewTimeline.innerHTML =
@@ -1009,6 +1047,7 @@
                 // -----------------------------
                 function exportHTML() {
                     const title = titleInput.value.trim();
+                    const subtitle = subtitleInput.value.trim();
 
                     const lines = [];
 
@@ -1017,6 +1056,12 @@
                     if (title) {
                         lines.push(
                             `  <div class="harpoon-timeline__title">${escapeHTML(title)}</div>`,
+                        );
+                    }
+
+                    if (subtitle) {
+                        lines.push(
+                            `  <div class="harpoon-timeline__subtitle">${escapeHTML(subtitle)}</div>`,
                         );
                     }
 
@@ -1080,10 +1125,28 @@
                         `  top: 0;`,
                         `  z-index: 5;`,
                         `  text-align: center;`,
-                        `  padding: 10px 0;`,
+                        `  padding: 10px 0 4px;`,
                         `  background: #fff;`,
                         `  font-weight: 700;`,
                         `  font-size: 1.5rem;`,
+                        `}`,
+                        ``,
+                        `.harpoon-timeline__subtitle{`,
+                        `  position: sticky;`,
+                        `  top: 0;`,
+                        `  z-index: 4;`,
+                        `  text-align: center;`,
+                        `  padding: 0 0 10px;`,
+                        `  background: #fff;`,
+                        `  font-weight: 500;`,
+                        `  font-size: 1.05rem;`,
+                        `  color: #555;`,
+                        `  border-bottom: 1px solid rgba(0,0,0,.06);`,
+                        `}`,
+                        ``,
+                        `/* When subtitle appears without a title above it */`,
+                        `.harpoon-timeline__subtitle:first-child{`,
+                        `  padding-top: 10px;`,
                         `}`,
                         ``,
                         `/* Horizontal scroll wrapper */`,
@@ -1234,6 +1297,13 @@
                     );
                     const title = titleEl ? titleEl.textContent.trim() : "";
 
+                    const subtitleEl = doc.querySelector(
+                        ".harpoon-timeline__subtitle",
+                    );
+                    const subtitle = subtitleEl
+                        ? subtitleEl.textContent.trim()
+                        : "";
+
                     const items = [
                         ...doc.querySelectorAll(".harpoon-timeline__item"),
                     ];
@@ -1310,7 +1380,7 @@
                         };
                     });
 
-                    return { title, entries };
+                    return { title, subtitle, entries };
                 }
 
                 function doImport() {
@@ -1321,6 +1391,7 @@
                         const parsed = parseTimelineFromHTML(html);
 
                         titleInput.value = parsed.title || "";
+                        subtitleInput.value = parsed.subtitle || "";
                         state.entries = parsed.entries || [];
                         state.editingIndex = null;
                         state.lastTouchedIndex = state.entries.length
@@ -1398,6 +1469,9 @@
                     renderPreview({ preserveScroll: true });
                 });
                 titleInput.addEventListener("input", () =>
+                    renderPreview({ preserveScroll: true }),
+                );
+                subtitleInput.addEventListener("input", () =>
                     renderPreview({ preserveScroll: true }),
                 );
 

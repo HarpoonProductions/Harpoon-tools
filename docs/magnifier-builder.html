@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harpoon Image Magnifier Builder v1.0.0</title>
+<style>
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 24px;
+    background: #fafafa;
+    color: #111;
+}
+h1 { font-size: 22px; margin: 0 0 14px; }
+.builder { max-width: 980px; margin: 0 auto 28px; }
+
+fieldset {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 0 0 16px;
+}
+legend { font-size: 12px; font-weight: 800; padding: 0 6px; }
+label { display: block; font-size: 12px; font-weight: 800; margin: 10px 0 6px; }
+
+input[type="text"], input[type="number"], input[type="range"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+input[type="range"] {
+    padding: 4px 0;
+    border: none;
+    border-radius: 0;
+    cursor: pointer;
+}
+input[type="number"] { width: auto; min-width: 80px; }
+
+.controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+.control-group { display: flex; flex-direction: column; gap: 6px; }
+
+.range-row { display: flex; align-items: center; gap: 10px; }
+.range-row input[type="range"] { flex: 1; }
+.range-val { font-size: 13px; font-weight: 700; min-width: 36px; text-align: right; }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+button {
+    appearance: none;
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.primary { background: #111; color: #fff; }
+.secondary { background: #eee; color: #111; }
+.mini { padding: 8px 10px; font-size: 13px; border-radius: 10px; }
+
+.helper { font-size: 13px; color: #444; margin: 6px 0 0; line-height: 1.35; }
+
+/* Preview panel */
+.preview { background: #fff; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; }
+.preview__bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+    background: #fafafa;
+}
+.preview__bar .left { display: flex; gap: 10px; align-items: center; }
+.pill { font-size: 12px; font-weight: 800; background: #111; color: #fff; padding: 6px 10px; border-radius: 999px; }
+.smallnote { font-size: 12px; color: #555; }
+.preview__content { padding: 16px; background: #f5f5f5; min-height: 200px; }
+
+/* Image magnifier widget */
+.mg-wrap {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    cursor: crosshair;
+    user-select: none;
+    -webkit-user-select: none;
+    line-height: 0;
+}
+.mg-wrap img { display: block; width: 100%; height: auto; border-radius: 8px; }
+.mg-lens {
+    position: absolute;
+    border: 2.5px solid rgba(255,255,255,0.9);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.2), 0 4px 16px rgba(0,0,0,0.25);
+    pointer-events: none;
+    overflow: hidden;
+    display: none;
+}
+.mg-lens canvas { position: absolute; top: 0; left: 0; display: block; }
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+.modal.open { display: flex; }
+.modal__box {
+    background: #fff;
+    border-radius: 14px;
+    width: min(680px, 95vw);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.modal__tabs { display: flex; border-bottom: 1px solid #eee; }
+.modal__tabs button {
+    flex: 1;
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    padding: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #555;
+    border-radius: 0;
+    cursor: pointer;
+}
+.modal__tabs button.active { color: #111; border-bottom-color: #111; }
+.modal__content { flex: 1; overflow-y: auto; padding: 16px; }
+.modal__content pre {
+    margin: 0;
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #222;
+}
+.modal__footer {
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px;
+    border-top: 1px solid #eee;
+    background: #fafafa;
+    align-items: center;
+}
+.toast { font-size: 13px; color: #2a7a2a; font-weight: 700; opacity: 0; transition: opacity 0.2s; }
+.toast.show { opacity: 1; }
+
+/* Footer credit */
+.builder-credit {
+    max-width: 980px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 0 6px;
+    color: #666;
+    font-size: 13px;
+}
+.builder-credit img { width: 22px; height: 22px; border-radius: 50%; }
+.builder-credit a { color: #666; text-decoration: none; font-weight: 800; }
+.builder-credit a:hover { text-decoration: underline; }
+
+.url-row { display: flex; gap: 8px; align-items: flex-end; }
+.url-row input { flex: 1; }
+.url-row button { white-space: nowrap; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div class="builder">
+    <h1>Harpoon Image Magnifier v1.0.0</h1>
+
+    <fieldset>
+        <legend>Image</legend>
+        <label>Image URL</label>
+        <div class="url-row">
+            <input type="text" id="imgUrl" placeholder="https://your-bucket.s3.amazonaws.com/image.jpg" />
+            <button class="primary" onclick="loadImage()">Load image</button>
+        </div>
+        <p class="helper">Images must allow cross-origin access (standard for S3 web-hosting buckets). The default below is a placeholder — replace with your own URL.</p>
+    </fieldset>
+
+    <fieldset>
+        <legend>Magnifier settings</legend>
+        <div class="controls-grid">
+            <div class="control-group">
+                <label>Lens size</label>
+                <div class="range-row">
+                    <input type="range" id="lensSize" min="80" max="320" value="180" step="10" oninput="onSettingChange()">
+                    <span class="range-val" id="lensSizeVal">180px</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>Zoom level</label>
+                <div class="range-row">
+                    <input type="range" id="zoomLevel" min="1.5" max="8" value="3" step="0.5" oninput="onSettingChange()">
+                    <span class="range-val" id="zoomVal">3×</span>
+                </div>
+            </div>
+        </div>
+    </fieldset>
+
+    <div class="preview">
+        <div class="preview__bar">
+            <div class="left">
+                <span class="pill">Preview</span>
+                <span class="smallnote">Desktop: hover · Mobile: drag</span>
+            </div>
+            <button class="secondary mini" onclick="openModal()">Export HTML</button>
+        </div>
+        <div class="preview__content">
+            <div class="mg-wrap" id="mgWrap">
+                <img id="mgImg"
+                    src="https://images.unsplash.com/photo-1542621334-a254cf47733d?w=1400&q=80"
+                    alt="Preview image"
+                    draggable="false"
+                    crossorigin="anonymous" />
+                <div class="mg-lens" id="mgLens"><canvas id="mgCanvas"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="actions" style="margin-top: 12px;">
+        <button class="primary" onclick="openModal()">Export HTML</button>
+    </div>
+</div>
+
+<!-- Footer -->
+<div class="builder-credit">
+    <img src="https://pbs.twimg.com/profile_images/1200397581333024768/kEKej87-_400x400.jpg" alt="Harpoon Productions logo">
+    Built by <a href="https://harpoonproductions.co" target="_blank">Harpoon Productions</a>
+</div>
+
+<!-- Export modal -->
+<div class="modal" id="modal">
+    <div class="modal__box" role="dialog" aria-modal="true" aria-label="Export HTML">
+        <div class="modal__tabs">
+            <button class="active" id="tabHtml" onclick="setTab('html')">HTML</button>
+            <button id="tabCss" onclick="setTab('css')">CSS</button>
+        </div>
+        <div class="modal__content">
+            <pre id="modalContent"></pre>
+        </div>
+        <div class="modal__footer">
+            <button class="primary" onclick="copyModal()">Copy</button>
+            <button class="secondary" onclick="closeModal()">Close</button>
+            <span class="toast" id="toast">Copied</span>
+        </div>
+    </div>
+</div>
+
+<script>
+const mgImg = document.getElementById('mgImg');
+const mgLens = document.getElementById('mgLens');
+const mgCanvas = document.getElementById('mgCanvas');
+const mgWrap = document.getElementById('mgWrap');
+const ctx = mgCanvas.getContext('2d');
+
+let lensSize = 180;
+let zoom = 3;
+let active = false;
+let offscreen = new Image();
+offscreen.crossOrigin = 'anonymous';
+offscreen.src = mgImg.src;
+
+function onSettingChange() {
+    lensSize = parseInt(document.getElementById('lensSize').value);
+    zoom = parseFloat(document.getElementById('zoomLevel').value);
+    document.getElementById('lensSizeVal').textContent = lensSize + 'px';
+    document.getElementById('zoomVal').textContent = zoom.toFixed(1) + '×';
+}
+
+function loadImage() {
+    const url = document.getElementById('imgUrl').value.trim();
+    if (!url) return;
+    mgImg.src = url;
+    offscreen = new Image();
+    offscreen.crossOrigin = 'anonymous';
+    offscreen.src = url;
+    mgImg.alt = 'Loaded image';
+}
+
+function getPos(e) {
+    const r = mgWrap.getBoundingClientRect();
+    let x, y;
+    if (e.touches) {
+        x = e.touches[0].clientX - r.left;
+        y = e.touches[0].clientY - r.top;
+    } else {
+        x = e.clientX - r.left;
+        y = e.clientY - r.top;
+    }
+    return { x: Math.max(0, Math.min(x, r.width)), y: Math.max(0, Math.min(y, r.height)) };
+}
+
+function drawLens(x, y) {
+    const r = mgWrap.getBoundingClientRect();
+    const sx = offscreen.naturalWidth / r.width;
+    const sy = offscreen.naturalHeight / r.height;
+    const half = lensSize / 2;
+
+    let lx = Math.max(0, Math.min(x - half, r.width - lensSize));
+    let ly = Math.max(0, Math.min(y - half, r.height - lensSize));
+
+    mgLens.style.left = lx + 'px';
+    mgLens.style.top = ly + 'px';
+    mgLens.style.width = lensSize + 'px';
+    mgLens.style.height = lensSize + 'px';
+    mgLens.style.display = 'block';
+
+    mgCanvas.width = lensSize;
+    mgCanvas.height = lensSize;
+    ctx.clearRect(0, 0, lensSize, lensSize);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(half, half, half, 0, Math.PI * 2);
+    ctx.clip();
+
+    const srcX = (x * sx) - (half * sx / zoom);
+    const srcY = (y * sy) - (half * sy / zoom);
+    const srcW = (lensSize * sx) / zoom;
+    const srcH = (lensSize * sy) / zoom;
+    ctx.drawImage(offscreen, srcX, srcY, srcW, srcH, 0, 0, lensSize, lensSize);
+    ctx.restore();
+}
+
+mgWrap.addEventListener('mousemove', e => { const p = getPos(e); drawLens(p.x, p.y); });
+mgWrap.addEventListener('mouseleave', () => { mgLens.style.display = 'none'; });
+mgWrap.addEventListener('touchstart', e => { e.preventDefault(); active = true; const p = getPos(e); drawLens(p.x, p.y); }, { passive: false });
+mgWrap.addEventListener('touchmove', e => { e.preventDefault(); if (active) { const p = getPos(e); drawLens(p.x, p.y); } }, { passive: false });
+mgWrap.addEventListener('touchend', () => { active = false; mgLens.style.display = 'none'; });
+
+// Modal / export
+let currentTab = 'html';
+
+function getExportHtml() {
+    const src = mgImg.src;
+    const alt = mgImg.alt || '';
+    const ls = lensSize;
+    const zm = zoom.toFixed(1);
+    return `<div class="mg-wrap" id="mg-${Date.now()}">
+  <img src="${src}" alt="${alt}" class="mg-img" draggable="false" crossorigin="anonymous">
+  <div class="mg-lens"><canvas class="mg-canvas"></canvas></div>
+</div>`;
+}
+
+function getExportCss() {
+    const ls = lensSize;
+    const zm = zoom.toFixed(1);
+    return `.mg-wrap{position:relative;display:inline-block;width:100%;cursor:crosshair;user-select:none;-webkit-user-select:none;line-height:0}
+.mg-wrap .mg-img{display:block;width:100%;height:auto}
+.mg-lens{position:absolute;border:2.5px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.2),0 4px 16px rgba(0,0,0,.25);pointer-events:none;overflow:hidden;display:none}
+.mg-lens .mg-canvas{position:absolute;top:0;left:0;display:block}`;
+}
+
+function getExportJs() {
+    const ls = lensSize;
+    const zm = zoom.toFixed(1);
+    return `<script>
+(function(){
+  document.querySelectorAll('.mg-wrap').forEach(function(wrap){
+    var img=wrap.querySelector('.mg-img'),
+        lens=wrap.querySelector('.mg-lens'),
+        canvas=wrap.querySelector('.mg-canvas'),
+        ctx=canvas.getContext('2d'),
+        ls=${ls},zm=${zm},active=false,
+        off=new Image();
+    off.crossOrigin='anonymous';
+    off.src=img.src;
+    img.addEventListener('load',function(){off.src=img.src;});
+    function gp(e){var r=wrap.getBoundingClientRect(),x,y;
+      if(e.touches){x=e.touches[0].clientX-r.left;y=e.touches[0].clientY-r.top;}
+      else{x=e.clientX-r.left;y=e.clientY-r.top;}
+      return{x:Math.max(0,Math.min(x,r.width)),y:Math.max(0,Math.min(y,r.height))};}
+    function draw(x,y){
+      var r=wrap.getBoundingClientRect(),sx=off.naturalWidth/r.width,sy=off.naturalHeight/r.height,h=ls/2;
+      lens.style.cssText+='width:'+ls+'px;height:'+ls+'px;left:'+Math.max(0,Math.min(x-h,r.width-ls))+'px;top:'+Math.max(0,Math.min(y-h,r.height-ls))+'px;display:block;';
+      canvas.width=ls;canvas.height=ls;
+      ctx.save();ctx.beginPath();ctx.arc(h,h,h,0,Math.PI*2);ctx.clip();
+      ctx.drawImage(off,(x*sx)-(h*sx/zm),(y*sy)-(h*sy/zm),(ls*sx)/zm,(ls*sy)/zm,0,0,ls,ls);
+      ctx.restore();}
+    wrap.addEventListener('mousemove',function(e){draw(gp(e).x,gp(e).y);});
+    wrap.addEventListener('mouseleave',function(){lens.style.display='none';});
+    wrap.addEventListener('touchstart',function(e){e.preventDefault();active=true;var p=gp(e);draw(p.x,p.y);},{passive:false});
+    wrap.addEventListener('touchmove',function(e){e.preventDefault();if(active){var p=gp(e);draw(p.x,p.y);}},{passive:false});
+    wrap.addEventListener('touchend',function(){active=false;lens.style.display='none';});
+  });
+})();
+<\/script>`;
+}
+
+function setTab(t) {
+    currentTab = t;
+    document.getElementById('tabHtml').classList.toggle('active', t === 'html');
+    document.getElementById('tabCss').classList.toggle('active', t === 'css');
+    if (t === 'html') {
+        document.getElementById('modalContent').textContent = getExportHtml() + '\n\n<style>\n' + getExportCss() + '\n</style>\n\n' + getExportJs();
+    } else {
+        document.getElementById('modalContent').textContent = getExportCss();
+    }
+}
+
+function openModal() {
+    setTab('html');
+    document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) closeModal(); });
+
+async function copyModal() {
+    const text = document.getElementById('modalContent').textContent;
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    }
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+onSettingChange();
+</script>
+</body>
+</html>

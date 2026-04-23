@@ -1,0 +1,1085 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Harpoon Quiz Builder v0 (Static Prototype)</title>
+
+<style>
+  :root{
+    --ui-bg:#f6f7f9;
+    --ui-card:#ffffff;
+    --ui-border:#e6e8ee;
+    --ui-text:#111827;
+    --ui-muted:#6b7280;
+    --ui-accent:#ed6b2d;
+    --ui-radius:14px;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:var(--ui-bg);
+    color:var(--ui-text);
+  }
+  header{
+    padding:18px 20px;
+    background: linear-gradient(180deg, #fff, #fff0);
+    border-bottom:1px solid var(--ui-border);
+    position:sticky; top:0; z-index:10;
+    backdrop-filter: blur(8px);
+  }
+  header .row{
+    display:flex; align-items:baseline; justify-content:space-between; gap:16px;
+    max-width: 1400px; margin:0 auto;
+  }
+  h1{ font-size:18px; margin:0; letter-spacing:0.2px; }
+  .sub{ color:var(--ui-muted); font-size:13px; }
+
+  .layout{
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 18px 20px 30px;
+    display:grid;
+    grid-template-columns: 520px 1fr;
+    gap: 18px;
+  }
+
+  .panel{
+    background:var(--ui-card);
+    border:1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    overflow:hidden;
+    box-shadow: 0 8px 20px rgba(17,24,39,0.04);
+    min-width:0;
+  }
+
+  .panel__head{
+    padding:14px 14px;
+    border-bottom:1px solid var(--ui-border);
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    background:#fff;
+  }
+  .panel__head h2{
+    margin:0; font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:#374151;
+  }
+  .panel__body{
+    padding: 14px;
+  }
+
+  .stack{ display:flex; flex-direction:column; gap:14px; }
+  .section{
+    border:1px solid var(--ui-border);
+    border-radius: 12px;
+    padding: 12px;
+    background:#fff;
+  }
+  .section h3{
+    margin:0 0 10px;
+    font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:#374151;
+  }
+
+  label{
+    display:block;
+    font-size:12px;
+    color:#374151;
+    margin: 8px 0 6px;
+  }
+  input[type="text"], textarea, select{
+    width:100%;
+    padding:10px 10px;
+    border:1px solid var(--ui-border);
+    border-radius: 10px;
+    font: inherit;
+    background:#fff;
+  }
+  textarea{ min-height:72px; resize:vertical; }
+  .row2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  .row3{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; }
+
+  .small{
+    font-size:12px;
+    color:var(--ui-muted);
+    margin-top:6px;
+    line-height:1.35;
+  }
+
+  .cards{ display:flex; flex-direction:column; gap:10px; }
+  .item{
+    border:1px solid var(--ui-border);
+    border-radius: 12px;
+    padding: 10px;
+    background:#fcfcfd;
+  }
+  .item__head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-bottom:8px;
+  }
+  .item__title{
+    font-weight:700; font-size:13px;
+  }
+  .btns{ display:flex; gap:8px; flex-wrap:wrap; }
+
+  button{
+    border:1px solid var(--ui-border);
+    background:#fff;
+    color:#111827;
+    padding:9px 10px;
+    border-radius: 10px;
+    font:inherit;
+    cursor:pointer;
+  }
+  button:hover{ border-color:#cfd6e4; }
+  .primary{
+    background: var(--ui-accent);
+    border-color: var(--ui-accent);
+    color:#fff;
+  }
+  .danger{
+    border-color:#f2c7c7;
+    color:#b42318;
+    background:#fff;
+  }
+  .ghost{
+    background:#fff;
+    color:#111827;
+  }
+  .pill{
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size:12px;
+  }
+
+  .status{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding: 10px 12px;
+    border-top:1px solid var(--ui-border);
+    background:#fff;
+    position:sticky;
+    bottom:0;
+  }
+  .status .msg{ font-size:12px; color:var(--ui-muted); }
+  .status .msg.ok{ color:#067647; font-weight:600; }
+  .status .msg.bad{ color:#b42318; font-weight:600; }
+
+  /* Preview panel */
+  .previewWrap{
+    display:grid;
+    grid-template-rows: auto 1fr;
+    min-height: calc(100vh - 110px);
+  }
+  .previewTools{
+    display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;
+  }
+  .previewTools .left{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .previewTools .right{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .tag{
+    font-size:12px;
+    color:#374151;
+    background:#f3f4f6;
+    border:1px solid var(--ui-border);
+    padding:6px 10px;
+    border-radius: 999px;
+  }
+  iframe{
+    width:100%;
+    height:100%;
+    border:0;
+    background:#fff;
+  }
+
+  .codebox{
+    width:100%;
+    min-height: 220px;
+    border:1px solid var(--ui-border);
+    border-radius: 12px;
+    padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    background:#0b1220;
+    color:#d6e2ff;
+    line-height:1.35;
+  }
+
+  @media (max-width: 1100px){
+    .layout{ grid-template-columns: 1fr; }
+    .previewWrap{ min-height: 60vh; }
+  }
+</style>
+</head>
+
+<body>
+<header>
+  <div class="row">
+    <div>
+      <h1>Quiz Builder <span class="sub">— static prototype (Harpoon)</span></h1>
+      <div class="sub">Edits on the left • Live preview on the right • Generates a copy-paste embed for Shorthand</div>
+    </div>
+    <div class="sub">Runtime: <strong>Gen Quiz v1.1</strong></div>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- LEFT: Builder -->
+  <section class="panel">
+    <div class="panel__head">
+      <h2>Content</h2>
+      <div class="btns">
+        <button class="pill ghost" id="btnReset">Reset</button>
+        <button class="pill ghost" id="btnLoadDemo">Load demo</button>
+      </div>
+    </div>
+
+    <div class="panel__body">
+      <div class="stack">
+
+        <div class="section">
+          <h3>Quiz metadata</h3>
+          <label for="metaKicker">Kicker (optional)</label>
+          <input id="metaKicker" type="text" placeholder="QUIZ" />
+
+          <label for="metaTitle">Main title</label>
+          <input id="metaTitle" type="text" placeholder="WHICH GENERATION IS THIS?" />
+        </div>
+
+        <div class="section">
+          <h3>Answer options</h3>
+          <div class="small">Minimum 2 options. These are the visual cards a reader can choose from.</div>
+          <div class="cards" id="optionsList"></div>
+          <div style="margin-top:10px;">
+            <button class="primary" id="btnAddOption">+ Add option</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Questions</h3>
+          <div class="small">Each question needs a correct answer. Explanation is optional (shown after answering).</div>
+          <div class="cards" id="questionsList"></div>
+          <div style="margin-top:10px;">
+            <button class="primary" id="btnAddQuestion">+ Add question</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Output</h3>
+          <div class="btns" style="margin-bottom:10px;">
+            <button class="primary" id="btnCopyEmbed">Copy embed code</button>
+            <button id="btnDownload">Download HTML file</button>
+          </div>
+          <textarea class="codebox" id="embedCode" spellcheck="false"></textarea>
+          <div class="small">Tip: in Shorthand, paste the embed into an HTML element. Images are referenced by URL.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="status">
+      <div class="msg" id="validMsg">Editing…</div>
+      <div class="btns">
+        <button class="pill" id="btnCopyConfig">Copy config JSON</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: Preview -->
+  <section class="panel previewWrap">
+    <div class="panel__head">
+      <h2>Live preview</h2>
+      <div class="previewTools">
+        <div class="left">
+          <span class="tag" id="previewTag">Preview using locked runtime v1.1</span>
+        </div>
+        <div class="right">
+          <button class="pill" id="btnRefreshPreview">Refresh preview</button>
+        </div>
+      </div>
+    </div>
+    <iframe id="previewFrame" title="Quiz preview"></iframe>
+  </section>
+
+</main>
+
+<script>
+/* =========================================================
+   QUIZ BUILDER v0 — STATIC PROTOTYPE
+   - Left side edits generate GEN_QUIZ_CONFIG
+   - Right side preview renders the locked runtime v1.1 via iframe srcdoc
+   ========================================================= */
+
+(function(){
+  const els = {
+    metaKicker: document.getElementById('metaKicker'),
+    metaTitle: document.getElementById('metaTitle'),
+    optionsList: document.getElementById('optionsList'),
+    questionsList: document.getElementById('questionsList'),
+    embedCode: document.getElementById('embedCode'),
+    validMsg: document.getElementById('validMsg'),
+    previewFrame: document.getElementById('previewFrame'),
+    btnAddOption: document.getElementById('btnAddOption'),
+    btnAddQuestion: document.getElementById('btnAddQuestion'),
+    btnCopyEmbed: document.getElementById('btnCopyEmbed'),
+    btnCopyConfig: document.getElementById('btnCopyConfig'),
+    btnDownload: document.getElementById('btnDownload'),
+    btnRefreshPreview: document.getElementById('btnRefreshPreview'),
+    btnReset: document.getElementById('btnReset'),
+    btnLoadDemo: document.getElementById('btnLoadDemo')
+  };
+
+  const DEFAULTS = {
+    meta: { kicker: "QUIZ", title: "WHICH GENERATION IS THIS?" },
+    options: [
+      {
+        label: "Baby Boomers",
+        years: "1946–1964",
+        image: "https://harpn.s3-eu-west-2.amazonaws.com/haymarket/amazon-canada/Generation%20Headshots-Boomer.png",
+        colorVar: "--color-boomer"
+      },
+      {
+        label: "Gen X",
+        years: "1965–1980",
+        image: "https://harpn.s3-eu-west-2.amazonaws.com/haymarket/amazon-canada/Generation%20Headshots-X.png",
+        colorVar: "--color-genx"
+      },
+      {
+        label: "Millennials",
+        years: "1981–1996",
+        image: "https://harpn.s3-eu-west-2.amazonaws.com/haymarket/amazon-canada/Generation%20Headshots-Millennial.png",
+        colorVar: "--color-millennial"
+      },
+      {
+        label: "Gen Z",
+        years: "1997–2012",
+        image: "https://harpn.s3-eu-west-2.amazonaws.com/haymarket/amazon-canada/Generation%20Headshots-Z.png",
+        colorVar: "--color-genz"
+      }
+    ],
+    questions: [
+      {
+        text: "91% believe that everyone should have the freedom to be true to themselves",
+        correctIndex: 0,
+        explanation: "Baby Boomers scored highest on this measure, reflecting post-war shifts in social values."
+      },
+      {
+        text: "43% make an effort to limit their use of screens and electronics",
+        correctIndex: 3,
+        explanation: "Gen Z respondents were most likely to actively manage screen time."
+      },
+      {
+        text: "79% do what they can to safeguard their financial future",
+        correctIndex: 2,
+        explanation: "Millennials showed the strongest concern about long-term financial stability."
+      }
+    ]
+  };
+
+  // Internal state (builder-friendly; we generate stable option keys)
+  let state = makeInitialState(DEFAULTS);
+
+  function makeInitialState(seed){
+    const options = seed.options.map((o, i) => ({
+      key: `opt_${i+1}`,
+      label: o.label || `Option ${i+1}`,
+      years: o.years || "",
+      image: o.image || "",
+      colorVar: o.colorVar || "--color-boomer"
+    }));
+    const questions = (seed.questions || []).map((q, i) => ({
+      id: `q_${i+1}`,
+      text: q.text || "",
+      correctKey: options[q.correctIndex]?.key || options[0]?.key || "opt_1",
+      explanation: q.explanation || ""
+    }));
+    return {
+      meta: {
+        kicker: seed.meta?.kicker ?? "QUIZ",
+        title: seed.meta?.title ?? ""
+      },
+      options,
+      questions
+    };
+  }
+
+  function toConfig(){
+    return {
+      meta: {
+        kicker: state.meta.kicker || "",
+        title: state.meta.title || ""
+      },
+      options: state.options.map(o => ({
+        key: o.key,
+        label: o.label,
+        years: o.years,
+        image: o.image,
+        colorVar: o.colorVar
+      })),
+      questions: state.questions.map(q => ({
+        text: q.text,
+        correctKey: q.correctKey,
+        ...(q.explanation?.trim() ? { explanation: q.explanation.trim() } : {})
+      }))
+    };
+  }
+
+  function validate(config){
+    const problems = [];
+
+    if (!config.meta.title || !config.meta.title.trim()) problems.push("Main title is required.");
+    if (!config.options || config.options.length < 2) problems.push("At least 2 options are required.");
+    if (!config.questions || config.questions.length < 1) problems.push("At least 1 question is required.");
+
+    const optionKeys = new Set(config.options.map(o => o.key));
+    const labels = config.options.map(o => (o.label || "").trim()).filter(Boolean);
+    const uniqueLabels = new Set(labels);
+    if (labels.length !== uniqueLabels.size) problems.push("Option labels must be unique (helps editors avoid confusion).");
+
+    config.options.forEach((o, i) => {
+      if (!o.label?.trim()) problems.push(`Option ${i+1}: label is required.`);
+      if (!o.image?.trim()) problems.push(`Option ${i+1}: image URL is required.`);
+      if (!o.colorVar?.trim()) problems.push(`Option ${i+1}: colour variable is required.`);
+    });
+
+    config.questions.forEach((q, i) => {
+      if (!q.text?.trim()) problems.push(`Question ${i+1}: question text is required.`);
+      if (!q.correctKey || !optionKeys.has(q.correctKey)) problems.push(`Question ${i+1}: correct answer must be selected.`);
+    });
+
+    return problems;
+  }
+
+  function render(){
+    // Meta inputs
+    els.metaKicker.value = state.meta.kicker;
+    els.metaTitle.value = state.meta.title;
+
+    // Options
+    els.optionsList.innerHTML = state.options.map((opt, idx) => optionCard(opt, idx)).join('');
+    // Questions
+    els.questionsList.innerHTML = state.questions.map((q, idx) => questionCard(q, idx)).join('');
+
+    wireOptionEvents();
+    wireQuestionEvents();
+
+    // Generate embed + preview
+    const config = toConfig();
+    const problems = validate(config);
+    updateStatus(problems);
+
+    const embed = buildEmbedHTML(config);
+    els.embedCode.value = embed;
+
+    // Live preview
+    updatePreview(embed);
+  }
+
+  function updateStatus(problems){
+    if (problems.length){
+      els.validMsg.textContent = "Fix: " + problems[0];
+      els.validMsg.className = "msg bad";
+    } else {
+      els.validMsg.textContent = "✓ Quiz valid";
+      els.validMsg.className = "msg ok";
+    }
+  }
+
+  function optionCard(opt, idx){
+    const colorChoices = [
+      "--color-boomer",
+      "--color-genx",
+      "--color-millennial",
+      "--color-genz"
+    ];
+    const colorOptions = colorChoices.map(v => `<option value="${v}" ${opt.colorVar===v?'selected':''}>${v}</option>`).join('');
+    return `
+      <div class="item" data-opt="${opt.key}">
+        <div class="item__head">
+          <div class="item__title">Option ${idx+1} <span class="sub">(${opt.key})</span></div>
+          <div class="btns">
+            <button class="pill" data-act="opt-up" ${idx===0?'disabled':''}>↑</button>
+            <button class="pill" data-act="opt-down" ${idx===state.options.length-1?'disabled':''}>↓</button>
+            <button class="pill danger" data-act="opt-del" ${state.options.length<=2?'disabled':''}>Remove</button>
+          </div>
+        </div>
+        <div class="row2">
+          <div>
+            <label>Label</label>
+            <input type="text" data-field="label" value="${escapeAttr(opt.label)}" placeholder="Gen X" />
+          </div>
+          <div>
+            <label>Years</label>
+            <input type="text" data-field="years" value="${escapeAttr(opt.years)}" placeholder="1965–1980" />
+          </div>
+        </div>
+        <label style="margin-top:10px;">Image URL</label>
+        <input type="text" data-field="image" value="${escapeAttr(opt.image)}" placeholder="https://…" />
+        <div class="row2" style="margin-top:10px;">
+          <div>
+            <label>Colour variable</label>
+            <select data-field="colorVar">${colorOptions}</select>
+            <div class="small">Uses CSS variables inside the runtime.</div>
+          </div>
+          <div>
+            <label>Preview swatch</label>
+            <div style="height:42px;border-radius:10px;border:1px solid var(--ui-border);background:var(${opt.colorVar});"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function questionCard(q, idx){
+    const options = state.options.map(o => `<option value="${o.key}" ${q.correctKey===o.key?'selected':''}>${escapeHtml(o.label || o.key)}</option>`).join('');
+    return `
+      <div class="item" data-q="${q.id}">
+        <div class="item__head">
+          <div class="item__title">Question ${idx+1}</div>
+          <div class="btns">
+            <button class="pill" data-act="q-up" ${idx===0?'disabled':''}>↑</button>
+            <button class="pill" data-act="q-down" ${idx===state.questions.length-1?'disabled':''}>↓</button>
+            <button class="pill danger" data-act="q-del" ${state.questions.length<=1?'disabled':''}>Remove</button>
+          </div>
+        </div>
+
+        <label>Question text</label>
+        <textarea data-field="text" placeholder="Type the question…">${escapeHtml(q.text)}</textarea>
+
+        <div class="row2" style="margin-top:10px;">
+          <div>
+            <label>Correct answer</label>
+            <select data-field="correctKey">${options}</select>
+          </div>
+          <div>
+            <label>Explanation (optional)</label>
+            <textarea data-field="explanation" placeholder="Shown after answering…">${escapeHtml(q.explanation || "")}</textarea>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function wireOptionEvents(){
+    els.optionsList.querySelectorAll('.item').forEach(item => {
+      const key = item.getAttribute('data-opt');
+
+      item.querySelectorAll('[data-field]').forEach(fieldEl => {
+        fieldEl.addEventListener('input', () => {
+          const field = fieldEl.getAttribute('data-field');
+          const opt = state.options.find(o => o.key === key);
+          opt[field] = fieldEl.value;
+          // If label changes, dropdown text should update
+          render();
+        });
+      });
+
+      item.querySelectorAll('button[data-act]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const act = btn.getAttribute('data-act');
+          const i = state.options.findIndex(o => o.key === key);
+          if (act === 'opt-del' && state.options.length > 2){
+            // Also repair any questions pointing at this option -> switch to first option
+            const deletedKey = state.options[i].key;
+            state.options.splice(i,1);
+            const fallback = state.options[0].key;
+            state.questions.forEach(q => { if (q.correctKey === deletedKey) q.correctKey = fallback; });
+            render();
+          }
+          if (act === 'opt-up' && i > 0){
+            swap(state.options, i, i-1);
+            render();
+          }
+          if (act === 'opt-down' && i < state.options.length-1){
+            swap(state.options, i, i+1);
+            render();
+          }
+        });
+      });
+    });
+  }
+
+  function wireQuestionEvents(){
+    els.questionsList.querySelectorAll('.item').forEach(item => {
+      const id = item.getAttribute('data-q');
+
+      item.querySelectorAll('[data-field]').forEach(fieldEl => {
+        const field = fieldEl.getAttribute('data-field');
+        const evt = (fieldEl.tagName === 'SELECT') ? 'change' : 'input';
+        fieldEl.addEventListener(evt, () => {
+          const q = state.questions.find(x => x.id === id);
+          q[field] = fieldEl.value;
+          render();
+        });
+      });
+
+      item.querySelectorAll('button[data-act]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const act = btn.getAttribute('data-act');
+          const i = state.questions.findIndex(q => q.id === id);
+          if (act === 'q-del' && state.questions.length > 1){
+            state.questions.splice(i,1);
+            render();
+          }
+          if (act === 'q-up' && i > 0){
+            swap(state.questions, i, i-1);
+            render();
+          }
+          if (act === 'q-down' && i < state.questions.length-1){
+            swap(state.questions, i, i+1);
+            render();
+          }
+        });
+      });
+    });
+  }
+
+  function swap(arr, i, j){
+    const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+
+  function addOption(){
+    const next = state.options.length + 1;
+    const key = `opt_${next}`;
+    state.options.push({
+      key,
+      label: `Option ${next}`,
+      years: "",
+      image: "",
+      colorVar: "--color-boomer"
+    });
+    // Questions stay intact; new option appears in dropdowns.
+    render();
+  }
+
+  function addQuestion(){
+    const next = state.questions.length + 1;
+    state.questions.push({
+      id: `q_${next}_${Math.random().toString(16).slice(2,6)}`,
+      text: "",
+      correctKey: state.options[0]?.key || "opt_1",
+      explanation: ""
+    });
+    render();
+  }
+
+  function escapeHtml(s){
+    return String(s ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;");
+  }
+  function escapeAttr(s){
+    return escapeHtml(s).replaceAll('"','&quot;');
+  }
+
+  // Build the single “paste this into Shorthand” block:
+  function buildEmbedHTML(config){
+    const configScript =
+`<script>
+window.GEN_QUIZ_CONFIG = ${JSON.stringify(config, null, 2)};
+</script>`;
+
+    // Locked runtime v1.1 (scoped; no external deps)
+    // NOTE: We keep IDs fixed because Shorthand embeds are typically one instance.
+    // If you later want multiple quizzes per page, we’ll namespace IDs.
+    const html =
+`${configScript}
+
+<section class="gen-quiz" aria-label="Quiz">
+  <div class="gen-quiz__shell">
+    <div class="gen-quiz__qViewport" role="region" aria-roledescription="carousel">
+      <h3 id="genQuizKicker"></h3>
+      <h4 id="genQuizHeading"></h4>
+
+      <div class="gen-quiz__qTrack" id="genQuizQTrack"></div>
+      <div class="gen-quiz__explanation" id="genQuizExplanation" aria-live="polite"></div>
+
+      <div class="gen-quiz__qControls" aria-label="Question navigation">
+        <button class="gen-quiz__btn" type="button" id="genQuizPrev" aria-label="Previous question">‹</button>
+        <div class="gen-quiz__dots" id="genQuizDots" aria-label="Question dots"></div>
+        <button class="gen-quiz__btn" type="button" id="genQuizNext" aria-label="Next question">›</button>
+      </div>
+    </div>
+
+    <div class="gen-quiz__options" id="genQuizOptions" aria-label="Answer options"></div>
+  </div>
+</section>
+
+<style>
+:root {
+  --quiz-bg: #0b0d10;
+  --quiz-card: #171d25;
+  --quiz-text: #171d25;
+  --quiz-accent: #ed6b2d;
+  --quiz-radius: 18px;
+  --quiz-gap: 20px;
+
+  --color-boomer: #ea8ce8;
+  --color-genx: #5ca7f1;
+  --color-millennial: #62c869;
+  --color-genz: #fae25b;
+}
+
+/* Universal Font Application (adjust to taste) */
+.gen-quiz, .gen-quiz * {
+  font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
+}
+
+.gen-quiz { background: #f9f9f9; padding: 40px 0; }
+
+.gen-quiz__shell {
+  width: 85%;
+  max-width: 1400px;
+  margin: 0 auto;
+  background: white;
+  border-radius: var(--quiz-radius);
+  padding-bottom: 40px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+}
+
+.gen-quiz__qViewport { padding: 40px 0; text-align: center; overflow: hidden; }
+.gen-quiz h3 { color: var(--quiz-accent); letter-spacing: 2px; font-size: 0.9rem; font-weight: 700; margin-bottom: 8px;}
+.gen-quiz h4 { font-size: 1.4rem; margin-top: 0; color: #444; font-weight: 800; }
+
+.gen-quiz__qTrack { display: flex; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+.gen-quiz__qSlide { flex: 0 0 100%; }
+.gen-quiz__question { font-weight: 800; font-size: clamp(1.8rem, 4vw, 3rem); line-height: 1.1; color: #171d25; padding: 0 10%; }
+
+.gen-quiz__qControls { margin-top: 30px; display: flex; align-items: center; justify-content: center; gap: 20px; }
+.gen-quiz__dots { display: flex; gap: 10px; }
+.gen-quiz__dot { width: 14px; height: 14px; border-radius: 4px; background: #e0e0e0; border: none; transition: 0.3s; }
+.gen-quiz__dot[aria-current="true"] { background: var(--quiz-accent); }
+
+.gen-quiz__btn {
+  width: 50px; height: 50px; border-radius: 50%; border: none; background: var(--quiz-accent);
+  color: white; font-size: 1.8rem; cursor: pointer; transition: all 0.3s ease;
+  display: flex; align-items: center; justify-content: center;
+}
+.gen-quiz__btn--next.can-proceed { width: 140px; border-radius: 30px; font-size: 1.1rem; font-weight: bold; }
+
+/* Explanation panel (optional per question) */
+.gen-quiz__explanation{
+  max-width: 800px;
+  margin: 25px auto 0;
+  padding: 18px 22px;
+  background: #f3f5f7;
+  border-left: 5px solid var(--quiz-accent);
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #333;
+  line-height: 1.5;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.gen-quiz__explanation.is-visible{
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* The Option Grid */
+.gen-quiz__options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--quiz-gap);
+  padding: 80px 40px 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.gen-quiz__option {
+  position: relative;
+  background: var(--quiz-card);
+  border-radius: 20px;
+  border: 4px solid transparent;
+  cursor: pointer;
+  transition: transform 0.3s ease, border-color 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  text-decoration: none;
+  text-align: center;
+}
+
+.gen-quiz__option:hover:not(:disabled) { transform: translateY(-8px); }
+
+.gen-quiz__headshot {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  border-radius: 16px 16px 0 0;
+  z-index: 1;
+}
+.gen-quiz__headshot img {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 115%;
+  height: 130%;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.gen-quiz__details {
+  padding: 25px 10px;
+  background: var(--quiz-card);
+  border-radius: 0 0 16px 16px;
+  z-index: 3;
+}
+
+.gen-quiz__label { color: white; font-weight: 800; font-size: 1.3rem; margin-bottom: 5px; }
+.gen-quiz__years { color: rgba(255,255,255,0.6); font-size: 0.85rem; }
+
+/* Feedback icons */
+.feedback-icon {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-size: 110px; font-weight: 900;
+  z-index: 10; pointer-events: none;
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  opacity: 0.55;
+}
+.feedback-icon.show { transform: translate(-50%, -50%) scale(1.2); }
+
+/* Reveal states */
+.is-dim { opacity: 0.25; filter: grayscale(1); }
+.is-correct { border-color: white; }
+
+@media (max-width: 900px) {
+  .gen-quiz__options { grid-template-columns: repeat(2, 1fr); padding-top: 100px; }
+  .gen-quiz__shell { width: 95%; }
+}
+</style>
+
+<script>
+(function(){
+  if (!window.GEN_QUIZ_CONFIG) { console.error("GEN_QUIZ_CONFIG not found"); return; }
+
+  const { meta, options, questions } = window.GEN_QUIZ_CONFIG;
+
+  const qTrack = document.getElementById("genQuizQTrack");
+  const optionsWrap = document.getElementById("genQuizOptions");
+  const dotsWrap = document.getElementById("genQuizDots");
+  const btnPrev = document.getElementById("genQuizPrev");
+  const btnNext = document.getElementById("genQuizNext");
+  const explanationEl = document.getElementById("genQuizExplanation");
+
+  document.getElementById("genQuizKicker").textContent = meta.kicker || "";
+  document.getElementById("genQuizHeading").textContent = meta.title || "";
+
+  let index = 0;
+  let score = 0;
+  const answered = new Set();
+
+  function init(){
+    qTrack.innerHTML = questions.map(q => \`
+      <div class="gen-quiz__qSlide">
+        <div class="gen-quiz__question">\${q.text}</div>
+      </div>\`
+    ).join("") + \`
+      <div class="gen-quiz__qSlide">
+        <div class="gen-quiz__question" style="color:var(--quiz-accent)">QUIZ COMPLETE</div>
+        <div style="font-size: 1.8rem; margin-top: 15px; font-weight: 700; text-align:center;">
+          You scored <span id="finalScore">0</span> / \${questions.length}
+        </div>
+      </div>\`;
+
+    optionsWrap.innerHTML = options.map(opt => \`
+      <button class="gen-quiz__option" type="button" data-key="\${opt.key}">
+        <div class="feedback-icon" style="color:#ff6200">✖</div>
+        <div class="feedback-icon" style="color:#62c869">✔</div>
+        <div class="gen-quiz__headshot" style="background:var(\${opt.colorVar})">
+          <img src="\${opt.image}" alt="" />
+        </div>
+        <div class="gen-quiz__details">
+          <div class="gen-quiz__label">\${opt.label}</div>
+          <div class="gen-quiz__years">\${opt.years}</div>
+        </div>
+      </button>\`
+    ).join("");
+
+    dotsWrap.innerHTML = questions.map(() => \`<button class="gen-quiz__dot" type="button"></button>\`).join("");
+
+    update();
+  }
+
+  function update(){
+    const isResult = index === questions.length;
+
+    qTrack.style.transform = \`translateX(\${-index * 100}%)\`;
+    optionsWrap.style.display = isResult ? "none" : "grid";
+    dotsWrap.style.visibility = isResult ? "hidden" : "visible";
+    btnPrev.style.visibility = isResult ? "hidden" : "visible";
+    btnNext.style.display = isResult ? "none" : "flex";
+
+    dotsWrap.querySelectorAll(".gen-quiz__dot").forEach((d, i) => {
+      d.setAttribute("aria-current", i === index ? "true" : "false");
+    });
+
+    btnPrev.disabled = index === 0;
+
+    btnNext.textContent = answered.has(index) ? "NEXT" : "›";
+    btnNext.className = answered.has(index)
+      ? "gen-quiz__btn gen-quiz__btn--next can-proceed"
+      : "gen-quiz__btn";
+
+    if (isResult) {
+      const fs = document.getElementById("finalScore");
+      if (fs) fs.textContent = String(score);
+    }
+  }
+
+  optionsWrap.addEventListener("click", (e) => {
+    const btn = e.target.closest(".gen-quiz__option");
+    if (!btn || answered.has(index)) return;
+
+    const chosen = btn.getAttribute("data-key");
+    const { correctKey, explanation } = questions[index];
+
+    optionsWrap.querySelectorAll(".gen-quiz__option").forEach(opt => {
+      const icons = opt.querySelectorAll(".feedback-icon");
+      const isCorrect = opt.getAttribute("data-key") === correctKey;
+
+      if (isCorrect) {
+        icons[1].classList.add("show");
+        if (chosen === correctKey) score++;
+        opt.classList.add("is-correct");
+      } else {
+        icons[0].classList.add("show");
+        opt.classList.add("is-dim");
+      }
+    });
+
+    if (explanation) {
+      explanationEl.textContent = explanation;
+      explanationEl.classList.add("is-visible");
+    }
+
+    answered.add(index);
+    update();
+  });
+
+  btnNext.addEventListener("click", () => {
+    if (index < questions.length) {
+      index++;
+      optionsWrap.querySelectorAll(".gen-quiz__option").forEach(opt => {
+        opt.classList.remove("is-dim", "is-correct");
+        opt.querySelectorAll(".feedback-icon").forEach(i => i.classList.remove("show"));
+      });
+      explanationEl.classList.remove("is-visible");
+      explanationEl.textContent = "";
+      update();
+    }
+  });
+
+  btnPrev.addEventListener("click", () => {
+    if (index > 0) { index--; update(); }
+  });
+
+  init();
+})();
+</script>`;
+
+    return html;
+  }
+
+  function updatePreview(embedHtml){
+    // Render embed inside a clean page so styles don't clash with builder UI.
+    // In Shorthand, you'd paste only the embed block itself.
+    const srcdoc = `
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preview</title>
+</head>
+<body style="margin:0;background:#fff;">
+${embedHtml}
+</body>
+</html>`;
+    els.previewFrame.srcdoc = srcdoc;
+  }
+
+  async function copyText(text){
+    try{
+      await navigator.clipboard.writeText(text);
+      toast("Copied to clipboard");
+    } catch {
+      // fallback: select textarea
+      els.embedCode.focus();
+      els.embedCode.select();
+      document.execCommand('copy');
+      toast("Copied (fallback)");
+    }
+  }
+
+  function toast(msg){
+    const el = document.createElement('div');
+    el.textContent = msg;
+    el.style.position = 'fixed';
+    el.style.left = '50%';
+    el.style.bottom = '18px';
+    el.style.transform = 'translateX(-50%)';
+    el.style.background = '#111827';
+    el.style.color = '#fff';
+    el.style.padding = '10px 12px';
+    el.style.borderRadius = '999px';
+    el.style.fontSize = '12px';
+    el.style.boxShadow = '0 10px 24px rgba(0,0,0,0.18)';
+    el.style.zIndex = 9999;
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transition='opacity .25s'; }, 900);
+    setTimeout(() => el.remove(), 1300);
+  }
+
+  function downloadFile(filename, text){
+    const blob = new Blob([text], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // Wire top-level events
+  els.metaKicker.addEventListener('input', () => { state.meta.kicker = els.metaKicker.value; render(); });
+  els.metaTitle.addEventListener('input', () => { state.meta.title = els.metaTitle.value; render(); });
+
+  els.btnAddOption.addEventListener('click', addOption);
+  els.btnAddQuestion.addEventListener('click', addQuestion);
+
+  els.btnRefreshPreview.addEventListener('click', () => updatePreview(els.embedCode.value));
+  els.btnCopyEmbed.addEventListener('click', () => copyText(els.embedCode.value));
+  els.btnCopyConfig.addEventListener('click', () => copyText(JSON.stringify(toConfig(), null, 2)));
+
+  els.btnDownload.addEventListener('click', () => {
+    const embed = els.embedCode.value;
+    const wrapper = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quiz Embed Export</title></head><body style="margin:0;">
+${embed}
+</body></html>`;
+    downloadFile('quiz-embed-export.html', wrapper);
+  });
+
+  els.btnReset.addEventListener('click', () => {
+    state = makeInitialState({ meta:{kicker:"", title:""}, options:[{label:"Option 1", years:"", image:"", colorVar:"--color-boomer"},{label:"Option 2", years:"", image:"", colorVar:"--color-genx"}], questions:[{text:"", correctIndex:0, explanation:""}] });
+    render();
+  });
+
+  els.btnLoadDemo.addEventListener('click', () => {
+    state = makeInitialState(DEFAULTS);
+    render();
+  });
+
+  // Start
+  render();
+
+})();
+</script>
+
+</body>
+</html>

@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Harpoon Timeline Builder v1.7.5</title>
+        <title>Harpoon Timeline Builder v1.7.6</title>
 
         <style>
             /* =========================================================
@@ -226,9 +226,10 @@
                 position: sticky;
                 top: 0;
                 z-index: 4;
-                text-align: center;
+                text-align: center !important;
                 padding: 0 0 10px;
                 background: #fff;
+                font-family: Apercu, "Apercu Pro", system-ui, sans-serif;
                 font-weight: 500;
                 font-size: 1.05rem;
                 color: #555;
@@ -328,6 +329,14 @@
                 aspect-ratio: auto;
                 object-fit: contain;
                 max-height: 260px;
+            }
+            .harpoon-timeline__image--circle {
+                aspect-ratio: 1 / 1;
+                object-fit: cover;
+                border-radius: 50% !important;
+                width: 160px;
+                display: block;
+                margin: 0 auto 6px;
             }
             .harpoon-timeline__credit {
                 font-size: 10px;
@@ -585,10 +594,12 @@
                 <label>Image URL (optional)</label>
                 <input type="text" id="imageInput" placeholder="https://…" />
 
-                <div class="inline-toggle">
-                    <input type="checkbox" id="cropToggle" checked />
-                    <label for="cropToggle">Crop image to 16:9</label>
-                </div>
+                <label>Image crop style</label>
+                <select id="cropToggle">
+                    <option value="crop">16:9 (crop)</option>
+                    <option value="contain">Full image (no crop)</option>
+                    <option value="circle">Circle</option>
+                </select>
 
                 <label>Image alt text <span class="required">*</span></label>
                 <input
@@ -754,7 +765,7 @@
                 const dateInput = $("dateInput");
                 const textInput = $("textInput");
                 const imageInput = $("imageInput");
-                const cropToggle = $("cropToggle");
+                const cropToggle = $("cropToggle"); // now a <select>
                 const altInput = $("altInput");
                 const creditInput = $("creditInput");
 
@@ -893,7 +904,7 @@
 
                         const imgHTML = e.image
                             ? `<img
-             class="harpoon-timeline__image ${e.crop ? "harpoon-timeline__image--crop" : "harpoon-timeline__image--contain"}"
+             class="harpoon-timeline__image harpoon-timeline__image--${e.crop || "crop"}"
              src="${escapeAttr(e.image)}"
              alt="${escapeAttr(e.alt || "")}"
            >`
@@ -967,7 +978,7 @@
                     dateInput.value = "";
                     textInput.value = "";
                     imageInput.value = "";
-                    cropToggle.checked = true;
+                    cropToggle.value = "crop";
                     altInput.value = "";
                     creditInput.value = "";
                 }
@@ -988,7 +999,7 @@
                     dateInput.value = e.date || "";
                     textInput.value = e.text || "";
                     imageInput.value = e.image || "";
-                    cropToggle.checked = !!e.crop;
+                    cropToggle.value = e.crop || "crop";
                     altInput.value = e.alt || "";
                     creditInput.value = e.credit || "";
 
@@ -1000,7 +1011,7 @@
                         date: dateInput.value.trim(),
                         text: textInput.value.trim(),
                         image: imageInput.value.trim(),
-                        crop: !!cropToggle.checked,
+                        crop: cropToggle.value,
                         alt: altInput.value.trim(),
                         credit: creditInput.value.trim(),
                     };
@@ -1073,7 +1084,7 @@
 
                     state.entries.forEach((e) => {
                         const imgLine = e.image
-                            ? `          <img class="harpoon-timeline__image ${e.crop ? "harpoon-timeline__image--crop" : "harpoon-timeline__image--contain"}" src="${escapeAttr(e.image)}" alt="${escapeAttr(e.alt || "")}">`
+                            ? `          <img class="harpoon-timeline__image harpoon-timeline__image--${e.crop || "crop"}" src="${escapeAttr(e.image)}" alt="${escapeAttr(e.alt || "")}">`
                             : "";
 
                         const creditLine = e.credit
@@ -1135,9 +1146,10 @@
                         `  position: sticky;`,
                         `  top: 0;`,
                         `  z-index: 4;`,
-                        `  text-align: center;`,
+                        `  text-align: center !important;`,
                         `  padding: 0 0 10px;`,
                         `  background: #fff;`,
+                        `  font-family: Apercu, "Apercu Pro", system-ui, sans-serif;`,
                         `  font-weight: 500;`,
                         `  font-size: 1.05rem;`,
                         `  color: #555;`,
@@ -1252,6 +1264,15 @@
                         `  max-height: 260px;`,
                         `}`,
                         ``,
+                        `.harpoon-timeline__image--circle{`,
+                        `  aspect-ratio: 1 / 1;`,
+                        `  object-fit: cover;`,
+                        `  border-radius: 50% !important;`,
+                        `  width: 160px;`,
+                        `  display: block;`,
+                        `  margin: 0 auto 6px;`,
+                        `}`,
+                        ``,
                         `/* Credit — small, light grey, right-aligned */`,
                         `.harpoon-timeline__credit{`,
                         `  font-size: 10px;`,
@@ -1315,7 +1336,7 @@
 
                         let image = "";
                         let alt = "";
-                        let crop = true;
+                        let crop = "crop";
 
                         const img = item.querySelector(
                             "img.harpoon-timeline__image",
@@ -1323,18 +1344,20 @@
                         if (img) {
                             image = img.getAttribute("src") || "";
                             alt = img.getAttribute("alt") || "";
-                            crop = img.classList.contains(
-                                "harpoon-timeline__image--crop",
-                            );
                             if (
-                                !img.classList.contains(
-                                    "harpoon-timeline__image--crop",
-                                ) &&
+                                img.classList.contains(
+                                    "harpoon-timeline__image--circle",
+                                )
+                            ) {
+                                crop = "circle";
+                            } else if (
                                 img.classList.contains(
                                     "harpoon-timeline__image--contain",
                                 )
                             ) {
-                                crop = false;
+                                crop = "contain";
+                            } else {
+                                crop = "crop";
                             }
                         } else {
                             const bgDiv = item.querySelector(
@@ -1346,7 +1369,7 @@
                                     /background-image\s*:\s*url\(['"]?([^'")]+)['"]?\)/i,
                                 );
                                 image = m ? m[1] : "";
-                                crop = true;
+                                crop = "crop";
                                 alt = "";
                             }
                         }
@@ -1494,7 +1517,7 @@
                     if (state.editingIndex !== null) {
                         const e = state.entries[state.editingIndex];
                         if (e) {
-                            e.crop = !!cropToggle.checked;
+                            e.crop = cropToggle.value;
                             state.lastTouchedIndex = state.editingIndex;
                             renderPreview({ preserveScroll: true });
                         }

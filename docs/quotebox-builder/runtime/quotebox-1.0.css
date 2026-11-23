@@ -1,0 +1,22 @@
+/* Harpoon Quotebox runtime CSS v1.0
+   Hosted once per story; each quote is plain markup:
+   <div class="harpoon-quote" style="--hq-panel:#EEDEFF"><figure><blockquote><p>…</p></blockquote><figcaption>…</figcaption><div class="hq-panel" aria-hidden="true"></div></figure></div>
+   Without the JS (or with reduced motion) the quote simply shows. */
+.harpoon-quote{--hq-panel:#EEDEFF;--hq-ink:#000;--hq-rule:#000;--hq-font:inherit;--hq-weight:600;--hq-scale:1;container-type:inline-size;margin:0}
+.harpoon-quote *{box-sizing:border-box}
+.harpoon-quote figure{position:relative;margin:0;overflow:clip;padding:0 10.4cqi max(2.5cqi,.75rem) 4.8cqi;color:var(--hq-ink);font-family:var(--hq-font);font-weight:var(--hq-weight)}
+.harpoon-quote figure::before{content:"";position:absolute;left:.6cqi;top:2.6cqi;bottom:3cqi;width:2px;background:var(--hq-rule)}
+.harpoon-quote blockquote{margin:0;padding:2.1cqi 0 0;border:0;quotes:none}
+.harpoon-quote blockquote p{margin:0;font:inherit;font-size:clamp(calc(1.3rem * var(--hq-scale)),calc(5.68cqi * var(--hq-scale)),calc(3.6rem * var(--hq-scale)));line-height:1.2;color:inherit}
+.harpoon-quote figcaption{margin-top:clamp(1rem,calc(5cqi * var(--hq-scale)),3rem);font-size:clamp(.9rem,calc(2.37cqi * var(--hq-scale)),1.5rem);line-height:1.2}
+.harpoon-quote .hq-panel{position:absolute;left:.6cqi;top:2.6cqi;bottom:0;width:89cqi;background:var(--hq-panel);pointer-events:none;visibility:hidden}
+/* hq-armed is added by the JS: hold the start state until the quote is a quarter in view */
+.harpoon-quote.hq-armed .hq-panel{visibility:visible}
+.harpoon-quote.hq-armed blockquote{opacity:0;transform:translateX(10%)}
+.harpoon-quote.hq-armed figcaption{opacity:0;transform:translateY(.5em)}
+.harpoon-quote.hq-in .hq-panel{animation:hq-wipe .5s ease .5s both}
+.harpoon-quote.hq-in blockquote{animation:hq-in 1s ease 1s both}
+.harpoon-quote.hq-in figcaption{animation:hq-in 1s ease 0s both}
+@keyframes hq-wipe{to{transform:translateX(-101%);visibility:hidden}}
+@keyframes hq-in{to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.harpoon-quote .hq-panel{display:none}.harpoon-quote blockquote,.harpoon-quote figcaption{opacity:1!important;transform:none!important;animation:none!important}}

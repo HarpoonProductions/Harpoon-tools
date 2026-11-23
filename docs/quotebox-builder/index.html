@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Harpoon Quotebox Builder v1.0</title>
+
+<!-- The same runtime files the story uses, so the preview is the real thing -->
+<link rel="stylesheet" href="runtime/quotebox-1.0.css" />
+<script src="runtime/quotebox-1.0.js"></script>
+
+<style>
+/* =========================================================
+   BUILDER UI ONLY (never exported)
+   ========================================================= */
+body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 24px; background: #fafafa; color: #111; }
+h1 { font-size: 22px; margin: 0 0 6px; }
+.intro { font-size: 13px; color: #444; margin: 0 0 16px; line-height: 1.4; }
+.builder { max-width: 980px; margin: 0 auto 28px; }
+fieldset { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin: 0 0 16px; }
+legend { font-size: 12px; font-weight: 800; padding: 0 6px; }
+label { display: block; font-size: 12px; font-weight: 800; margin: 10px 0 6px; }
+input[type="text"], textarea, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 10px; font-size: 14px; box-sizing: border-box; font-family: inherit; }
+textarea { min-height: 110px; resize: vertical; line-height: 1.4; }
+.required { color: #c00; font-weight: 900; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 4px 18px; }
+.colour { display: flex; gap: 8px; align-items: center; }
+.colour input[type="color"] { width: 44px; height: 40px; padding: 2px; border: 1px solid #ccc; border-radius: 10px; background: #fff; flex: 0 0 auto; }
+.colour input[type="text"] { font-family: ui-monospace, Menlo, monospace; }
+.inline-toggle { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; font-weight: 700; }
+.inline-toggle input { margin: 0; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+button { appearance: none; border: 0; border-radius: 10px; padding: 10px 14px; font-size: 14px; cursor: pointer; font-family: inherit; }
+.primary { background: #111; color: #fff; }
+.secondary { background: #eee; color: #111; }
+.mini { padding: 8px 10px; font-size: 13px; }
+.secondary[aria-pressed="true"] { background: #111; color: #fff; }
+.helper { font-size: 13px; color: #444; margin: 6px 0 0; line-height: 1.35; }
+.helper code { font-size: 12px; background: #f2f2f2; padding: 1px 4px; border-radius: 4px; }
+
+/* Preview */
+.preview { background: #fff; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; margin: 0 0 16px; }
+.preview__bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid #eee; background: #fafafa; }
+.preview__bar .left, .preview__bar .right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pill { font-size: 12px; font-weight: 800; background: #111; color: #fff; padding: 6px 10px; border-radius: 999px; }
+.smallnote { font-size: 12px; color: #555; }
+.preview__stage { padding: 32px 24px; background: #fff; }
+.preview__frame { margin: 0 auto; max-width: 100%; transition: max-width .25s ease; }
+.preview__frame.phone { max-width: 375px; outline: 1px dashed #ddd; outline-offset: 12px; }
+/* Preview font: the story supplies UCL Sans; here we use it only if installed locally */
+.preview__frame { font-family: "UCL Sans", "UCL Sans SemiBold", system-ui, sans-serif; }
+
+/* Import */
+details { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 12px 14px; margin: 0 0 16px; }
+summary { cursor: pointer; font-weight: 900; font-size: 13px; }
+details textarea { min-height: 140px; margin-top: 10px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+
+/* Modal */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 9999; }
+.modal.open { display: flex; }
+.modal__box { width: min(980px, 92vw); background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 80px rgba(0,0,0,.25); }
+.modal__tabs { display: flex; border-bottom: 1px solid #ddd; background: #f7f7f7; }
+.modal__tabs button { flex: 1; border-radius: 0; background: transparent; font-weight: 700; padding: 12px; }
+.modal__tabs button.active { background: #fff; box-shadow: inset 0 -3px 0 #111; }
+.modal__note { font-size: 13px; color: #444; padding: 12px 16px 0; line-height: 1.4; }
+.modal__content { margin: 12px 16px; padding: 12px; background: #f7f7f7; border-radius: 10px; font: 12px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; max-height: 50vh; overflow: auto; }
+.modal__footer { display: flex; justify-content: flex-end; gap: 10px; padding: 0 16px 16px; }
+
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: #111; color: #fff; padding: 10px 14px; border-radius: 10px; font-size: 13px; opacity: 0; transition: .2s; pointer-events: none; z-index: 10000; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+
+.builder-credit { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: #666; margin: 24px 0 0; }
+.builder-credit img { width: 22px; height: 22px; border-radius: 50%; }
+.builder-credit a { color: #111; text-decoration: none; font-weight: 800; }
+.builder-credit a:hover { text-decoration: underline; }
+</style>
+</head>
+
+<body>
+<div class="builder">
+  <h1>Harpoon Quotebox Builder v1.0</h1>
+  <p class="intro">Animated pull quote for Shorthand: a coloured panel wipes away to the left, the attribution rises and the quote slides in. Plain HTML, so the quote is real, accessible text — and with reduced motion or no JavaScript it simply shows.</p>
+
+  <details>
+    <summary>Edit an existing quotebox (paste its HTML)</summary>
+    <textarea id="importHtml" placeholder="Paste quotebox HTML exported from this tool…"></textarea>
+    <div class="actions">
+      <button type="button" class="secondary" id="importBtn">Import</button>
+    </div>
+  </details>
+
+  <fieldset>
+    <legend>Content</legend>
+    <label for="quoteInput">Quote <span class="required">*</span></label>
+    <textarea id="quoteInput">I wanted to do something to reflect my gratitude for the education I had. Our scholars have all obtained fantastic jobs and contributed to society in the UK</textarea>
+    <div class="helper">Plain text. A line break in the box becomes a line break in the quote.</div>
+
+    <label for="captionInput">Attribution</label>
+    <input type="text" id="captionInput" value="Cyrus (UCL Economics BSc 1972) and Juni Ardalan" />
+  </fieldset>
+
+  <fieldset>
+    <legend>Style</legend>
+    <div class="grid">
+      <div>
+        <label for="panelText">Panel colour</label>
+        <div class="colour"><input type="color" id="panelPick" value="#eedeff" aria-label="Pick panel colour" /><input type="text" id="panelText" value="#EEDEFF" /></div>
+      </div>
+      <div>
+        <label for="inkText">Text colour</label>
+        <div class="colour"><input type="color" id="inkPick" value="#000000" aria-label="Pick text colour" /><input type="text" id="inkText" value="#000000" /></div>
+      </div>
+      <div>
+        <label for="ruleText">Rule colour</label>
+        <div class="colour"><input type="color" id="rulePick" value="#000000" aria-label="Pick rule colour" /><input type="text" id="ruleText" value="#000000" /></div>
+        <label class="inline-toggle"><input type="checkbox" id="ruleOn" checked /> Show left rule</label>
+      </div>
+    </div>
+    <div class="grid">
+      <div>
+        <label for="sizeSel">Quote size</label>
+        <select id="sizeSel">
+          <option value="1" selected>Large (as designed)</option>
+          <option value="0.8">Medium</option>
+          <option value="0.65">Small</option>
+        </select>
+      </div>
+      <div>
+        <label for="weightSel">Font weight</label>
+        <select id="weightSel">
+          <option value="400">Regular</option>
+          <option value="500">Medium</option>
+          <option value="600" selected>SemiBold (as designed)</option>
+          <option value="700">Bold</option>
+        </select>
+      </div>
+      <div>
+        <label for="fontInput">Font family</label>
+        <input type="text" id="fontInput" placeholder="Blank = use the story's font" />
+      </div>
+    </div>
+    <label class="inline-toggle"><input type="checkbox" id="motionOn" checked /> Animate when scrolled into view</label>
+    <label class="inline-toggle" style="margin-left:18px"><input type="checkbox" id="replayOn" checked /> Replay when scrolled back to</label>
+    <div class="helper">Replay resets only once the quote is fully off screen, so readers never see it snap back. Untick to play once per visit.</div>
+  </fieldset>
+
+  <div class="preview">
+    <div class="preview__bar">
+      <div class="left">
+        <span class="pill">Preview</span>
+        <span class="smallnote" id="fontNote"></span>
+      </div>
+      <div class="right">
+        <button type="button" class="secondary mini" id="wideBtn" aria-pressed="true">Full width</button>
+        <button type="button" class="secondary mini" id="phoneBtn" aria-pressed="false">Phone</button>
+        <button type="button" class="secondary mini" id="replayBtn">▶ Replay</button>
+      </div>
+    </div>
+    <div class="preview__stage">
+      <div class="preview__frame" id="frame"></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button type="button" class="primary" id="exportBtn">Get the code</button>
+  </div>
+</div>
+
+<div class="modal" id="modal" aria-hidden="true">
+  <div class="modal__box" role="dialog" aria-modal="true" aria-label="Export quotebox code">
+    <div class="modal__tabs">
+      <button type="button" data-tab="html" class="active">Quote HTML</button>
+      <button type="button" data-tab="head">Story setup (once)</button>
+      <button type="button" data-tab="inline">All-in-one</button>
+    </div>
+    <div class="modal__note" id="modalNote"></div>
+    <div class="modal__content" id="modalContent"></div>
+    <div class="modal__footer">
+      <button type="button" class="secondary" id="closeModalBtn">Close</button>
+      <button type="button" class="primary" id="copyBtn">Copy</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status">Copied</div>
+
+<div class="builder-credit">
+  <img alt="" src="https://pbs.twimg.com/profile_images/1200397581333024768/kEKej87-_400x400.jpg" />
+  <span>Built by</span>
+  <a href="https://harpoonproductions.co" target="_blank" rel="noopener">Harpoon Productions</a>
+</div>
+
+<script>
+(() => {
+  const RUNTIME_VERSION = "1.0";
+  const runtimeBase = new URL("runtime/", location.href).href;
+  const cssUrl = runtimeBase + "quotebox-" + RUNTIME_VERSION + ".css";
+  const jsUrl = runtimeBase + "quotebox-" + RUNTIME_VERSION + ".js";
+  const DEFAULTS = { panel: "#EEDEFF", ink: "#000000", rule: "#000000", scale: "1", weight: "600", font: "" };
+
+  const $ = (id) => document.getElementById(id);
+  const f = {
+    quote: $("quoteInput"), caption: $("captionInput"),
+    panelPick: $("panelPick"), panelText: $("panelText"),
+    inkPick: $("inkPick"), inkText: $("inkText"),
+    rulePick: $("rulePick"), ruleText: $("ruleText"), ruleOn: $("ruleOn"),
+    size: $("sizeSel"), weight: $("weightSel"), font: $("fontInput"), motion: $("motionOn"), replay: $("replayOn"),
+  };
+  const frame = $("frame");
+
+  // ---------- helpers ----------
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const normHex = (v) => {
+    v = v.trim(); if (!v.startsWith("#")) v = "#" + v;
+    if (/^#[0-9a-f]{3}$/i.test(v)) v = "#" + v.slice(1).split("").map((c) => c + c).join("");
+    return /^#[0-9a-f]{6}$/i.test(v) ? v.toUpperCase() : null;
+  };
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 1600); }
+
+  function read() {
+    return {
+      quote: f.quote.value.trim(),
+      caption: f.caption.value.trim(),
+      panel: normHex(f.panelText.value) || DEFAULTS.panel,
+      ink: normHex(f.inkText.value) || DEFAULTS.ink,
+      rule: f.ruleOn.checked ? (normHex(f.ruleText.value) || DEFAULTS.rule) : "transparent",
+      scale: f.size.value, weight: f.weight.value,
+      font: f.font.value.trim(),
+      motion: f.motion.checked,
+      replay: f.replay.checked,
+    };
+  }
+
+  // Only non-default settings go into the inline style, so exported markup stays short
+  function styleVars(s) {
+    const v = [];
+    if (s.panel !== DEFAULTS.panel) v.push("--hq-panel:" + s.panel);
+    if (s.ink !== DEFAULTS.ink) v.push("--hq-ink:" + s.ink);
+    if (s.rule !== DEFAULTS.rule) v.push("--hq-rule:" + s.rule);
+    if (s.scale !== DEFAULTS.scale) v.push("--hq-scale:" + s.scale);
+    if (s.weight !== DEFAULTS.weight) v.push("--hq-weight:" + s.weight);
+    if (s.font) v.push("--hq-font:" + s.font.replace(/[;{}<>"]/g, ""));
+    return v.join(";");
+  }
+
+  function buildHtml(s) {
+    const style = styleVars(s);
+    const quote = esc(s.quote || "Your quote here").replace(/\r?\n/g, "<br>");
+    return [
+      '<div class="harpoon-quote"' + (style ? ' style="' + esc(style) + '"' : "") + (s.motion ? (s.replay ? "" : ' data-hq-replay="off"') : ' data-hq-motion="off"') + ">",
+      "  <figure>",
+      "    <blockquote><p>" + quote + "</p></blockquote>",
+      s.caption ? "    <figcaption>" + esc(s.caption) + "</figcaption>" : null,
+      '    <div class="hq-panel" aria-hidden="true"></div>',
+      "  </figure>",
+      "</div>",
+    ].filter((l) => l !== null).join("\n");
+  }
+
+  // ---------- preview ----------
+  // Rebuilt only when the structure changes; text and colours update in place so typing doesn't replay the animation
+  let shape = "";
+  function render() {
+    const s = read();
+    const key = [!!s.caption, s.motion, s.replay].join("|");
+    f.replay.disabled = !s.motion;
+    let box = frame.querySelector(".harpoon-quote");
+    if (!box || key !== shape) {
+      shape = key;
+      frame.innerHTML = buildHtml(s);
+      box = frame.querySelector(".harpoon-quote");
+      if (window.HarpoonQuote) HarpoonQuote.arm(frame);
+    } else {
+      box.querySelector("blockquote p").innerHTML = esc(s.quote || "Your quote here").replace(/\r?\n/g, "<br>");
+      const cap = box.querySelector("figcaption"); if (cap) cap.textContent = s.caption;
+    }
+    box.setAttribute("style", styleVars(s));
+    if (!box.getAttribute("style")) box.removeAttribute("style");
+    $("fontNote").textContent = s.font ? "Font: " + s.font : "Uses the story's font (UCL Sans) — shown here only if installed on this machine";
+  }
+
+  // colour pickers and hex boxes stay in step
+  [["panelPick", "panelText"], ["inkPick", "inkText"], ["rulePick", "ruleText"]].forEach(([p, t]) => {
+    f[p].addEventListener("input", () => { f[t].value = f[p].value.toUpperCase(); render(); });
+    f[t].addEventListener("input", () => { const h = normHex(f[t].value); if (h) f[p].value = h.toLowerCase(); render(); });
+  });
+  ["quote", "caption", "ruleOn", "size", "weight", "font", "motion", "replay"].forEach((k) => f[k].addEventListener("input", render));
+
+  $("replayBtn").addEventListener("click", () => {
+    const box = frame.querySelector(".harpoon-quote");
+    if (!read().motion) return toast("Animation is switched off");
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return toast("Your system has reduced motion on, so it won't animate");
+    HarpoonQuote.replay(box);
+  });
+  function setWidth(phone) {
+    frame.classList.toggle("phone", phone);
+    $("phoneBtn").setAttribute("aria-pressed", phone); $("wideBtn").setAttribute("aria-pressed", !phone);
+  }
+  $("wideBtn").addEventListener("click", () => setWidth(false));
+  $("phoneBtn").addEventListener("click", () => setWidth(true));
+
+  // ---------- import ----------
+  $("importBtn").addEventListener("click", () => {
+    const doc = new DOMParser().parseFromString($("importHtml").value, "text/html");
+    const box = doc.querySelector(".harpoon-quote");
+    if (!box) return toast("No quotebox found in that HTML");
+    const p = box.querySelector("blockquote p");
+    f.quote.value = p ? p.innerHTML.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&") : "";
+    const cap = box.querySelector("figcaption"); f.caption.value = cap ? cap.textContent : "";
+    const st = box.style;
+    const get = (n) => st.getPropertyValue(n).trim();
+    const setColour = (pick, text, val, def) => { const h = normHex(val || def) || def; f[text].value = h; f[pick].value = h.toLowerCase(); };
+    setColour("panelPick", "panelText", get("--hq-panel"), DEFAULTS.panel);
+    setColour("inkPick", "inkText", get("--hq-ink"), DEFAULTS.ink);
+    const rule = get("--hq-rule");
+    f.ruleOn.checked = rule !== "transparent";
+    setColour("rulePick", "ruleText", rule === "transparent" ? "" : rule, DEFAULTS.rule);
+    f.size.value = get("--hq-scale") || DEFAULTS.scale; if (!f.size.value) f.size.value = DEFAULTS.scale;
+    f.weight.value = get("--hq-weight") || DEFAULTS.weight; if (!f.weight.value) f.weight.value = DEFAULTS.weight;
+    f.font.value = get("--hq-font");
+    f.motion.checked = box.getAttribute("data-hq-motion") !== "off";
+    f.replay.checked = box.getAttribute("data-hq-replay") !== "off";
+    shape = ""; render(); toast("Imported");
+  });
+
+  // ---------- export ----------
+  let tab = "html";
+  const runtimeText = {};
+  async function fetchRuntime() {
+    if (runtimeText.css) return runtimeText;
+    const [c, j] = await Promise.all([fetch(cssUrl).then((r) => r.text()), fetch(jsUrl).then((r) => r.text())]);
+    runtimeText.css = c; runtimeText.js = j; return runtimeText;
+  }
+  const notes = {
+    html: "Paste into a Shorthand HTML block, one per quote. Needs the story setup (next tab) once per story.",
+    head: "Add once per story — in the story's custom head code, or at the top of the first quote's HTML block. Every quote in the story then uses it.",
+    inline: "Everything in one block, for a story without the hosted setup. Fine to use more than once on a page, but the hosted version is lighter.",
+  };
+  async function content() {
+    const s = read();
+    if (tab === "html") return buildHtml(s);
+    if (tab === "head") return '<link rel="stylesheet" href="' + cssUrl + '">\n<script src="' + jsUrl + '" defer><\/script>';
+    try {
+      const r = await fetchRuntime();
+      return "<style>\n" + r.css.trim() + "\n</style>\n" + buildHtml(s) + "\n<script>\n" + r.js.trim() + "\n<\/script>";
+    } catch (e) { return "Couldn't load the runtime files (" + e.message + "). Use the hosted setup instead."; }
+  }
+  async function showTab(t) {
+    tab = t;
+    document.querySelectorAll(".modal__tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === t));
+    $("modalNote").textContent = notes[t];
+    $("modalContent").textContent = await content();
+  }
+  document.querySelectorAll(".modal__tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+  $("exportBtn").addEventListener("click", () => {
+    if (!f.quote.value.trim()) { f.quote.focus(); return toast("Add a quote first"); }
+    $("modal").classList.add("open"); $("modal").setAttribute("aria-hidden", "false"); showTab("html");
+  });
+  const close = () => { $("modal").classList.remove("open"); $("modal").setAttribute("aria-hidden", "true"); };
+  $("closeModalBtn").addEventListener("click", close);
+  $("modal").addEventListener("click", (e) => { if (e.target.id === "modal") close(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  $("copyBtn").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText($("modalContent").textContent); toast("Copied"); }
+    catch { toast("Copy failed — select the text and copy it"); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

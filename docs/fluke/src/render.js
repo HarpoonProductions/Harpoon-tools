@@ -63,12 +63,21 @@ function textStyle(scene, e) {
 }
 const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
 
-export function googleFontsUrl(scene) {
+// Google Fonts refuses the whole request if it asks for a weight or italic a family doesn't have, and then nothing
+// loads. fontInfo(family) → { weights: [...], italic: bool } (the editor passes its Google Fonts list) lets each
+// request be snapped to the nearest weight the family really has.
+export function nearestWeight(weights, w) {
+  return weights.reduce((a, b) => (Math.abs(b - w) < Math.abs(a - w) ? b : a), weights[0]);
+}
+export function googleFontsUrl(scene, fontInfo = null) {
   const fams = new Map();
   const add = (s) => {
     if (s.source !== "google" || !s.family) return;
+    const info = fontInfo ? fontInfo(s.family) : null;
+    const weight = info?.weights?.length ? nearestWeight(info.weights, +(s.weight || 400)) : +(s.weight || 400);
+    const italic = s.italic && (!info || info.italic) ? 1 : 0;
     const f = fams.get(s.family) || new Set();
-    f.add(`${s.italic ? 1 : 0},${s.weight || 400}`);
+    f.add(`${italic},${weight}`);
     fams.set(s.family, f);
   };
   // only fonts that text in the piece actually uses (a kit may bring styles nobody uses)
@@ -159,6 +168,7 @@ function elementHtml(e, cls) {
  *               { includeRuntime: false } — the story already carries it
  *               { embedSource: true } — include the scene JSON so the piece can be pasted back into the editor
  *               { allowInvalid: true } — render anyway (editor preview while the scene is half-made)
+ *               { fontInfo } — family → { weights, italic } for Google Fonts, so requests match what exists
  */
 export function renderScene(scene, opts = {}) {
   const { errors } = validate(scene);
@@ -190,7 +200,7 @@ export function renderScene(scene, opts = {}) {
   }
   const lines = [];
   lines.push(`<!-- Fluke: ${esc(scene.title || scene.id)} -->`);
-  const gf = googleFontsUrl(scene);
+  const gf = googleFontsUrl(scene, opts.fontInfo);
   if (gf && opts.includeFonts !== false) lines.push(`<link rel="stylesheet" href="${esc(gf)}">`);
   lines.push(`<div ${attrs.join(" ")}>`);
   lines.push(`<style>${include ? opts.runtimeCss.trim() + "\n" : ""}${css.join("\n")}</style>`);

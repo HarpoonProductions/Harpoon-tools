@@ -2,7 +2,7 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene } from "../src/render.js";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight } from "../src/render.js";
 import { initCanvas, drawOverlay, setOverlayHidden } from "./canvas.js";
 import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
@@ -11,14 +11,14 @@ window.__flukeStarted = true; // the core arrived; index.html shows a "reload" m
 const unavailable = (label) => () => toast(`${label} didn't load — reload the page to use it`);
 let loadRegistry = () => Promise.reject(new Error("Client kits didn't load — reload the page"));
 let loadKit = loadRegistry, kitStyles = () => ({}), loadKitFonts = () => {};
-let openFontPicker = unavailable("The font picker"), loadFontList = () => Promise.resolve([]), googleFont = () => null;
+let openFontPicker = unavailable("The font picker"), loadFontList = () => Promise.resolve([]), googleFont = () => null, fontListLoaded = () => false;
 let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibrary = unavailable("The library");
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
   const [k, f, l] = await Promise.allSettled([import("./kits.js"), import("./fonts.js"), import("./library.js")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
-  if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont } = f.value); else failedParts.push("the font picker");
+  if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
   [k, f, l].forEach((r) => { if (r.status === "rejected") console.error(r.reason); });
 }
@@ -186,7 +186,7 @@ function addElement(type) {
 
 // ---------------------------------------------------------------- preview
 function previewHtml(s) {
-  try { return renderScene(s, { allowInvalid: true, includeRuntime: false }); }
+  try { return renderScene(s, { allowInvalid: true, includeRuntime: false, fontInfo: googleFont }); }
   catch (e) { return `<p style="color:#b3261e">Can't draw this scene: ${e.message}</p>`; }
 }
 function renderPreview() {
@@ -247,6 +247,24 @@ async function measure() {
   box.replaceChildren();
   renderIssues(desk, phone);
 }
+// Fonts the preview can't show as chosen: unknown Google names, missing weights, story fonts not installed here
+function fontNotes() {
+  const notes = [], seen = new Set();
+  (scene.elements || []).filter((e) => e.type === "text").forEach((e) => {
+    const st = { ...((scene.styles || {})[e.style] || {}), ...Object.fromEntries(["family", "source", "weight", "italic"].filter((k) => e[k] !== undefined).map((k) => [k, e[k]])) };
+    if (!st.family) return;
+    const key = [st.family, st.source, st.weight, st.italic].join("|"); if (seen.has(key)) return; seen.add(key);
+    if (st.source === "google" && fontListLoaded()) {
+      const gf = googleFont(st.family);
+      if (!gf) notes.push(`“${st.family}” isn't a Google Font name, so it won't load — check the spelling, or use Choose…`);
+      else if (!gf.weights.includes(+(st.weight || 400))) notes.push(`${gf.family} has no ${st.weight} weight — it's shown and exported as ${nearestWeight(gf.weights, +(st.weight || 400))}`);
+      else if (st.italic && !gf.italic) notes.push(`${gf.family} has no italic — it's shown and exported upright`);
+    } else if (st.source !== "google" && !fontInstalled(st.family)) {
+      notes.push(`“${st.family}” is a story font that isn't installed on this computer, so the preview uses a stand-in`);
+    }
+  });
+  return notes;
+}
 function renderIssues(desk = [], phone = []) {
   const { errors, warnings } = validate(scene);
   const list = $("#issues"); list.replaceChildren();
@@ -254,6 +272,7 @@ function renderIssues(desk = [], phone = []) {
     onx ? h("button", { type: "button", class: "x", "aria-label": "Dismiss", onclick: onx }, "×") : null));
   errors.forEach((e) => row("err", "Fix", e));
   warnings.forEach((w) => row("warn", "Check", w));
+  fontNotes().forEach((n) => row("warn", "Check", n));
   desk.forEach((id) => row("warn", "Check", `“${id}” text overflows its box on desktop — make the box bigger or the text smaller`));
   phone.forEach((id) => row("warn", "Check", `“${id}” text overflows its box on phones — adjust it in the Phone layout`));
   importNotes.forEach((n, i) => row("note", "Import", n, () => { importNotes.splice(i, 1); renderIssues(desk, phone); }));
@@ -641,14 +660,27 @@ function kitSection() {
     h("p", { class: "helper" }, "Kits are the Harpoon token sets made with the Token Generator — the same brand files HSE stories use. Kit colours stay linked: in HSE stories they follow the client's tokens; in Shorthand they use the colour shown."),
     h("a", { class: "helper", href: "https://harpoon-token-generator.onrender.com", target: "_blank", rel: "noopener" }, "Add or change a kit in the Token Generator ↗"));
 }
-function nearestWeight(list, w) { return list.reduce((a, b) => (Math.abs(b - w) < Math.abs(a - w) ? b : a), list[0]); }
 function weightOptions(st) {
   const gf = st.source === "google" && st.family ? googleFont(st.family) : null;
   return gf ? gf.weights.map((w) => ({ value: w, label: String(w) })) : WEIGHTS;
 }
 function fontField(St) {
-  const inp = h("input", { type: "text", value: St().family || "", placeholder: "blank = the story's font" });
-  inp.addEventListener("input", () => { St().family = inp.value; commit("family"); });
+  const inp = h("input", { type: "text", value: St().family || "", placeholder: "blank = the story's font", "aria-describedby": "fontWhere" });
+  inp.addEventListener("input", () => {
+    const st = St();
+    st.family = inp.value;
+    // a name that matches a Google Font becomes a Google Font, so it actually loads
+    const gf = googleFont(inp.value);
+    if (gf) {
+      st.source = "google";
+      if (gf.family !== inp.value) st.family = gf.family;
+      if (!gf.weights.includes(+st.weight)) st.weight = nearestWeight(gf.weights, +st.weight || 400);
+      if (!st.fallback) st.fallback = gf.cat === "r" ? "Georgia, serif" : gf.cat === "m" ? "monospace" : "system-ui, sans-serif";
+    } else if (st.source === "google") st.source = "story";
+    commit("family");
+    const helper = document.getElementById("fontWhere"); if (helper) helper.textContent = fontWhere(st);
+  });
+  inp.addEventListener("change", () => renderProps()); // refresh the weight list once typing is done
   const btn = h("button", { type: "button", class: "secondary mini", onclick: () => openFontPicker({ current: St().family, kit, onPick: (c) => {
     const st = St();
     st.family = c.family; st.source = c.source;
@@ -656,9 +688,31 @@ function fontField(St) {
     if (c.weights?.length && !c.weights.includes(st.weight)) st.weight = nearestWeight(c.weights, st.weight || 400);
     commit(); renderProps();
   } }) }, "Choose…");
-  const st = St();
-  const where = !st.family ? "Uses the story's font." : st.source === "google" ? "Google Font — added to the piece automatically." : "The story must already load this font.";
-  return h("div", { class: "f-group" }, h("div", { class: "font-row" }, field("Font", inp), btn), h("span", { class: "helper" }, where));
+  return h("div", { class: "f-group" }, h("div", { class: "font-row" }, field("Font", inp), btn), h("span", { class: "helper", id: "fontWhere" }, fontWhere(St())));
+}
+function fontWhere(st) {
+  if (!st.family) return "Uses the story's font.";
+  if (st.source === "google") return "Google Font — added to the piece automatically.";
+  return fontInstalled(st.family)
+    ? "The story must already load this font."
+    : "The story must already load this font. It isn't installed on this computer, so the preview can't show it.";
+}
+// Is a font available to this browser (installed, or loaded by the page)? Compares text widths against two fallbacks.
+const fontCheckCache = new Map();
+function fontInstalled(family) {
+  if (fontCheckCache.has(family)) return true;
+  // declared by the page (e.g. a kit's own font files) counts, even before it has downloaded
+  const want = family.replace(/["']/g, "").toLowerCase();
+  if ([...document.fonts].some((f) => f.family.replace(/["']/g, "").toLowerCase() === want)) { fontCheckCache.set(family, true); return true; }
+  const c = document.createElement("canvas").getContext("2d"), sample = "mmmmmmmmmmlli1WQ@#";
+  let differs = false;
+  for (const base of ["monospace", "serif", "sans-serif"]) {
+    c.font = `40px ${base}`; const a = c.measureText(sample).width;
+    c.font = `40px "${family.replace(/"/g, "")}", ${base}`; const b = c.measureText(sample).width;
+    if (Math.abs(a - b) > 0.5) { differs = true; break; }
+  }
+  if (differs) fontCheckCache.set(family, true); // only remember "found": a font may still arrive later
+  return differs;
 }
 
 // ---------------------------------------------------------------- stacking (what sits in front)
@@ -740,7 +794,7 @@ function exportText() {
   if (tab === "head") return `<!-- Fluke shared code -->\n<style>${runtime.css.trim()}</style>\n<script>${runtime.js.trim()}</script>`;
   const { errors } = validate(scene);
   if (errors.length) return "Fix these first:\n- " + errors.join("\n- ");
-  return renderScene(scene, { runtimeCss: runtime.css, runtimeJs: runtime.js, includeRuntime: tab === "piece", embedSource: true });
+  return renderScene(scene, { runtimeCss: runtime.css, runtimeJs: runtime.js, includeRuntime: tab === "piece", embedSource: true, fontInfo: googleFont });
 }
 function showTab(t) {
   tab = t;

@@ -17,7 +17,11 @@ export function loadFontList() {
   });
   return fontsPromise;
 }
-export function googleFont(family) { return (fonts || []).find((f) => f.family === family) || null; }
+export function googleFont(family) {
+  const want = String(family || "").trim().toLowerCase();
+  return (fonts || []).find((f) => f.family.toLowerCase() === want) || null;
+}
+export const fontListLoaded = () => !!fonts;
 
 const previewed = new Set();
 function previewFace(family) {

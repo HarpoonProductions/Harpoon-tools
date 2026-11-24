@@ -107,6 +107,7 @@ function renderLayers() {
       h("button", { type: "button", class: "row-btn", "aria-current": sel.kind === "element" && sel.id === e.id, onclick: () => choose({ kind: "element", id: e.id }) },
         h("span", { class: "icon", "aria-hidden": "true" }, ICON[e.type] || "?"),
         h("span", { class: "name" }, e.id),
+        h("span", { class: "zbadge", title: `Stacking: ${stackPos(e.id)} of ${els.length} (1 = at the back)` }, String(stackPos(e.id))),
         e.type === "text" ? h("span", { class: "tag" }, e.tag || "p") : null,
         out ? h("span", { class: "tag", title: "Leaves during the animation" }, "out") : null,
         e.m?.hidden ? h("span", { class: "tag", title: "Hidden on phones" }, "no 📱") : null),
@@ -401,9 +402,10 @@ function elementProps(id) {
     out.push(section("Position",
       grid(2, num("X", E, "x"), num("Y", E, "y")),
       grid(2, num("Width", E, "w", { min: 0 }), num("Height", E, "h", { min: 0 })),
-      grid(3, num("Rotate °", E, "rotate", { optional: true, placeholder: "0" }), num("Opacity", E, "opacity", { optional: true, min: 0, max: 1, step: 0.05, placeholder: "1" }), num("Stack", E, "z", { optional: true, step: 1, placeholder: "auto" })),
-      h("p", { class: "helper" }, "Arrow keys nudge the selected layer (Shift = 10). Higher Stack sits on top.")));
+      grid(2, num("Rotate °", E, "rotate", { optional: true, placeholder: "0" }), num("Opacity", E, "opacity", { optional: true, min: 0, max: 1, step: 0.05, placeholder: "1" })),
+      h("p", { class: "helper" }, "Arrow keys nudge the selected layer (Shift = 10).")));
   }
+  out.push(stackSection(e.id));
 
   const A = () => E().animate || {};
   const a = e.animate || {};
@@ -423,11 +425,51 @@ function elementProps(id) {
   void A;
   return out;
 }
+// ---------------------------------------------------------------- stacking (what sits in front)
+// Separate from reading order. Kept as a clean 1..N sequence so there are never ties: 1 = at the back.
+function stackOrder() {
+  return scene.elements.map((e, i) => ({ e, i }))
+    .sort((a, b) => ((a.e.z ?? a.i + 1) - (b.e.z ?? b.i + 1)) || (a.i - b.i)).map((x) => x.e);
+}
+function stackPos(id) { return stackOrder().findIndex((e) => e.id === id) + 1; }
+function restack(id, pos) {
+  const order = stackOrder();
+  const i = order.findIndex((e) => e.id === id); if (i < 0) return;
+  const [el] = order.splice(i, 1);
+  pos = Math.max(1, Math.min(order.length + 1, Math.round(pos) || 1));
+  order.splice(pos - 1, 0, el);
+  order.forEach((e, k) => { e.z = k + 1; });
+}
+const STACK_LABEL = { front: "in front of everything", back: "behind everything", forward: "one step forward", backward: "one step back" };
+function stack(cmd) {
+  if (sel.kind !== "element") return;
+  const p = stackPos(sel.id), n = scene.elements.length;
+  const np = { front: n, back: 1, forward: p + 1, backward: p - 1 }[cmd];
+  if (np < 1 || np > n || np === p) return toast(cmd === "front" || cmd === "forward" ? "Already at the front" : "Already at the back");
+  restack(sel.id, np); commit(); renderProps(); drawOverlay();
+  toast(`Moved ${STACK_LABEL[cmd]} (${np} of ${n})`);
+}
+function stackSection(id) {
+  const n = scene.elements.length, p = stackPos(id);
+  const inp = h("input", { type: "number", min: 1, max: n, step: 1, value: p, "aria-label": "Stacking position" });
+  inp.addEventListener("change", () => { const v = parseInt(inp.value, 10); if (!v) { inp.value = p; return; } restack(id, v); commit(); renderProps(); drawOverlay(); });
+  const btn = (cmd, label, title, disabled) => h("button", { type: "button", class: "secondary mini", title, disabled, onclick: () => stack(cmd) }, label);
+  return section("Stacking",
+    h("div", { class: "stack-row" },
+      btn("back", "⇊ To back", "Send to back (⇧⌘[)", p === 1),
+      btn("backward", "↓ Back", "Send backward (⌘[)", p === 1),
+      btn("forward", "↑ Forward", "Bring forward (⌘])", p === n),
+      btn("front", "⇈ To front", "Bring to front (⇧⌘])", p === n)),
+    h("label", { class: "f stack-pos" }, h("span", {}, `Position (1 = at the back, ${n} = at the front)`), inp),
+    h("p", { class: "helper" }, "What sits in front. Separate from reading order (the layers list), which is what screen readers follow."));
+}
+
 function duplicate(id) {
   const src = elById(id); const copy = JSON.parse(JSON.stringify(src));
   copy.id = uniqueId(src.id); copy.x += 20; copy.y += 20;
   const i = scene.elements.indexOf(src);
   scene.elements.splice(i + 1, 0, copy);
+  restack(copy.id, stackPos(src.id) + 1);
   sel = { kind: "element", id: copy.id }; commit(); renderProps();
 }
 
@@ -524,6 +566,9 @@ function wire() {
       ev.preventDefault(); scene.elements = scene.elements.filter((x) => x.id !== sel.id); sel = { kind: "scene" }; commit(); renderProps(); drawOverlay(); return;
     }
     if (!typing && sel.kind === "element" && (ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "d") { ev.preventDefault(); duplicate(sel.id); return; }
+    if (!typing && sel.kind === "element" && (ev.metaKey || ev.ctrlKey) && (ev.code === "BracketRight" || ev.code === "BracketLeft")) {
+      ev.preventDefault(); stack(ev.code === "BracketRight" ? (ev.shiftKey ? "front" : "forward") : (ev.shiftKey ? "back" : "backward")); return;
+    }
     if (typing || sel.kind !== "element" || !ev.key.startsWith("Arrow") || $(".modal.open")) return;
     const e = elById(sel.id); if (!e) return;
     ev.preventDefault();
@@ -540,7 +585,7 @@ function wire() {
 // ---------------------------------------------------------------- start
 const api = {
   get scene() { return scene; }, get sel() { return sel; }, get view() { return view; },
-  choose, commit, renderProps, slug,
+  choose, commit, renderProps, slug, stack, stackPos,
 };
 async function start() {
   wire();

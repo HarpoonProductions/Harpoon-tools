@@ -149,3 +149,12 @@ textarea { min-height: 84px; resize: vertical; line-height: 1.4; }
 /* keep the piece's own z-index values inside the preview, under the editing overlay */
 .preview { isolation: isolate; position: relative; }
 .overlay { z-index: 10; }
+
+/* ---- stacking (v0.4) ---- */
+.zbadge { margin-left: auto; flex: 0 0 auto; min-width: 20px; text-align: center; font-size: 11px; color: var(--muted); border: 1px solid #ddd; border-radius: 5px; padding: 0 4px; font-variant-numeric: tabular-nums; }
+.stack-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 8px; }
+.stack-row button { padding: 6px 4px; font-size: 12px; }
+.stack-pos input { max-width: 90px; }
+.sel-tools { position: absolute; display: flex; flex-direction: column; gap: 3px; pointer-events: auto; }
+.sel-tools button { width: 26px; height: 24px; padding: 0; font-size: 13px; line-height: 1; background: #fff; border: 1px solid var(--sel); color: var(--sel); border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.sel-tools button:hover:not(:disabled) { background: var(--sel); color: #fff; }

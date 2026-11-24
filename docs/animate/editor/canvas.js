@@ -80,6 +80,20 @@ export function drawOverlay(guides = []) {
       tag.textContent = dragging ? `${Math.round(b.x)}, ${Math.round(b.y)} · ${Math.round(b.w)} × ${Math.round(b.h)}${b.r ? ` · ${Math.round(b.r)}°` : ""}` : `${Math.round(b.w)} × ${Math.round(b.h)}`;
       box.append(tag);
       kids.push(box);
+      if (!dragging) {
+        // stacking buttons beside the box (kept upright, whatever the rotation)
+        const a = aabb(b), n = api.scene.elements.length, p = api.stackPos(g.e.id);
+        const tools = document.createElement("div");
+        tools.className = "sel-tools";
+        Object.assign(tools.style, { left: a.r * g.sx + 10 + "px", top: a.t * g.sy + "px" });
+        [["front", "⇈", "Bring to front (⇧⌘])", p === n], ["forward", "↑", "Bring forward (⌘])", p === n],
+          ["backward", "↓", "Send backward (⌘[)", p === 1], ["back", "⇊", "Send to back (⇧⌘[)", p === 1]].forEach(([cmd, label, title, off]) => {
+          const bt = document.createElement("button");
+          bt.type = "button"; bt.dataset.stack = cmd; bt.textContent = label; bt.title = title; bt.setAttribute("aria-label", title); bt.disabled = off;
+          tools.append(bt);
+        });
+        kids.push(tools);
+      }
     }
   }
   ov.replaceChildren(...kids);
@@ -199,6 +213,8 @@ export function initCanvas(a) {
   const stage = $("#stageInner");
   stage.addEventListener("pointerdown", (ev) => {
     if (ev.button !== 0) return;
+    const st = ev.target.closest("[data-stack]");
+    if (st) { ev.preventDefault(); if (!st.disabled) api.stack(st.dataset.stack); return; }
     const handle = ev.target.closest("[data-handle]");
     const cur = selected();
     if (handle && cur) { ev.preventDefault(); return startGesture(handle.dataset.handle, ev, cur, true); }

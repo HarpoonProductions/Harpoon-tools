@@ -106,3 +106,46 @@ textarea { min-height: 84px; resize: vertical; line-height: 1.4; }
 
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(16px); background: #111; color: #fff; padding: 10px 14px; border-radius: 10px; font-size: 13px; opacity: 0; transition: .2s; pointer-events: none; z-index: 2000; }
 .toast.show { opacity: 1; transform: translateX(-50%); }
+
+/* ---- on-canvas editing (v0.3) ---- */
+.stage-inner { position: relative; touch-action: none; }
+.overlay { position: absolute; pointer-events: none; }
+.sel-box { position: absolute; outline: 1.5px solid var(--sel); outline-offset: 0; pointer-events: auto; cursor: move; transform-origin: 50% 50%; }
+.handle { position: absolute; width: 10px; height: 10px; background: #fff; border: 1.5px solid var(--sel); border-radius: 2px; pointer-events: auto; }
+.h-nw { left: -6px; top: -6px; cursor: nwse-resize; } .h-se { right: -6px; bottom: -6px; cursor: nwse-resize; }
+.h-ne { right: -6px; top: -6px; cursor: nesw-resize; } .h-sw { left: -6px; bottom: -6px; cursor: nesw-resize; }
+.h-n { left: calc(50% - 5px); top: -6px; cursor: ns-resize; } .h-s { left: calc(50% - 5px); bottom: -6px; cursor: ns-resize; }
+.h-e { right: -6px; top: calc(50% - 5px); cursor: ew-resize; } .h-w { left: -6px; top: calc(50% - 5px); cursor: ew-resize; }
+.h-rot { left: calc(50% - 6px); top: -30px; width: 12px; height: 12px; border-radius: 50%; cursor: grab; }
+.h-rot::after { content: ""; position: absolute; left: 4px; top: 11px; width: 1.5px; height: 13px; background: var(--sel); }
+.sel-size { position: absolute; left: 50%; top: calc(100% + 8px); transform: translateX(-50%); background: var(--sel); color: #fff; font: 11px/1 system-ui, sans-serif; padding: 3px 6px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
+.guide { position: absolute; background: #e5398b; pointer-events: none; }
+.guide.v { top: -2000px; bottom: -2000px; width: 1px; } .guide.h { left: -2000px; right: -2000px; height: 1px; }
+.overlay { overflow: visible; }
+.stage { overflow: hidden; }
+.preview .ha-el { cursor: default; }
+
+/* ---- timeline ---- */
+.timeline-wrap { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px 12px; margin-top: 12px; }
+.timeline-wrap h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.timeline { display: flex; flex-direction: column; gap: 3px; touch-action: none; }
+.tl-row { display: grid; grid-template-columns: 120px 1fr; gap: 8px; align-items: center; }
+.tl-row.sel .tl-track { background: #eef4fb; }
+.tl-label { text-align: left; background: transparent; padding: 4px 6px; font-size: 12px; border-radius: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #222; }
+.tl-label[aria-current="true"] { background: #e3edf8; font-weight: 600; }
+.tl-ruler .tl-label { color: var(--muted); cursor: default; }
+.tl-track { position: relative; height: 24px; background: #f6f6f3; border-radius: 6px; }
+.tl-ruler .tl-track { background: transparent; height: 16px; border-bottom: 1px solid #e4e4e0; border-radius: 0; }
+.tl-tick { position: absolute; bottom: 0; height: 6px; border-left: 1px solid #ccc; font-size: 10px; color: var(--muted); padding-left: 2px; line-height: 1; transform: translateY(-8px); }
+.tl-bar { position: absolute; top: 3px; bottom: 3px; border-radius: 5px; cursor: grab; display: flex; align-items: center; overflow: hidden; min-width: 6px; }
+.tl-bar:active { cursor: grabbing; }
+.tl-bar.k-in { background: #2a5c8f; } .tl-bar.k-out { background: #c27a00; } .tl-bar.k-attn { background: #7a3fa0; }
+.tl-bar.loop { background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.18) 0 6px, transparent 6px 12px); }
+.tl-name { color: #fff; font-size: 11px; padding: 0 6px; white-space: nowrap; pointer-events: none; }
+.tl-end { position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize; background: rgba(255,255,255,.35); }
+.tl-none { position: absolute; left: 8px; top: 5px; font-size: 11px; color: #999; }
+.tl-playhead { position: absolute; top: -2px; bottom: -400px; width: 2px; background: #e5398b; display: none; pointer-events: none; z-index: 2; }
+.timeline { position: relative; overflow: hidden; }
+/* keep the piece's own z-index values inside the preview, under the editing overlay */
+.preview { isolation: isolate; position: relative; }
+.overlay { z-index: 10; }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Harpoon Animate v0.2</title>
+<title>Harpoon Animate v0.3</title>
 <link rel="stylesheet" href="editor.css" />
 <style id="runtimeCss"></style>
 <style id="selStyle"></style>
@@ -13,7 +13,7 @@
 </head>
 <body>
 <header class="top">
-  <h1>Harpoon <em>Animate</em> <span class="ver">v0.2</span></h1>
+  <h1>Harpoon <em>Animate</em> <span class="ver">v0.3</span></h1>
   <div class="top-actions">
     <button type="button" class="secondary" id="newBtn">New</button>
     <button type="button" class="secondary" id="openBtn">Open / import…</button>
@@ -54,9 +54,16 @@
       <button type="button" class="primary mini" id="playBtn">▶ Play</button>
     </div>
     <div class="stage" id="stage">
-      <div id="preview" class="preview"></div>
+      <div class="stage-inner" id="stageInner">
+        <div id="preview" class="preview"></div>
+        <div id="overlay" class="overlay"></div>
+      </div>
     </div>
     <p class="stage-note" id="stageNote"></p>
+    <section class="timeline-wrap" aria-label="Timeline">
+      <h2>Timeline <span class="hint">drag a bar to change when it starts · drag its right end to change how long it takes</span></h2>
+      <div id="timeline" class="timeline"></div>
+    </section>
     <div id="issues" class="issues" aria-live="polite"></div>
   </section>
 

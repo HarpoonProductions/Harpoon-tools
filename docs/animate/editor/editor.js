@@ -1,6 +1,8 @@
-// Harpoon Animate editor v0.2 — forms-based editor for scenes.
+// Harpoon Animate editor v0.3 — forms-based editor for scenes.
 import { renderScene, validate, ANIMATIONS, extractScene } from "../src/render.js";
 import { importInfogram } from "../src/import-infogram.js";
+import { initCanvas, drawOverlay, setOverlayHidden } from "./canvas.js";
+import { initTimeline, renderTimeline, runPlayhead } from "./timeline.js";
 
 const DRAFT_KEY = "harpoon-animate-draft-v1";
 const PHONE_PREVIEW = 375;
@@ -19,7 +21,7 @@ function h(tag, attrs = {}, ...kids) {
     if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
     else if (k === "class") el.className = v;
     else if (k === "value" || k === "checked" || k === "selected") el[k] = v;
-    else el.setAttribute(k, v === true ? "" : v);
+    else el.setAttribute(k, v === true ? (k.startsWith("aria-") ? "true" : "") : v);
   }
   return el;
 }
@@ -57,7 +59,7 @@ function commit(key) {
   const snap = JSON.stringify(scene);
   if (snap === current) return;
   const now = Date.now();
-  if (!(key && key === lastKey && now - lastTime < 900)) { if (current) past.push(current); if (past.length > 150) past.shift(); }
+  if (!(key && key === lastKey && (key.startsWith("g:") || now - lastTime < 900))) { if (current) past.push(current); if (past.length > 150) past.shift(); }
   current = snap; future = []; lastKey = key; lastTime = now;
   store.set(DRAFT_KEY, snap);
   refresh();
@@ -78,10 +80,10 @@ function fixSel() {
   if (sel.kind === "element" && !elById(sel.id)) sel = { kind: "scene" };
   if (sel.kind === "style" && !(scene.styles || {})[sel.name]) sel = { kind: "scene" };
 }
-function choose(s) { sel = s; renderLayers(); renderProps(); highlight(); }
+function choose(s) { sel = s; renderLayers(); renderProps(); highlight(); drawOverlay(); renderTimeline(); }
 
 // ---------------------------------------------------------------- refresh
-function refresh() { renderLayers(); renderPreview(); updateButtons(); }
+function refresh() { renderLayers(); renderPreview(); renderTimeline(); updateButtons(); }
 function refreshAll() { refresh(); renderProps(); }
 function updateButtons() { $("#undoBtn").disabled = !past.length; $("#redoBtn").disabled = !future.length; }
 
@@ -148,6 +150,7 @@ function renderPreview() {
   p.className = `preview ${view === "phone" ? "phone" : ""} f-${frame}`;
   p.innerHTML = previewHtml(scene);
   highlight();
+  setOverlayHidden(false);
   const M = scene.mobile;
   $("#stageNote").textContent = view === "phone"
     ? (M ? `Phone layout: below ${M.below}px wide the ${M.width}×${M.height} canvas is used. Position fields now edit the phone layout.` : "No phone layout: the desktop design is scaled down. Turn one on in Scene settings.")
@@ -155,15 +158,15 @@ function renderPreview() {
   scheduleMeasure();
 }
 function highlight() {
-  const css = sel.kind === "element" && elById(sel.id)
-    ? `#preview .ha-e-${slug(sel.id)}{outline:2px dashed #2a7de1!important;outline-offset:2px}` : "";
-  $("#selStyle").textContent = css;
+  $("#selStyle").textContent = ""; // the selection box (canvas.js) shows what's selected
 }
 function play() {
   const p = $("#preview");
   p.className = `preview ${view === "phone" ? "phone" : ""}`;
   const piece = p.querySelector(".ha");
   if (!piece) return;
+  setOverlayHidden(true);
+  runPlayhead();
   if (window.HarpoonAnimate) window.HarpoonAnimate.play(piece);
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) toast("Your computer has reduced motion on, so animations are switched off");
 }
@@ -482,11 +485,6 @@ function wire() {
     frame = b.dataset.frame; $$("[data-frame]").forEach((x) => x.setAttribute("aria-pressed", x === b)); renderPreview();
   }));
   $("#playBtn").addEventListener("click", play);
-  $("#preview").addEventListener("click", (ev) => {
-    const n = ev.target.closest(".ha-el"); if (!n) return;
-    const s = [...n.classList].find((c) => c.startsWith("ha-e-")).slice(5);
-    const e = scene.elements.find((x) => slug(x.id) === s); if (e) choose({ kind: "element", id: e.id });
-  });
   $("#undoBtn").addEventListener("click", undo);
   $("#redoBtn").addEventListener("click", redo);
   $("#newBtn").addEventListener("click", () => { if (confirm("Start a new piece? You can undo this.")) setScene(blankScene()); });
@@ -522,6 +520,10 @@ function wire() {
     if (ev.key === "Escape") return closeModals();
     const typing = ev.target instanceof Element && ev.target.closest("input, textarea, select, [contenteditable]");
     if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "z" && !typing) { ev.preventDefault(); ev.shiftKey ? redo() : undo(); return; }
+    if (!typing && sel.kind === "element" && (ev.key === "Delete" || ev.key === "Backspace") && !$(".modal.open")) {
+      ev.preventDefault(); scene.elements = scene.elements.filter((x) => x.id !== sel.id); sel = { kind: "scene" }; commit(); renderProps(); drawOverlay(); return;
+    }
+    if (!typing && sel.kind === "element" && (ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "d") { ev.preventDefault(); duplicate(sel.id); return; }
     if (typing || sel.kind !== "element" || !ev.key.startsWith("Arrow") || $(".modal.open")) return;
     const e = elById(sel.id); if (!e) return;
     ev.preventDefault();
@@ -536,8 +538,14 @@ function wire() {
 }
 
 // ---------------------------------------------------------------- start
+const api = {
+  get scene() { return scene; }, get sel() { return sel; }, get view() { return view; },
+  choose, commit, renderProps, slug,
+};
 async function start() {
   wire();
+  initCanvas(api);
+  initTimeline(api, ANIMATIONS);
   try {
     const [c, j] = await Promise.all([fetch("../runtime/ha.css").then((r) => r.text()), fetch("../runtime/ha.js").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;

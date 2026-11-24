@@ -47,6 +47,7 @@ Common fields:
 | `rotate` | degrees (default 0) |
 | `opacity` | 0–1 (default 1) |
 | `z` | stacking order (default: position in the list). Independent of reading order. |
+| `blend` | how it mixes with what's behind: `normal` (default), `multiply`, `screen`, `darken`, `lighten`, `overlay`, `color-burn`, `soft-light` |
 | `animate` | `{ "name", "delay", "duration", "easing", "distance", "loop" }` (seconds) |
 | `m` | phone-layout overrides |
 
@@ -65,6 +66,14 @@ H1 is allowed (e.g. an animated story title); validation only warns when a scene
 **line** — drawn across the box's width, centred vertically; `stroke`, `strokeWidth`. Rotate for other angles.
 
 **image** — `src` (absolute URL, e.g. on harpn), `alt` (required unless `decorative: true`), `fit`: `contain` | `cover`.
+`brush` (only used by the `brushIn` animation): `{ "points": [[x, y], …], "width", "soft" }`. Points are fractions of the
+layer's box (`[0, 0]` top-left, `[1, 1]` bottom-right; a little outside is allowed), in the order the brush moved; a smooth
+curve is drawn through them. `width` is the brush size as a fraction of the layer's width (default 0.22 with points,
+otherwise wide enough to sweep the whole height). `soft` 0–1 blurs the brush edge (default 0.25).
+
+**Blend modes and drawings:** `multiply` makes white see-through and darkens what's underneath, so a pencil drawing on white
+paper can sit over (or under) a colour stroke and look printed together, whichever is on top. It mixes with everything
+behind the layer, including the story's own background.
 
 ## Client kit and colours
 `kit` (optional) records which client kit the piece was made with: `{ "id": "uksi", "label": "UK Sport" }`.
@@ -80,13 +89,16 @@ Fallback stack is always appended so text shows while fonts load.
 ## Animations
 `name` is one of:
 - **in:** fadeIn, fadeInUp, fadeInDown, fadeInLeft, fadeInRight, slideInUp, slideInDown, slideInLeft, slideInRight,
-  zoomIn, bounceIn, wipeInLeft, wipeInRight, wipeInUp, wipeInDown
+  zoomIn, bounceIn, wipeInLeft, wipeInRight, wipeInUp, wipeInDown, brushIn *(images only)*
 - **out:** fadeOut, fadeOutUp, fadeOutDown, fadeOutLeft, fadeOutRight, slideOutUp, slideOutDown, slideOutLeft,
   slideOutRight, zoomOut, wipeOutLeft, wipeOutRight, wipeOutUp, wipeOutDown
 - **attention:** bounce, flash, pulse, shake, headShake, wobble (set `loop: true` to repeat)
 
 Direction words follow Infogram/Animate.css: `fadeInRight` comes *from* the right; `slideOutLeft` leaves *to* the left.
 Wipes reveal with a moving edge: `wipeInLeft` grows from the left edge; `wipeOutLeft` shrinks away towards the left.
+`brushIn` paints an image on as if with a brush: the image is drawn as inline SVG and revealed through a mask, a soft
+round brush that travels along the layer's `brush` path (see **image**). Without a path it sweeps straight across from the
+left. When it isn't animating (reduced motion, no animation) the image is shown whole.
 `distance` (fade-ins/outs only) is how far it travels as a fraction of its own size (default 0.1; Infogram's
 default is 1, which the importer writes in explicitly).
 `bounce` and `shake` move in canvas units, like Infogram and Animate.css: bounce rises 30, 15 then 4 units; shake

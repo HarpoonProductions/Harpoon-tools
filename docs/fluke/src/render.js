@@ -3,7 +3,7 @@
 
 export const ANIMATIONS = {
   in: ["fadeIn", "fadeInUp", "fadeInDown", "fadeInLeft", "fadeInRight", "slideInUp", "slideInDown", "slideInLeft",
-    "slideInRight", "zoomIn", "bounceIn", "wipeInLeft", "wipeInRight", "wipeInUp", "wipeInDown"],
+    "slideInRight", "zoomIn", "bounceIn", "wipeInLeft", "wipeInRight", "wipeInUp", "wipeInDown", "brushIn"],
   out: ["fadeOut", "fadeOutUp", "fadeOutDown", "fadeOutLeft", "fadeOutRight", "slideOutUp", "slideOutDown",
     "slideOutLeft", "slideOutRight", "zoomOut", "wipeOutLeft", "wipeOutRight", "wipeOutUp", "wipeOutDown"],
   attention: ["bounce", "flash", "pulse", "shake", "headShake", "wobble"],
@@ -14,6 +14,10 @@ const TEXT_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6", "p", "blockquote"
 const ROOT_TAGS = new Set(["div", "figure", "section", "header", "h1", "h2", "h3"]);
 const HEADING_ROOTS = new Set(["h1", "h2", "h3"]);
 const TYPES = new Set(["text", "rect", "ellipse", "line", "image"]);
+export const BLENDS = ["normal", "multiply", "screen", "darken", "lighten", "overlay", "color-burn", "soft-light"];
+// Image-only animations: the image is drawn as inline SVG and revealed through a moving mask
+export const IMAGE_ONLY_ANIMATIONS = new Set(["brushIn"]);
+const isBrush = (e) => e.type === "image" && e.animate?.name === "brushIn";
 
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const slug = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "x";
@@ -54,6 +58,13 @@ export function validate(scene) {
       if (!e.decorative && !String(e.alt || "").trim()) errors.push(`${where}: image needs alt text, or decorative: true`);
     }
     if (e.animate && e.animate.name && !ALL_ANIMATIONS.has(e.animate.name)) errors.push(`${where}: unknown animation "${e.animate.name}"`);
+    if (e.animate && IMAGE_ONLY_ANIMATIONS.has(e.animate.name) && e.type !== "image") errors.push(`${where}: ${e.animate.name} only works on image layers`);
+    if (e.blend && !BLENDS.includes(e.blend)) errors.push(`${where}: unknown blend "${e.blend}"`);
+    if (e.brush && e.brush.points !== undefined) {
+      const pts = e.brush.points;
+      if (!Array.isArray(pts) || pts.length < 2 || !pts.every((p) => Array.isArray(p) && p.length === 2 && p.every((n) => typeof n === "number" && isFinite(n))))
+        errors.push(`${where}: brush.points must be at least two [x, y] pairs`);
+    }
   });
   if (scene.root === "h1") h1++;
   if (h1 > 1) warnings.push(`${h1} H1s in one piece — a page should normally have only one`);
@@ -116,6 +127,7 @@ function elementRules(scene, e, i) {
   r.push(`z-index:${e.z ?? i + 1}`);
   if (e.rotate) r.push(`rotate:${num(e.rotate)}deg`);
   if (e.opacity !== undefined && e.opacity !== 1) r.push(`opacity:${num(e.opacity)}`);
+  if (e.blend && e.blend !== "normal" && BLENDS.includes(e.blend)) r.push(`mix-blend-mode:${e.blend}`);
   if (e.type === "text") {
     const s = textStyle(scene, e);
     const fam = s.family ? `"${cssVal(s.family).replace(/"/g, "")}",` : "";
@@ -136,11 +148,55 @@ function elementRules(scene, e, i) {
     r.push(`object-fit:${e.fit === "cover" ? "cover" : "contain"}`);
   }
   const a = e.animate;
-  if (a && a.name && ALL_ANIMATIONS.has(a.name)) {
+  if (a && a.name && ALL_ANIMATIONS.has(a.name) && !isBrush(e) && !(IMAGE_ONLY_ANIMATIONS.has(a.name))) {
     r.push(`animation:ha-${a.name} ${num(a.duration ?? 1, 3)}s ${cssVal(a.easing || "ease")} ${num(a.delay ?? 0, 3)}s ${a.loop ? "infinite" : 1} both`);
     if (a.distance !== undefined) r.push(`--ha-d:${num(a.distance * 100, 2)}%`);
   }
   return r;
+}
+
+// The brush reveal animates the mask path inside the image's SVG, not the layer itself
+function brushRule(e) {
+  const a = e.animate;
+  return `animation:ha-brushIn ${num(a.duration ?? 1, 3)}s ${cssVal(a.easing || "ease")} ${num(a.delay ?? 0, 3)}s 1 both`;
+}
+
+// ---- brush path: points are fractions of the layer's box ([0,0] top-left, [1,1] bottom-right)
+export const DEFAULT_BRUSH = { points: [[0, 0.5], [1, 0.5]], width: null, soft: 0.25 };
+export function brushOf(e) {
+  const b = e.brush || {};
+  const drawn = Array.isArray(b.points) && b.points.length >= 2;
+  const pts = drawn ? b.points : DEFAULT_BRUSH.points;
+  // default size: a drawn path gets a brush about a fifth of the layer's width; the straight sweep covers the whole height
+  const width = b.width > 0 ? b.width : drawn ? 0.22 : Math.min(1.5, (e.h / e.w) * 1.15);
+  const soft = b.soft >= 0 ? Math.min(1, b.soft) : DEFAULT_BRUSH.soft;
+  return { points: pts, width, soft };
+}
+// A smooth curve through the points (Catmull-Rom as cubic Béziers), in box units w × h
+export function brushPathD(points, w, h) {
+  const P = points.map(([x, y]) => [x * w, y * h]);
+  const f = (n) => num(n, 2);
+  let d = `M${f(P[0][0])},${f(P[0][1])}`;
+  for (let i = 0; i < P.length - 1; i++) {
+    const p0 = P[i - 1] || P[i], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${f(c1[0])},${f(c1[1])} ${f(c2[0])},${f(c2[1])} ${f(p2[0])},${f(p2[1])}`;
+  }
+  return d;
+}
+function brushImageHtml(e, cls, sid, out) {
+  const w = num(e.w, 2), h = num(e.h, 2);
+  const { points, width, soft } = brushOf(e);
+  const sw = width * e.w, blur = soft * sw * 0.25;
+  const id = `${sid}-${slug(e.id)}-brush`;
+  const par = e.fit === "cover" ? "xMidYMid slice" : "xMidYMid meet";
+  const a11y = e.decorative ? ' aria-hidden="true"' : ` role="img" aria-label="${esc(e.alt)}"`;
+  return `<svg class="${cls}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="${par}"${a11y}${out}>` +
+    `<defs>${blur > 0 ? `<filter id="${id}-f" filterUnits="userSpaceOnUse" x="${-w}" y="${-h}" width="${3 * w}" height="${3 * h}"><feGaussianBlur stdDeviation="${num(blur, 2)}"/></filter>` : ""}` +
+    `<mask id="${id}" maskUnits="userSpaceOnUse" x="${-w}" y="${-h}" width="${3 * w}" height="${3 * h}">` +
+    `<path class="ha-el ha-brush" pathLength="1" fill="none" stroke="#fff" stroke-width="${num(sw, 2)}" stroke-linecap="round" stroke-linejoin="round"${blur > 0 ? ` filter="url(#${id}-f)"` : ""} d="${brushPathD(points, e.w, e.h)}"/>` +
+    `</mask></defs><image href="${esc(e.src)}" width="${w}" height="${h}" preserveAspectRatio="${par}" mask="url(#${id})"/></svg>`;
 }
 
 function mobileRules(scene, e) {
@@ -157,7 +213,7 @@ function mobileRules(scene, e) {
 }
 
 // inline = inside a heading wrapper, where only inline elements are valid HTML
-function elementHtml(e, cls, inline = false) {
+function elementHtml(e, cls, inline = false, sid = "") {
   const box = inline ? "span" : "div";
   const out = e.animate && OUT_ANIMATIONS.has(e.animate.name) ? " data-ha-out" : "";
   if (e.type === "text") {
@@ -166,6 +222,7 @@ function elementHtml(e, cls, inline = false) {
     if (tag === "decorative") return `<${box} class="${cls} ha-text" aria-hidden="true"${out}>${body}</${box}>`;
     return `<${tag} class="${cls} ha-text"${out}>${body}</${tag}>`;
   }
+  if (isBrush(e) && !inline) return brushImageHtml(e, cls, sid, out);
   if (e.type === "image") {
     const alt = e.decorative ? "" : esc(e.alt);
     return `<img class="${cls}" src="${esc(e.src)}" alt="${alt}" decoding="async"${e.decorative ? ' aria-hidden="true"' : ""}${out}>`;
@@ -194,7 +251,10 @@ export function renderScene(scene, opts = {}) {
   const css = [];
   // --ha-u is one canvas unit, so movements written in canvas units (bounce, shake) scale with the piece
   css.push(`${S} .ha-scene{aspect-ratio:${num(W)}/${num(H)};--ha-u:${num(100 / W, 5)}cqi${scene.canvas.background ? ";background:" + cssVal(scene.canvas.background) : ""}}`);
-  els.forEach((e, i) => css.push(`${S} .ha-e-${slug(e.id)}{${elementRules(scene, e, i).join(";")}}`));
+  els.forEach((e, i) => {
+    css.push(`${S} .ha-e-${slug(e.id)}{${elementRules(scene, e, i).join(";")}}`);
+    if (isBrush(e) && !HEADING_ROOTS.has(scene.root || "div")) css.push(`${S} .ha-e-${slug(e.id)} .ha-brush{${brushRule(e)}}`);
+  });
   if (scene.mobile) {
     const M = scene.mobile;
     const mob = [`${S} .ha-scene{aspect-ratio:${num(M.width)}/${num(M.height)};--ha-u:${num(100 / M.width, 5)}cqi}`];
@@ -217,7 +277,7 @@ export function renderScene(scene, opts = {}) {
   lines.push(`<div ${attrs.join(" ")}>`);
   lines.push(`<style>${include ? opts.runtimeCss.trim() + "\n" : ""}${css.join("\n")}</style>`);
   lines.push(`<${root} class="ha-scene"${label}>`);
-  els.forEach((e) => lines.push("  " + elementHtml(e, `ha-el ha-e-${slug(e.id)}`, HEADING_ROOTS.has(root))));
+  els.forEach((e) => lines.push("  " + elementHtml(e, `ha-el ha-e-${slug(e.id)}`, HEADING_ROOTS.has(root), sid)));
   lines.push(`</${root}>`);
   if (opts.embedSource) lines.push(`<script type="application/json" data-ha-scene>${JSON.stringify(scene).replace(/</g, "\\u003c")}</script>`);
   lines.push(`</div>`);

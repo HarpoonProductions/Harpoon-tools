@@ -5,9 +5,12 @@
 .ha .ha-text{font:inherit;color:inherit;text-transform:none;text-decoration:none;quotes:none;white-space:normal;overflow-wrap:break-word;overflow:visible;font-kerning:normal}
 .ha .ha-text::before,.ha .ha-text::after{content:none}
 .ha img.ha-el{display:block;height:auto}
-/* View-triggered scenes wait at their first frame until the runtime adds .ha-run */
-@media (scripting:enabled){.ha[data-ha-trigger=view]:not(.ha-run) .ha-el{animation-play-state:paused}}
-.ha.ha-armed:not(.ha-run) .ha-el{animation-play-state:paused}
+/* Brush reveal: the mask path is drawn on along its length. At rest (no animation, reduced motion) it is fully drawn. */
+.ha .ha-brush{stroke-dasharray:1 2;stroke-dashoffset:0}
+/* View-triggered scenes wait at their first frame until the runtime adds .ha-run. !important because each piece's
+   own animation rules are scoped by its #id, which would otherwise outrank these and start it playing off-screen. */
+@media (scripting:enabled){.ha[data-ha-trigger=view]:not(.ha-run) .ha-el{animation-play-state:paused!important}}
+.ha.ha-armed:not(.ha-run) .ha-el{animation-play-state:paused!important}
 .ha.ha-reset .ha-el{animation-name:none!important}
 @media (prefers-reduced-motion:reduce){.ha .ha-el{animation:none!important}.ha .ha-el[data-ha-out]{visibility:hidden}}
 /* ---- in ---- */
@@ -26,6 +29,7 @@
 @keyframes ha-wipeInRight{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0)}}
 @keyframes ha-wipeInUp{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0)}}
 @keyframes ha-wipeInDown{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0)}}
+@keyframes ha-brushIn{from{stroke-dashoffset:1.02}to{stroke-dashoffset:0}}
 /* ---- out ---- */
 @keyframes ha-fadeOut{from{opacity:1}to{opacity:0;visibility:hidden}}
 @keyframes ha-fadeOutUp{from{opacity:1}to{opacity:0;transform:translateY(calc(-1 * var(--ha-d,10%)));visibility:hidden}}

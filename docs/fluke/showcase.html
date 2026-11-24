@@ -27,14 +27,17 @@
 <div class="ha" id="ha-fluke-showcase" data-ha-trigger="view" data-ha-threshold="0.25">
 <style>/* Fluke runtime CSS v1 — shared by every scene; safe to include more than once. */
 .ha{container-type:inline-size;position:relative;margin:0;padding:0}
-.ha .ha-scene{position:relative;display:block;width:100%;margin:0;padding:0;border:0;overflow:clip}
-.ha .ha-el{position:absolute;box-sizing:border-box;margin:0;padding:0;border:0;background:none;box-shadow:none;max-width:none;transform-origin:50% 50%}
+.ha .ha-scene{position:relative;display:block;width:100%;margin:0;padding:0;border:0;overflow:clip;font:inherit;letter-spacing:normal;text-transform:none}
+.ha .ha-el{display:block;position:absolute;box-sizing:border-box;margin:0;padding:0;border:0;background:none;box-shadow:none;max-width:none;transform-origin:50% 50%}
 .ha .ha-text{font:inherit;color:inherit;text-transform:none;text-decoration:none;quotes:none;white-space:normal;overflow-wrap:break-word;overflow:visible;font-kerning:normal}
 .ha .ha-text::before,.ha .ha-text::after{content:none}
 .ha img.ha-el{display:block;height:auto}
-/* View-triggered scenes wait at their first frame until the runtime adds .ha-run */
-@media (scripting:enabled){.ha[data-ha-trigger=view]:not(.ha-run) .ha-el{animation-play-state:paused}}
-.ha.ha-armed:not(.ha-run) .ha-el{animation-play-state:paused}
+/* Brush reveal: the mask path is drawn on along its length. At rest (no animation, reduced motion) it is fully drawn. */
+.ha .ha-brush{stroke-dasharray:1 2;stroke-dashoffset:0}
+/* View-triggered scenes wait at their first frame until the runtime adds .ha-run. !important because each piece's
+   own animation rules are scoped by its #id, which would otherwise outrank these and start it playing off-screen. */
+@media (scripting:enabled){.ha[data-ha-trigger=view]:not(.ha-run) .ha-el{animation-play-state:paused!important}}
+.ha.ha-armed:not(.ha-run) .ha-el{animation-play-state:paused!important}
 .ha.ha-reset .ha-el{animation-name:none!important}
 @media (prefers-reduced-motion:reduce){.ha .ha-el{animation:none!important}.ha .ha-el[data-ha-out]{visibility:hidden}}
 /* ---- in ---- */
@@ -53,6 +56,7 @@
 @keyframes ha-wipeInRight{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0)}}
 @keyframes ha-wipeInUp{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0)}}
 @keyframes ha-wipeInDown{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0)}}
+@keyframes ha-brushIn{from{stroke-dashoffset:1.02}to{stroke-dashoffset:0}}
 /* ---- out ---- */
 @keyframes ha-fadeOut{from{opacity:1}to{opacity:0;visibility:hidden}}
 @keyframes ha-fadeOutUp{from{opacity:1}to{opacity:0;transform:translateY(calc(-1 * var(--ha-d,10%)));visibility:hidden}}
@@ -69,12 +73,13 @@
 @keyframes ha-wipeOutUp{from{clip-path:inset(0)}to{clip-path:inset(0 0 100% 0);visibility:hidden}}
 @keyframes ha-wipeOutDown{from{clip-path:inset(0)}to{clip-path:inset(100% 0 0 0);visibility:hidden}}
 /* ---- attention ---- */
-@keyframes ha-bounce{0%,20%,53%,to{transform:none;animation-timing-function:cubic-bezier(.215,.61,.355,1)}40%,43%{transform:translateY(-30%);animation-timing-function:cubic-bezier(.755,.05,.855,.06)}70%{transform:translateY(-15%);animation-timing-function:cubic-bezier(.755,.05,.855,.06)}90%{transform:translateY(-4%)}}
+@keyframes ha-bounce{0%,20%,53%,80%,to{transform:none;animation-timing-function:cubic-bezier(.215,.61,.355,1)}40%,43%{transform:translateY(calc(-30 * var(--ha-u,1px)));animation-timing-function:cubic-bezier(.755,.05,.855,.06)}70%{transform:translateY(calc(-15 * var(--ha-u,1px)));animation-timing-function:cubic-bezier(.755,.05,.855,.06)}90%{transform:translateY(calc(-4 * var(--ha-u,1px)))}}
 @keyframes ha-flash{0%,50%,to{opacity:1}25%,75%{opacity:0}}
 @keyframes ha-pulse{0%,to{transform:none}50%{transform:scale(1.05)}}
-@keyframes ha-shake{0%,to{transform:none}10%,30%,50%,70%,90%{transform:translateX(-4%)}20%,40%,60%,80%{transform:translateX(4%)}}
+@keyframes ha-shake{0%,to{transform:none}10%,30%,50%,70%,90%{transform:translateX(calc(-10 * var(--ha-u,1px)))}20%,40%,60%,80%{transform:translateX(calc(10 * var(--ha-u,1px)))}}
+@keyframes ha-headShake{0%,50%,to{transform:none}6.5%{transform:translateX(calc(-6 * var(--ha-u,1px))) rotateY(-9deg)}18.5%{transform:translateX(calc(5 * var(--ha-u,1px))) rotateY(7deg)}31.5%{transform:translateX(calc(-3 * var(--ha-u,1px))) rotateY(-5deg)}43.5%{transform:translateX(calc(2 * var(--ha-u,1px))) rotateY(3deg)}}
 @keyframes ha-wobble{0%,to{transform:none}15%{transform:translateX(-25%) rotate(-5deg)}30%{transform:translateX(20%) rotate(3deg)}45%{transform:translateX(-15%) rotate(-3deg)}60%{transform:translateX(10%) rotate(2deg)}75%{transform:translateX(-5%) rotate(-1deg)}}
-#ha-fluke-showcase .ha-scene{aspect-ratio:1000/600;background:#031041}
+#ha-fluke-showcase .ha-scene{aspect-ratio:1000/600;--ha-u:0.1cqi;background:#031041}
 #ha-fluke-showcase .ha-e-kicker{left:7%;top:11%;width:60%;height:5%;z-index:8;font-family:"DM Sans",system-ui, sans-serif;font-weight:700;font-style:normal;font-size:2cqi;line-height:1.2;color:#FBC54F;text-align:left;letter-spacing:0.18em;animation:ha-fadeInDown 0.6s ease 0.6s 1 both;--ha-d:50%}
 #ha-fluke-showcase .ha-e-headline{left:7%;top:18%;width:60%;height:25%;z-index:9;font-family:"DM Serif Display",Georgia, serif;font-weight:400;font-style:normal;font-size:6.4cqi;line-height:1.05;color:#FFFFFF;text-align:left;animation:ha-fadeInUp 0.9s cubic-bezier(.34,1.56,.64,1) 0.8s 1 both;--ha-d:15%}
 #ha-fluke-showcase .ha-e-body{left:7%;top:50%;width:52%;height:16.6667%;z-index:10;font-family:"DM Sans",system-ui, sans-serif;font-weight:400;font-style:normal;font-size:2.2cqi;line-height:1.4;color:#C9CEE6;text-align:left;animation:ha-fadeIn 0.8s ease 1.9s 1 both}
@@ -89,7 +94,7 @@
 #ha-fluke-showcase .ha-e-diamond{left:83%;top:65%;width:8%;height:13.3333%;z-index:3;rotate:45deg;border:0.2cqi solid #4A5A9C;animation:ha-wobble 1.2s ease 3.3s 1 both}
 #ha-fluke-showcase .ha-e-pulse{left:90.4%;top:83.3333%;width:3.6%;height:6%;z-index:2;background:#FBC54F;border-radius:50%;animation:ha-pulse 1.6s ease 3.8s infinite both}
 #ha-fluke-showcase .ha-e-reveal{left:0%;top:0%;width:66%;height:100%;z-index:20;background:#FBC54F;animation:ha-slideOutLeft 0.7s cubic-bezier(.65,0,.35,1) 0.2s 1 both}
-@container (max-width:559.98px){#ha-fluke-showcase .ha-scene{aspect-ratio:375/480}#ha-fluke-showcase .ha-e-kicker{left:6.4%;top:7.0833%;width:69.3333%;height:4.1667%;font-size:3.2cqi}#ha-fluke-showcase .ha-e-headline{left:6.4%;top:12.9167%;width:88%;height:17.5%;font-size:9.0667cqi}#ha-fluke-showcase .ha-e-body{left:6.4%;top:38.75%;width:87.2%;height:22.9167%;font-size:4.2667cqi}#ha-fluke-showcase .ha-e-before-label{left:6.4%;top:67.9167%;width:40%;height:6.25%;font-size:2.9333cqi}#ha-fluke-showcase .ha-e-before{left:6.4%;top:75.4167%;width:40%;height:9.1667%;font-size:9.6cqi}#ha-fluke-showcase .ha-e-after-label{left:50.6667%;top:67.9167%;width:42.6667%;height:6.25%;font-size:2.9333cqi}#ha-fluke-showcase .ha-e-after{left:50.6667%;top:75.4167%;width:40%;height:9.1667%;font-size:9.6cqi}#ha-fluke-showcase .ha-e-logo{left:80%;top:5.4167%;width:13.8667%;height:10.8333%}#ha-fluke-showcase .ha-e-ring{display:none}#ha-fluke-showcase .ha-e-rule{left:6.4%;top:calc(33.9583% - 0.4cqi);width:21.3333%;height:max(1px,0.8cqi)}#ha-fluke-showcase .ha-e-arrow{left:42.6667%;top:calc(80% - 0.2667cqi);width:5.8667%;height:max(1px,0.5333cqi)}#ha-fluke-showcase .ha-e-diamond{display:none}#ha-fluke-showcase .ha-e-pulse{left:88%;top:89.5833%;width:6.4%;height:5%}#ha-fluke-showcase .ha-e-reveal{left:0%;top:0%;width:100%;height:100%}}</style>
+@container (max-width:559.98px){#ha-fluke-showcase .ha-scene{aspect-ratio:375/480;--ha-u:0.26667cqi}#ha-fluke-showcase .ha-e-kicker{left:6.4%;top:7.0833%;width:69.3333%;height:4.1667%;font-size:3.2cqi}#ha-fluke-showcase .ha-e-headline{left:6.4%;top:12.9167%;width:88%;height:17.5%;font-size:9.0667cqi}#ha-fluke-showcase .ha-e-body{left:6.4%;top:38.75%;width:87.2%;height:22.9167%;font-size:4.2667cqi}#ha-fluke-showcase .ha-e-before-label{left:6.4%;top:67.9167%;width:40%;height:6.25%;font-size:2.9333cqi}#ha-fluke-showcase .ha-e-before{left:6.4%;top:75.4167%;width:40%;height:9.1667%;font-size:9.6cqi}#ha-fluke-showcase .ha-e-after-label{left:50.6667%;top:67.9167%;width:42.6667%;height:6.25%;font-size:2.9333cqi}#ha-fluke-showcase .ha-e-after{left:50.6667%;top:75.4167%;width:40%;height:9.1667%;font-size:9.6cqi}#ha-fluke-showcase .ha-e-logo{left:80%;top:5.4167%;width:13.8667%;height:10.8333%}#ha-fluke-showcase .ha-e-ring{display:none}#ha-fluke-showcase .ha-e-rule{left:6.4%;top:calc(33.9583% - 0.4cqi);width:21.3333%;height:max(1px,0.8cqi)}#ha-fluke-showcase .ha-e-arrow{left:42.6667%;top:calc(80% - 0.2667cqi);width:5.8667%;height:max(1px,0.5333cqi)}#ha-fluke-showcase .ha-e-diamond{display:none}#ha-fluke-showcase .ha-e-pulse{left:88%;top:89.5833%;width:6.4%;height:5%}#ha-fluke-showcase .ha-e-reveal{left:0%;top:0%;width:100%;height:100%}}</style>
 <section class="ha-scene" aria-label="Fluke by Harpoon: animated pieces without the embed">
   <p class="ha-el ha-e-kicker ha-text">FLUKE BY HARPOON</p>
   <h2 class="ha-el ha-e-headline ha-text">Animated pieces,<br>without the embed.</h2>

@@ -10,6 +10,8 @@ let dragging = false;
 let hidden = false;
 let cycleTimer = 0;   // a second click picks the layer underneath — unless it turns out to be a double-click
 let editing = null;   // id of the text layer being edited in place
+let brushing = null;  // id of the image layer whose brush path is being drawn
+let draft = [];       // the brush points being drawn, as fractions of the layer's box
 
 const $ = (s, r = document) => r.querySelector(s);
 
@@ -53,6 +55,8 @@ export function drawOverlay(guides = []) {
   const ov = $("#overlay");
   if (!ov || !api?.scene) return; // scene not loaded yet
   const g = geometry();
+  if (brushing && (!g?.e || g.e.id !== brushing)) stopBrushDraw();
+  if (g && brushing) { Object.assign(ov.style, { left: g.left + "px", top: g.top + "px", width: g.width + "px", height: g.height + "px" }); ov.replaceChildren(...brushOverlay(g)); return; }
   if (!g || hidden || editing) { ov.replaceChildren(); return; }
   Object.assign(ov.style, { left: g.left + "px", top: g.top + "px", width: g.width + "px", height: g.height + "px" });
   const kids = [];
@@ -213,8 +217,10 @@ function elementIdFromNode(n) {
 export function initCanvas(a) {
   api = a;
   const stage = $("#stageInner");
+  document.addEventListener("keydown", brushKey, true);
   stage.addEventListener("pointerdown", (ev) => {
     if (ev.button !== 0) return;
+    if (brushing) return brushPointerDown(ev);
     if (api.getScrub() != null) api.endScrub(); // back from the scrubbed frame to editing
     const st = ev.target.closest("[data-stack]");
     if (st) { ev.preventDefault(); if (!st.disabled) api.stack(st.dataset.stack); return; }
@@ -294,3 +300,109 @@ export function finishTextEdit() {
   api.renderProps();
 }
 export const isEditingText = () => !!editing;
+
+// ---------------------------------------------------------------- brush path (for the brushIn animation)
+// The person clicks points in the order the brush moved. Points are stored as fractions of the layer's box, so the
+// path follows the layer when it's moved or resized. A faint band shows how much each part of the path reveals.
+const SVGNS = "http://www.w3.org/2000/svg";
+const svgEl = (tag, attrs) => { const n = document.createElementNS(SVGNS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); return n; };
+export const isBrushing = () => brushing;
+export function startBrushDraw(id) {
+  const e = api.scene.elements.find((x) => x.id === id);
+  if (!e || e.type !== "image") return;
+  if (phoneMode()) { api.toast("Draw the brush path in Desktop view — it's used for phones too"); return; }
+  if (editing) finishTextEdit();
+  brushing = id;
+  draft = (e.brush?.points || []).map((p) => [...p]);
+  api.renderPreview(); api.renderProps();
+}
+export function stopBrushDraw() {
+  if (!brushing) return;
+  brushing = null; draft = [];
+  api.renderPreview(); api.renderProps();
+}
+// The scene is the truth (undo/redo can change it); only a lone first point lives just here, as a path needs two
+function syncDraft(e) {
+  const pts = e?.brush?.points;
+  if (Array.isArray(pts) && pts.length >= 2) draft = pts.map((p) => [...p]);
+  else if (draft.length >= 2) draft = [];
+}
+function saveDraft(key) {
+  const e = api.scene.elements.find((x) => x.id === brushing); if (!e) return;
+  const r3 = (n) => Math.round(n * 1000) / 1000;
+  if (draft.length >= 2) { e.brush = { ...(e.brush || {}), points: draft.map(([x, y]) => [r3(x), r3(y)]) }; }
+  else if (e.brush) { delete e.brush.points; if (!Object.keys(e.brush).length) delete e.brush; }
+  api.commit(key);
+}
+function toFraction(ev, g, e) {
+  const b = boxOf(e);
+  const px = (ev.clientX - g.sr.left) / g.sx, py = (ev.clientY - g.sr.top) / g.sy;
+  const a = -(b.r || 0) * Math.PI / 180, cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  const lx = (px - cx) * Math.cos(a) - (py - cy) * Math.sin(a), ly = (px - cx) * Math.sin(a) + (py - cy) * Math.cos(a);
+  const clamp = (n) => Math.max(-0.25, Math.min(1.25, n));
+  return [clamp((lx + b.w / 2) / b.w), clamp((ly + b.h / 2) / b.h)];
+}
+function brushOverlay(g) {
+  const e = g.e, b = boxOf(e);
+  syncDraft(e);
+  const box = document.createElement("div");
+  box.className = "brush-box";
+  Object.assign(box.style, { left: b.x * g.sx + "px", top: b.y * g.sy + "px", width: b.w * g.sx + "px", height: b.h * g.sy + "px", rotate: b.r + "deg" });
+  const svg = svgEl("svg", { viewBox: `0 0 ${b.w} ${b.h}`, preserveAspectRatio: "none", class: "brush-svg" });
+  const { width, soft } = api.brushOf({ ...e, brush: { ...(e.brush || {}), points: draft.length >= 2 ? draft : undefined } });
+  if (draft.length >= 2) {
+    const d = api.brushPathD(draft, b.w, b.h);
+    svg.append(svgEl("path", { d, class: "brush-band", "stroke-width": width * b.w }),
+      svgEl("path", { d, class: "brush-line" }));
+  }
+  box.append(svg);
+  draft.forEach(([x, y], i) => {
+    const pt = document.createElement("div");
+    pt.className = "brush-pt" + (i === 0 ? " first" : "");
+    pt.dataset.brushPt = i; pt.textContent = i + 1;
+    pt.title = i === 0 ? "Start: where the brush first touches. Drag to move" : "Drag to move";
+    Object.assign(pt.style, { left: x * 100 + "%", top: y * 100 + "%", rotate: -b.r + "deg" });
+    box.append(pt);
+  });
+  const bar = document.createElement("div");
+  bar.className = "brush-tools";
+  const btn = (label, act, title) => { const x = document.createElement("button"); x.type = "button"; x.textContent = label; x.dataset.brush = act; x.title = title; return x; };
+  const tip = document.createElement("span");
+  tip.textContent = draft.length ? `${draft.length} point${draft.length > 1 ? "s" : ""} · click to add the next` : "Click where the brush starts, then along its route";
+  bar.append(tip, btn("Undo point", "undo", "Remove the last point (Backspace)"), btn("Clear", "clear", "Start the path again"), btn("Done", "done", "Finish drawing (Enter)"));
+  void soft;
+  return [box, bar];
+}
+function brushPointerDown(ev) {
+  const g = geometry(); if (!g?.e) return;
+  syncDraft(g.e);
+  const tool = ev.target.closest("[data-brush]");
+  if (tool) {
+    ev.preventDefault();
+    const act = tool.dataset.brush;
+    if (act === "done") return stopBrushDraw();
+    if (act === "undo") draft.pop(); else if (act === "clear") draft = [];
+    saveDraft("brush-" + ++gestureId); drawOverlay(); return;
+  }
+  ev.preventDefault();
+  const stage = $("#stageInner");
+  const ptEl = ev.target.closest("[data-brush-pt]");
+  let i;
+  if (ptEl) i = +ptEl.dataset.brushPt;
+  else { draft.push(toFraction(ev, g, g.e)); i = draft.length - 1; }
+  const key = "brush-" + ++gestureId;
+  saveDraft(key); drawOverlay();
+  stage.setPointerCapture(ev.pointerId);
+  const onMove = (m) => { draft[i] = toFraction(m, g, g.e); saveDraft(key); drawOverlay(); };
+  const onUp = () => { stage.removeEventListener("pointermove", onMove); stage.removeEventListener("pointerup", onUp); stage.removeEventListener("pointercancel", onUp); api.renderProps(); };
+  stage.addEventListener("pointermove", onMove);
+  stage.addEventListener("pointerup", onUp);
+  stage.addEventListener("pointercancel", onUp);
+}
+function brushKey(ev) {
+  if (!brushing) return;
+  if (ev.target instanceof Element && ev.target.closest("input, textarea, select")) return;
+  if (["Escape", "Enter"].includes(ev.key)) { ev.preventDefault(); ev.stopPropagation(); stopBrushDraw(); }
+  else if (ev.key === "Backspace" || ev.key === "Delete") { ev.preventDefault(); ev.stopPropagation(); syncDraft(api.scene.elements.find((x) => x.id === brushing)); draft.pop(); saveDraft("brush-" + ++gestureId); drawOverlay(); }
+  else if (ev.key.startsWith("Arrow")) { ev.preventDefault(); ev.stopPropagation(); }
+}

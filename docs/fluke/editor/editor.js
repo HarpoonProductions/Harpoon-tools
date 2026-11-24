@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight } from "../src/render.js?v=18feba6";
-import { initCanvas, drawOverlay, setOverlayHidden } from "./canvas.js?v=18feba6";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=18feba6";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD } from "../src/render.js?v=c9c9e95";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=c9c9e95";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=c9c9e95";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=18feba6"), import("./fonts.js?v=18feba6"), import("./library.js?v=18feba6")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=c9c9e95"), import("./fonts.js?v=c9c9e95"), import("./library.js?v=c9c9e95")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=18feba6"); }
+  try { mod = await import("../src/import-infogram.js?v=c9c9e95"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -191,7 +191,8 @@ function previewHtml(s) {
 }
 function renderPreview() {
   const p = $("#preview");
-  p.className = `preview ${view === "phone" ? "phone" : ""} f-${frame}`;
+  // while drawing a brush path, show the finished frame so the whole image is there to trace
+  p.className = `preview ${view === "phone" ? "phone" : ""} f-${isBrushing() ? "end" : frame}`;
   p.innerHTML = previewHtml(scene);
   highlight();
   setOverlayHidden(false);
@@ -217,6 +218,7 @@ function applyScrub() {
 function scrubTo(t) { scrubT = t; applyScrub(); }
 function endScrub() { if (scrubT == null) return; scrubT = null; hidePlayhead(); renderPreview(); }
 function play() {
+  stopBrushDraw();
   scrubT = null; hidePlayhead();
   const p = $("#preview");
   p.className = `preview ${view === "phone" ? "phone" : ""}`;
@@ -341,7 +343,7 @@ function openAnimPicker(anchor) {
   const group = (title, names) => h("div", { class: "anim-group" }, h("div", { class: "anim-group__title" }, title), h("div", { class: "anim-grid" }, names.map(opt)));
   animPop = h("div", { class: "anim-pop", role: "listbox", "aria-labelledby": "animFieldLabel" },
     h("p", { class: "anim-hint" }, "Hover (or use the arrow keys) to see it on the layer · click to choose · Esc to cancel"),
-    group("Enter", ANIMATIONS.in), group("Leave", ANIMATIONS.out), group("Attention", ANIMATIONS.attention), group("No animation", [""]));
+    group("Enter", elById(sel.id)?.type === "image" ? ANIMATIONS.in : ANIMATIONS.in.filter((n) => !IMAGE_ONLY_ANIMATIONS.has(n))), group("Leave", ANIMATIONS.out), group("Attention", ANIMATIONS.attention), group("No animation", [""]));
   const pop = animPop;
   pop.addEventListener("keydown", (k) => {
     // keys used here must not also reach the editor (arrow keys there nudge the selected layer)
@@ -592,6 +594,9 @@ function elementProps(id) {
       h("p", { class: "helper" }, "Arrow keys nudge the selected layer (Shift = 10).")));
   }
   out.push(stackSection(e.id));
+  out.push(section("Blend",
+    select("Blend with what's behind", E, "blend", BLENDS.map((b) => ({ value: b, label: BLEND_LABELS[b] || b })), { fallback: "normal", apply: (v) => { if (v === "normal") delete E().blend; else E().blend = v; } }),
+    h("p", { class: "helper" }, "Multiply makes white see-through and darkens what's underneath — right for pencil or ink drawn on white paper.")));
 
   const A = () => E().animate || {};
   const a = e.animate || {};
@@ -601,13 +606,33 @@ function elementProps(id) {
     a.name ? [grid(2, num("Delay (s)", () => (E().animate ||= {}), "delay", { min: 0, step: 0.1, placeholder: "0" }), num("Duration (s)", () => (E().animate ||= {}), "duration", { min: 0.05, step: 0.1, placeholder: "1" })),
       select("Easing", () => (E().animate ||= {}), "easing", EASINGS, { fallback: "ease", optional: true }),
       isFade ? num("Travel (fraction of its size)", () => (E().animate ||= {}), "distance", { optional: true, min: 0, step: 0.05, placeholder: "0.1" }) : null,
-      ANIMATIONS.attention.includes(a.name) ? check("Loop forever", () => (E().animate ||= {}), "loop", { optional: true }) : null] : null));
+      ANIMATIONS.attention.includes(a.name) ? check("Loop forever", () => (E().animate ||= {}), "loop", { optional: true }) : null,
+      a.name === "brushIn" && e.type === "image" ? brushFields(e, E) : null] : null));
 
   out.push(h("div", { class: "actions" },
     h("button", { type: "button", class: "secondary mini", onclick: () => duplicate(e.id) }, "Duplicate"),
     h("button", { type: "button", class: "danger mini", onclick: () => { scene.elements = scene.elements.filter((x) => x.id !== e.id); sel = { kind: "scene" }; commit(); renderProps(); } }, "Delete layer")));
   void A;
   return out;
+}
+const BLEND_LABELS = { normal: "Normal", multiply: "Multiply (white disappears)", screen: "Screen (black disappears)", darken: "Darken",
+  lighten: "Lighten", overlay: "Overlay", "color-burn": "Colour burn", "soft-light": "Soft light" };
+function brushFields(e, E) {
+  const B = () => (E().brush ||= {});
+  const tidy = () => { const el = E(); if (el.brush && !Object.keys(el.brush).length) delete el.brush; };
+  const drawing = isBrushing() === e.id;
+  const cur = brushOf(e);
+  return [
+    h("div", { class: "actions" },
+      h("button", { type: "button", class: drawing ? "secondary mini" : "primary mini", onclick: () => (drawing ? stopBrushDraw() : startBrushDraw(e.id)) },
+        drawing ? "Done drawing" : e.brush?.points ? "Edit the brush path" : "Draw the brush path"),
+      e.brush?.points ? h("button", { type: "button", class: "secondary mini", onclick: () => { delete E().brush.points; tidy(); commit(); renderProps(); drawOverlay(); } }, "Straight across") : null),
+    grid(2, num("Brush size (× width)", B, "width", { optional: true, cleanup: tidy, min: 0.02, step: 0.01, placeholder: String(Math.round(cur.width * 100) / 100) }),
+      num("Soft edge (0–1)", B, "soft", { optional: true, cleanup: tidy, min: 0, max: 1, step: 0.05, placeholder: "0.25" })),
+    h("p", { class: "helper" }, e.brush?.points
+      ? "The image is revealed along the path, in the order you drew it. Make the brush wide enough that the band covers the whole stroke."
+      : "Without a path the brush sweeps straight across from left to right. Draw one to follow the real stroke: click where the paint starts, then along its route."),
+  ];
 }
 // ---------------------------------------------------------------- images via Harpoon Upload
 // The editor opens upload.har.pn in a small window ("pick mode"); the person signs in there as usual, uploads or picks
@@ -938,6 +963,7 @@ const api = {
   scrubTo, endScrub, getScrub: () => scrubT,
   loadScene: (s) => setScene(s, [], { keepLibrary: true }),
   renderStatic: (s) => previewHtml(s),
+  renderPreview, brushOf, brushPathD,
 };
 async function start() {
   await loadOptionalParts();
@@ -945,7 +971,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=18feba6").then((r) => r.text()), fetch("../runtime/ha.js?v=18feba6").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=c9c9e95").then((r) => r.text()), fetch("../runtime/ha.js?v=c9c9e95").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

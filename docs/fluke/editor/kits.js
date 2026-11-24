@@ -1,4 +1,4 @@
-// Harpoon Animate editor — client kits, read from the HSE token system.
+// Fluke editor — client kits, read from the HSE token system.
 // The Token Generator publishes each client's brand tokens to the (public) harpoon-story-engine repo:
 //   tokens/registry.json      list of token sets
 //   css/tokens.css            platform base values

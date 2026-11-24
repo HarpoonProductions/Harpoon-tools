@@ -1,4 +1,4 @@
-// Harpoon Animate editor — font picker: the current kit's fonts, then every Google Font, previewed in its own face.
+// Fluke editor — font picker: the current kit's fonts, then every Google Font, previewed in its own face.
 // Previews load only the letters of each name (Google Fonts `text=`), so browsing stays light.
 
 const CAT = { s: "Sans serif", r: "Serif", d: "Display", h: "Handwriting", m: "Monospace" };

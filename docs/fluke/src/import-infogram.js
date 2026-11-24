@@ -1,4 +1,4 @@
-// Infogram "Download as HTML" export → Harpoon Animate scene.
+// Infogram "Download as HTML" export → Fluke scene.
 // Reads window.infographicData from the export's index.html. Pure string work: runs in Node or the browser.
 //
 // What carries over: canvas size, text (content, font, size, weight, colour, line height, alignment),

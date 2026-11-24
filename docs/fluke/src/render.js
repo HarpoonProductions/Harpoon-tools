@@ -1,4 +1,4 @@
-// Harpoon Animate — scene JSON → plain HTML for Shorthand / HSE.
+// Fluke — scene JSON → plain HTML for Shorthand / HSE.
 // Pure functions, no DOM: runs in Node (tests, HSE builds) and in the browser (the editor).
 
 export const ANIMATIONS = {
@@ -189,7 +189,7 @@ export function renderScene(scene, opts = {}) {
     if (!trig.replay) attrs.push(`data-ha-replay="off"`);
   }
   const lines = [];
-  lines.push(`<!-- Harpoon Animate: ${esc(scene.title || scene.id)} -->`);
+  lines.push(`<!-- Fluke: ${esc(scene.title || scene.id)} -->`);
   const gf = googleFontsUrl(scene);
   if (gf && opts.includeFonts !== false) lines.push(`<link rel="stylesheet" href="${esc(gf)}">`);
   lines.push(`<div ${attrs.join(" ")}>`);

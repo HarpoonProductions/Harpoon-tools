@@ -1,4 +1,4 @@
-// Harpoon Animate editor — on-canvas editing: selection box, move / resize / rotate handles, snapping guides.
+// Fluke editor — on-canvas editing: selection box, move / resize / rotate handles, snapping guides.
 // Works in canvas units. In Phone view (with a phone layout) it edits the element's phone overrides (e.m).
 
 let api = null;

@@ -1,10 +1,11 @@
-// Harpoon Animate editor v0.3 — forms-based editor for scenes.
+// Fluke editor v0.3 — forms-based editor for scenes.
 import { renderScene, validate, ANIMATIONS, extractScene } from "../src/render.js";
 import { importInfogram } from "../src/import-infogram.js";
 import { initCanvas, drawOverlay, setOverlayHidden } from "./canvas.js";
 import { initTimeline, renderTimeline, runPlayhead } from "./timeline.js";
 import { loadRegistry, loadKit, kitStyles, loadKitFonts } from "./kits.js";
 import { openFontPicker, loadFontList, googleFont } from "./fonts.js";
+import { initLibrary, openLibrary, save as saveToLibrary, refreshStatus, forgetRef } from "./library.js";
 
 const DRAFT_KEY = "harpoon-animate-draft-v1";
 const LASTKIT_KEY = "harpoon-animate-last-kit";
@@ -71,7 +72,9 @@ function commit(key) {
 function restore(snap) { scene = JSON.parse(snap); current = snap; lastKey = null; store.set(DRAFT_KEY, snap); fixSel(); refreshAll(); }
 function undo() { if (!past.length) return; future.push(current); restore(past.pop()); }
 function redo() { if (!future.length) return; past.push(current); restore(future.pop()); }
-function setScene(s, notes = []) {
+// Replaces the piece being edited (undoable). Anything not opened from the library is a new, unsaved piece there.
+function setScene(s, notes = [], { keepLibrary = false } = {}) {
+  if (!keepLibrary) forgetRef();
   if (current) past.push(current);
   scene = s; current = JSON.stringify(s); future = []; lastKey = null;
   store.set(DRAFT_KEY, current);
@@ -87,7 +90,7 @@ function fixSel() {
 function choose(s) { sel = s; renderLayers(); renderProps(); highlight(); drawOverlay(); renderTimeline(); }
 
 // ---------------------------------------------------------------- refresh
-function refresh() { renderLayers(); renderPreview(); renderTimeline(); updateButtons(); }
+function refresh() { renderLayers(); renderPreview(); renderTimeline(); updateButtons(); refreshStatus(); }
 function refreshAll() { refresh(); renderProps(); syncKit(); }
 // Load the scene's client kit (from the HSE token sets) when it changes
 function syncKit() {
@@ -635,7 +638,7 @@ const NOTES = {
 };
 function exportText() {
   if (tab === "json") return JSON.stringify(scene, null, 2);
-  if (tab === "head") return `<!-- Harpoon Animate shared code -->\n<style>${runtime.css.trim()}</style>\n<script>${runtime.js.trim()}</script>`;
+  if (tab === "head") return `<!-- Fluke shared code -->\n<style>${runtime.css.trim()}</style>\n<script>${runtime.js.trim()}</script>`;
   const { errors } = validate(scene);
   if (errors.length) return "Fix these first:\n- " + errors.join("\n- ");
   return renderScene(scene, { runtimeCss: runtime.css, runtimeJs: runtime.js, includeRuntime: tab === "piece", embedSource: true });
@@ -673,6 +676,7 @@ function wire() {
     setScene(s);
   });
   $("#openBtn").addEventListener("click", () => openModal("#openModal"));
+  $("#libraryBtn").addEventListener("click", () => openLibrary());
   $("#exportBtn").addEventListener("click", () => { openModal("#exportModal"); showTab(validate(scene).errors.length ? "json" : tab); });
   $$("[data-close]").forEach((b) => b.addEventListener("click", closeModals));
   $$(".modal").forEach((m) => m.addEventListener("click", (e) => { if (e.target === m) closeModals(); }));
@@ -694,7 +698,7 @@ function wire() {
     try { setScene(JSON.parse(await f.text())); closeModals(); } catch (e) { toast("Couldn't read that file: " + e.message); }
   });
   $("#pasteBtn").addEventListener("click", () => {
-    try { const s = extractScene($("#pasteHtml").value); if (!s) return toast("No Harpoon Animate piece found in that HTML"); setScene(s); $("#pasteHtml").value = ""; closeModals(); toast("Opened"); }
+    try { const s = extractScene($("#pasteHtml").value); if (!s) return toast("No Fluke piece found in that HTML"); setScene(s); $("#pasteHtml").value = ""; closeModals(); toast("Opened"); }
     catch (e) { toast("Couldn't read that piece: " + e.message); }
   });
   $$("[data-example]").forEach((b) => b.addEventListener("click", async () => {
@@ -704,6 +708,7 @@ function wire() {
     if (ev.key === "Escape") return closeModals();
     const typing = ev.target instanceof Element && ev.target.closest("input, textarea, select, [contenteditable]");
     if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "z" && !typing) { ev.preventDefault(); ev.shiftKey ? redo() : undo(); return; }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "s") { ev.preventDefault(); saveToLibrary(); return; }
     if (!typing && sel.kind === "element" && (ev.key === "Delete" || ev.key === "Backspace") && !$(".modal.open")) {
       ev.preventDefault(); scene.elements = scene.elements.filter((x) => x.id !== sel.id); sel = { kind: "scene" }; commit(); renderProps(); drawOverlay(); return;
     }
@@ -727,7 +732,10 @@ function wire() {
 // ---------------------------------------------------------------- start
 const api = {
   get scene() { return scene; }, get sel() { return sel; }, get view() { return view; },
-  choose, commit, renderProps, slug, stack, stackPos,
+  choose, commit, renderProps, slug, stack, stackPos, toast,
+  getScene: () => scene,
+  loadScene: (s) => setScene(s, [], { keepLibrary: true }),
+  renderStatic: (s) => previewHtml(s),
 };
 async function start() {
   wire();
@@ -742,6 +750,7 @@ async function start() {
   if (draft) { try { s = JSON.parse(draft); } catch { s = null; } }
   if (!s) { try { s = await (await fetch("../scenes/ardalan-quote.json")).json(); } catch { s = blankScene(); } }
   scene = s; current = JSON.stringify(s);
+  initLibrary(api); // before the first refresh, which shows the library status
   refreshAll();
   loadFontList().then(() => { if (sel.kind === "style") renderProps(); }).catch(() => {});
 }

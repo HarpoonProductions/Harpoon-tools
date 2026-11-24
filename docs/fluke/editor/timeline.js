@@ -1,4 +1,4 @@
-// Harpoon Animate editor — timeline strip: one row per layer, a bar from delay to delay + duration.
+// Fluke editor — timeline strip: one row per layer, a bar from delay to delay + duration.
 // Drag a bar to change its delay; drag its right end to change its duration. Snaps to 0.05s (hold Alt for free).
 
 let api = null;

@@ -1,4 +1,6 @@
-# Harpoon Animate — scene format (v1)
+# Fluke — scene format (v1)
+
+*(Fluke was called Fluke; the format id stays `harpoon-animate/1`.)*
 
 A **scene** is one animated piece (a quotebox, an animated title, a stat panel…). It is stored as JSON
 (the editable source, kept in the library) and rendered to plain HTML that is pasted into the story.

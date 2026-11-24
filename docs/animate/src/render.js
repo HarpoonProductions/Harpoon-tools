@@ -71,7 +71,7 @@ export function googleFontsUrl(scene) {
     f.add(`${s.italic ? 1 : 0},${s.weight || 400}`);
     fams.set(s.family, f);
   };
-  Object.values(scene.styles || {}).forEach(add);
+  // only fonts that text in the piece actually uses (a kit may bring styles nobody uses)
   (scene.elements || []).filter((e) => e.type === "text").forEach((e) => add(textStyle(scene, e)));
   if (!fams.size) return null;
   const parts = [...fams].map(([fam, set]) => {

@@ -3,8 +3,11 @@ import { renderScene, validate, ANIMATIONS, extractScene } from "../src/render.j
 import { importInfogram } from "../src/import-infogram.js";
 import { initCanvas, drawOverlay, setOverlayHidden } from "./canvas.js";
 import { initTimeline, renderTimeline, runPlayhead } from "./timeline.js";
+import { loadRegistry, loadKit, kitStyles, loadKitFonts } from "./kits.js";
+import { openFontPicker, loadFontList, googleFont } from "./fonts.js";
 
 const DRAFT_KEY = "harpoon-animate-draft-v1";
+const LASTKIT_KEY = "harpoon-animate-last-kit";
 const PHONE_PREVIEW = 375;
 const DESKTOP_MEASURE = 760;
 
@@ -40,6 +43,7 @@ let sel = { kind: "scene" };
 let view = "desktop";
 let frame = "layout";
 let importNotes = [];
+let kit = null, kitId = null; // the loaded client kit for scene.kit
 const runtime = { css: "", js: "" };
 
 const blankScene = () => ({
@@ -84,7 +88,20 @@ function choose(s) { sel = s; renderLayers(); renderProps(); highlight(); drawOv
 
 // ---------------------------------------------------------------- refresh
 function refresh() { renderLayers(); renderPreview(); renderTimeline(); updateButtons(); }
-function refreshAll() { refresh(); renderProps(); }
+function refreshAll() { refresh(); renderProps(); syncKit(); }
+// Load the scene's client kit (from the HSE token sets) when it changes
+function syncKit() {
+  const id = scene?.kit?.id || null;
+  if (id === kitId) return;
+  kitId = id; kit = null;
+  if (!id) { renderProps(); return; }
+  loadKit(id).then((k) => { if (kitId !== id) return; kit = k; loadKitFonts(k); renderProps(); renderPreview(); })
+    .catch((e) => toast(`Couldn't load the ${scene.kit.label || id} kit: ${e.message}`));
+}
+function applyKitStyles(k) {
+  scene.styles = { ...(scene.styles || {}), ...kitStyles(k, scene.canvas.width) };
+  commit(); renderProps(); toast(`Added ${k.label} type styles`);
+}
 function updateButtons() { $("#undoBtn").disabled = !past.length; $("#redoBtn").disabled = !future.length; }
 
 // ---------------------------------------------------------------- left panel
@@ -249,14 +266,38 @@ function check(label, getObj, key, opts = {}) {
   });
   return h("label", { class: "check" }, c, label);
 }
+function pieceColours() {
+  const seen = new Set();
+  const add = (v) => { v = typeof v === "string" ? v.trim() : ""; if (v && v !== "transparent") seen.add(v); };
+  Object.values(scene.styles || {}).forEach((st) => add(st.color));
+  (scene.elements || []).forEach((e) => { add(e.color); add(e.fill); add(e.stroke); });
+  add(scene.canvas?.background);
+  return [...seen].slice(0, 18);
+}
+const linkedToken = (v) => (String(v || "").match(/^var\(--hse-([a-z0-9-]+)\s*,/) || [])[1] || null;
 function colour(label, getObj, key, opts = {}) {
   const v = getObj()[key] || "";
-  const hex = /^#[0-9a-f]{6}$/i.test(v) ? v : "#000000";
-  const pick = h("input", { type: "color", value: hex, "aria-label": label + " picker" });
+  const hex = (String(v).match(/#[0-9a-f]{6}/i) || ["#000000"])[0];
+  const pick = h("input", { type: "color", value: hex.toLowerCase(), "aria-label": label + " picker" });
   const t = h("input", { type: "text", value: v, placeholder: opts.placeholder ?? "none" });
-  pick.addEventListener("input", () => { t.value = pick.value.toUpperCase(); setVal(getObj, key, t.value, opts); commit(label + key); });
-  t.addEventListener("input", () => { if (/^#[0-9a-f]{6}$/i.test(t.value)) pick.value = t.value; setVal(getObj, key, t.value.trim(), opts); commit(label + key); });
-  return field(label, h("div", { class: "colour" }, pick, t));
+  const note = h("span", { class: "linked" });
+  const showLink = () => {
+    const tok = linkedToken(t.value), sw = tok && kit?.swatches.find((x) => x.token === tok);
+    note.textContent = tok ? `🔗 ${sw ? sw.name : tok} from the ${kit?.label || "client"} kit — follows the client's tokens in HSE` : "";
+  };
+  pick.addEventListener("input", () => { t.value = pick.value.toUpperCase(); setVal(getObj, key, t.value, opts); showLink(); commit(label + key); });
+  t.addEventListener("input", () => { const m = t.value.match(/#[0-9a-f]{6}/i); if (m) pick.value = m[0].toLowerCase(); setVal(getObj, key, t.value.trim(), opts); showLink(); commit(label + key); });
+  const use = (val) => { t.value = val; const m = val.match(/#[0-9a-f]{6}/i); if (m) pick.value = m[0].toLowerCase(); setVal(getObj, key, val, opts); showLink(); commit(); };
+  const swatch = (val, name) => h("button", { type: "button", class: "sw", style: `background:${val}`, title: name, "aria-label": name, onclick: () => use(val) });
+  const kitRow = kit ? h("div", { class: "swatches", role: "group", "aria-label": `${kit.label} colours` },
+    kit.swatches.map((sw) => swatch(`var(--hse-${sw.token}, ${sw.hex})`, `${sw.name} ${sw.hex}`))) : null;
+  // colours already used in this piece (kit colours are in the row above), so a colour picked once can be reused
+  const mine = pieceColours().filter((v) => !(kit && linkedToken(v)));
+  const pieceRow = mine.length ? h("div", { class: "swatches", role: "group", "aria-label": "Colours in this piece" },
+    kitRow ? h("span", { class: "sw-label" }, "In this piece") : null, mine.map((v) => swatch(v, v))) : null;
+  showLink();
+  // buttons can't sit inside a <label>, so swatches go just after it
+  return h("div", { class: "f-group" }, field(label, h("div", { class: "colour" }, pick, t)), kitRow, pieceRow, note);
 }
 const grid = (n, ...kids) => h("div", { class: n === 3 ? "grid3" : "grid2" }, ...kids);
 const section = (title, ...kids) => h("fieldset", {}, h("legend", {}, title), ...kids);
@@ -271,7 +312,8 @@ function renderProps() {
 
 function sceneProps() {
   const S = () => scene, C = () => scene.canvas, T = () => (scene.trigger ||= { on: "view", threshold: 0.25, replay: true });
-  const out = [h("p", { class: "title" }, "Scene settings"), h("p", { class: "sub" }, "The whole piece: size, behaviour and phone layout.")];
+  const out = [h("p", { class: "title" }, "Scene settings"), h("p", { class: "sub" }, "The whole piece: client kit, size, behaviour and phone layout.")];
+  out.push(kitSection());
   out.push(section("Piece",
     text("Title", S, "title"),
     text("Short name (used in the code)", S, "id", { onChangeOnly: true, apply: (v, inp) => { scene.id = slug(v); inp.value = scene.id; } }),
@@ -321,9 +363,9 @@ function styleProps(name) {
         scene.elements.forEach((e) => { if (e.style === name) e.style = nn; });
         sel = { kind: "style", name: nn }; setTimeout(renderProps);
       } }),
-      text("Font family", St, "family", { placeholder: "blank = the story's font", help: "e.g. UCL Sans, or a Google Font such as DM Serif Display" }),
+      fontField(St),
       select("Font comes from", St, "source", [{ value: "story", label: "The story (already loaded)" }, { value: "google", label: "Google Fonts (added automatically)" }], { fallback: "story" }),
-      grid(2, select("Weight", St, "weight", WEIGHTS, { number: true, fallback: 400 }), h("div", {}, h("span", { class: "f" }, " "), check("Italic", St, "italic", { optional: true }))),
+      grid(2, select("Weight", St, "weight", weightOptions(St()), { number: true, fallback: 400 }), h("div", {}, h("span", { class: "f" }, " "), check("Italic", St, "italic", { optional: true }))),
       grid(3, num("Size", St, "size", { min: 1, step: 0.5 }), num("Line height", St, "lineHeight", { min: 0.5, step: 0.05 }), num("Spacing (em)", St, "letterSpacing", { step: 0.01, optional: true, placeholder: "0" })),
       colour("Colour", St, "color", { placeholder: "#000000" }),
       text("Fallback fonts", St, "fallback", { optional: true, placeholder: "system-ui, sans-serif" })),
@@ -369,7 +411,10 @@ function elementProps(id) {
   }
   if (e.type === "image") {
     out.push(section("Image",
-      text("Image URL", E, "src", { help: "Upload to harpn with upload.har.pn, then paste the link." }),
+      h("div", { class: "actions img-actions" },
+        h("button", { type: "button", class: "primary mini", onclick: () => openUploader(e.id) }, e.src ? "Replace image…" : "Upload or choose an image…")),
+      e.src ? h("img", { class: "img-thumb", src: e.src, alt: "" }) : null,
+      text("Image URL", E, "src", { help: "The button opens Harpoon Upload: upload to the harpn bucket, or pick an image already there. You can also paste any image link." }),
       check("Decorative (no alt text needed)", E, "decorative", { optional: true, rerender: true }),
       e.decorative ? null : text("Alt text", E, "alt", { placeholder: "Describe what the image shows" }),
       select("Fit", E, "fit", [{ value: "contain", label: "Whole image" }, { value: "cover", label: "Fill the box (crop)" }], { fallback: "contain" })));
@@ -425,6 +470,95 @@ function elementProps(id) {
   void A;
   return out;
 }
+// ---------------------------------------------------------------- images via Harpoon Upload
+// The editor opens upload.har.pn in a small window ("pick mode"); the person signs in there as usual, uploads or picks
+// an image, and the page posts the URL back. Only messages from the uploader's own origin are accepted.
+const UPLOAD_ORIGIN = (() => {
+  try { // local testing only: ?upload=http://localhost:3510
+    const q = new URLSearchParams(location.search).get("upload");
+    if (q && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return new URL(q).origin;
+  } catch { /* fall through */ }
+  return "https://upload.har.pn";
+})();
+let pickTarget = null;
+function openUploader(id) {
+  pickTarget = id;
+  const w = window.open(`${UPLOAD_ORIGIN}/?pick=animate&origin=${encodeURIComponent(location.origin)}`, "harpoon-upload", "width=1040,height=800");
+  if (!w) toast("Your browser blocked the upload window — allow pop-ups for this page and try again");
+}
+addEventListener("message", (ev) => {
+  if (ev.origin !== UPLOAD_ORIGIN) return;
+  const d = ev.data || {};
+  if (d.type !== "harpoon-upload:picked" || typeof d.url !== "string") return;
+  if (!/^https:\/\//.test(d.url) && !/^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(d.url)) return;
+  const e = elById(pickTarget);
+  if (!e) return toast("That image layer no longer exists");
+  const wasEmpty = !e.src;
+  e.src = d.url;
+  commit(); renderProps();
+  toast(`Image added${d.name ? ": " + d.name : ""}${e.alt || e.decorative ? "" : " — now add alt text"}`);
+  // a new image layer takes the picture's proportions
+  if (wasEmpty) {
+    const img = new Image();
+    img.onload = () => {
+      const el = elById(e.id); if (!el || !img.naturalWidth) return;
+      el.h = round(el.w * img.naturalHeight / img.naturalWidth);
+      commit(); renderProps(); drawOverlay();
+    };
+    img.src = d.url;
+  }
+});
+
+// ---------------------------------------------------------------- client kit + fonts
+function kitSection() {
+  const pickKit = h("select", { "aria-label": "Client kit" }, h("option", { value: "" }, "No kit"));
+  loadRegistry().then((reg) => {
+    reg.forEach((t) => pickKit.append(h("option", { value: t.id }, t.label)));
+    pickKit.value = scene.kit?.id || "";
+  }).catch(() => pickKit.append(h("option", { disabled: true }, "Couldn't load the kits")));
+  pickKit.addEventListener("change", async () => {
+    const id = pickKit.value;
+    if (!id) { delete scene.kit; commit(); syncKit(); return; }
+    try {
+      const k = await loadKit(id);
+      scene.kit = { id: k.id, label: k.label }; store.set(LASTKIT_KEY, k.id);
+      commit(); syncKit();
+      if (confirm(`Add ${k.label}'s type styles (Display, Heading, Body, Caption, Kicker)?\n\nStyles with those names are replaced; your other styles stay.`)) applyKitStyles(k);
+    } catch (e) { toast(e.message); pickKit.value = scene.kit?.id || ""; }
+  });
+  const loaded = kit && kit.id === scene.kit?.id;
+  return section("Client kit",
+    field("Kit", pickKit),
+    loaded ? h("div", { class: "kit-info" },
+      kit.logo ? h("img", { src: kit.logo, alt: "" }) : null,
+      h("div", {}, h("b", {}, kit.label), h("span", {}, kit.description || ""),
+        h("span", {}, `Fonts: ${[...new Set([kit.fonts.display.family, kit.fonts.body.family])].filter(Boolean).join(", ")}`)),
+      h("div", { class: "swatches static" }, kit.swatches.map((sw) => h("span", { class: "sw", style: `background:${sw.hex}`, title: `${sw.name} ${sw.hex}` })))) :
+      scene.kit ? h("p", { class: "helper" }, `Loading the ${scene.kit.label} kit…`) : null,
+    loaded ? h("div", { class: "actions" }, h("button", { type: "button", class: "secondary mini", onclick: () => applyKitStyles(kit) }, "Add kit type styles")) : null,
+    h("p", { class: "helper" }, "Kits are the Harpoon token sets made with the Token Generator — the same brand files HSE stories use. Kit colours stay linked: in HSE stories they follow the client's tokens; in Shorthand they use the colour shown."),
+    h("a", { class: "helper", href: "https://harpoon-token-generator.onrender.com", target: "_blank", rel: "noopener" }, "Add or change a kit in the Token Generator ↗"));
+}
+function nearestWeight(list, w) { return list.reduce((a, b) => (Math.abs(b - w) < Math.abs(a - w) ? b : a), list[0]); }
+function weightOptions(st) {
+  const gf = st.source === "google" && st.family ? googleFont(st.family) : null;
+  return gf ? gf.weights.map((w) => ({ value: w, label: String(w) })) : WEIGHTS;
+}
+function fontField(St) {
+  const inp = h("input", { type: "text", value: St().family || "", placeholder: "blank = the story's font" });
+  inp.addEventListener("input", () => { St().family = inp.value; commit("family"); });
+  const btn = h("button", { type: "button", class: "secondary mini", onclick: () => openFontPicker({ current: St().family, kit, onPick: (c) => {
+    const st = St();
+    st.family = c.family; st.source = c.source;
+    if (c.fallback) st.fallback = c.fallback;
+    if (c.weights?.length && !c.weights.includes(st.weight)) st.weight = nearestWeight(c.weights, st.weight || 400);
+    commit(); renderProps();
+  } }) }, "Choose…");
+  const st = St();
+  const where = !st.family ? "Uses the story's font." : st.source === "google" ? "Google Font — added to the piece automatically." : "The story must already load this font.";
+  return h("div", { class: "f-group" }, h("div", { class: "font-row" }, field("Font", inp), btn), h("span", { class: "helper" }, where));
+}
+
 // ---------------------------------------------------------------- stacking (what sits in front)
 // Separate from reading order. Kept as a clean 1..N sequence so there are never ties: 1 = at the back.
 function stackOrder() {
@@ -529,7 +663,15 @@ function wire() {
   $("#playBtn").addEventListener("click", play);
   $("#undoBtn").addEventListener("click", undo);
   $("#redoBtn").addEventListener("click", redo);
-  $("#newBtn").addEventListener("click", () => { if (confirm("Start a new piece? You can undo this.")) setScene(blankScene()); });
+  $("#newBtn").addEventListener("click", async () => {
+    if (!confirm("Start a new piece? You can undo this.")) return;
+    const s = blankScene(), last = store.get(LASTKIT_KEY);
+    if (last) {
+      try { const k = await loadKit(last); s.kit = { id: k.id, label: k.label }; s.styles = kitStyles(k, s.canvas.width); toast(`New piece with the ${k.label} kit`); }
+      catch { /* kit gone: plain piece */ }
+    }
+    setScene(s);
+  });
   $("#openBtn").addEventListener("click", () => openModal("#openModal"));
   $("#exportBtn").addEventListener("click", () => { openModal("#exportModal"); showTab(validate(scene).errors.length ? "json" : tab); });
   $$("[data-close]").forEach((b) => b.addEventListener("click", closeModals));
@@ -601,5 +743,6 @@ async function start() {
   if (!s) { try { s = await (await fetch("../scenes/ardalan-quote.json")).json(); } catch { s = blankScene(); } }
   scene = s; current = JSON.stringify(s);
   refreshAll();
+  loadFontList().then(() => { if (sel.kind === "style") renderProps(); }).catch(() => {});
 }
 start();

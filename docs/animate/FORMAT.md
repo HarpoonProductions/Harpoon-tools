@@ -59,9 +59,15 @@ H1 is allowed (e.g. an animated story title); validation only warns when a scene
 
 **image** — `src` (absolute URL, e.g. on harpn), `alt` (required unless `decorative: true`), `fit`: `contain` | `cover`.
 
+## Client kit and colours
+`kit` (optional) records which client kit the piece was made with: `{ "id": "uksi", "label": "UK Sport" }`.
+Kits are the HSE token sets published by the Token Generator (`harpoon-story-engine/tokens/registry.json`).
+Any colour can be a plain value (`#E6213E`) or a **linked kit colour**: `var(--hse-accent, #E6213E)`. In HSE stories,
+which load the client's tokens, it follows the token; everywhere else (Shorthand) the colour after the comma is used.
+
 ## Fonts
 `source: "story"` — the family is already loaded by the story (e.g. UCL Sans in UCL's Shorthand stories).
-`source: "google"` — the renderer adds a Google Fonts link for that family and weight.
+`source: "google"` — the renderer adds a Google Fonts link for each family and weight that text in the piece uses.
 Fallback stack is always appended so text shows while fonts load.
 
 ## Animations

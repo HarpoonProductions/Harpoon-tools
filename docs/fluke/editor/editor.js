@@ -1,11 +1,33 @@
-// Fluke editor v0.3 — forms-based editor for scenes.
+// Fluke editor — scenes, canvas, timeline, kits, fonts and library.
+// Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
+// library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
+// update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
 import { renderScene, validate, ANIMATIONS, extractScene } from "../src/render.js";
-import { importInfogram } from "../src/import-infogram.js";
 import { initCanvas, drawOverlay, setOverlayHidden } from "./canvas.js";
 import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js";
-import { loadRegistry, loadKit, kitStyles, loadKitFonts } from "./kits.js";
-import { openFontPicker, loadFontList, googleFont } from "./fonts.js";
-import { initLibrary, openLibrary, save as saveToLibrary, refreshStatus, forgetRef } from "./library.js";
+window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
+
+// Stand-ins until (or unless) each optional part loads
+const unavailable = (label) => () => toast(`${label} didn't load — reload the page to use it`);
+let loadRegistry = () => Promise.reject(new Error("Client kits didn't load — reload the page"));
+let loadKit = loadRegistry, kitStyles = () => ({}), loadKitFonts = () => {};
+let openFontPicker = unavailable("The font picker"), loadFontList = () => Promise.resolve([]), googleFont = () => null;
+let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibrary = unavailable("The library");
+let refreshStatus = () => {}, forgetRef = () => {};
+const failedParts = [];
+async function loadOptionalParts() {
+  const [k, f, l] = await Promise.allSettled([import("./kits.js"), import("./fonts.js"), import("./library.js")]);
+  if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
+  if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont } = f.value); else failedParts.push("the font picker");
+  if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
+  [k, f, l].forEach((r) => { if (r.status === "rejected") console.error(r.reason); });
+}
+async function importInfogram(html, opts) {
+  let mod;
+  try { mod = await import("../src/import-infogram.js"); }
+  catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
+  return mod.importInfogram(html, opts);
+}
 
 const DRAFT_KEY = "harpoon-animate-draft-v1";
 const LASTKIT_KEY = "harpoon-animate-last-kit";
@@ -700,7 +722,7 @@ async function importInfogramFile(file) {
     if (!idx) throw new Error("No index.html in that zip");
     html = await zip.file(idx).async("string");
   } else html = await file.text();
-  const { scene: s, warnings } = importInfogram(html);
+  const { scene: s, warnings } = await importInfogram(html);
   setScene(s, warnings);
   toast(`Imported “${s.title}”`);
 }
@@ -816,6 +838,7 @@ const api = {
   renderStatic: (s) => previewHtml(s),
 };
 async function start() {
+  await loadOptionalParts();
   wire();
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
@@ -830,6 +853,7 @@ async function start() {
   scene = s; current = JSON.stringify(s);
   initLibrary(api); // before the first refresh, which shows the library status
   refreshAll();
+  if (failedParts.length) toast(`Some parts didn't load (${failedParts.join(", ")}). Everything else works — reload the page to get them back.`);
   loadFontList().then(() => { if (sel.kind === "style") renderProps(); }).catch(() => {});
 }
 start();

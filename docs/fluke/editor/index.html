@@ -10,7 +10,18 @@
 <style id="selStyle"></style>
 <script src="../runtime/ha.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
-<script type="module" src="editor.js"></script>
+<script>
+  // If the editor's core doesn't arrive, say so instead of showing an empty editor
+  window.flukeLoadFailed = function () {
+    if (window.__flukeStarted || document.getElementById("loadFail")) return;
+    var d = document.createElement("div");
+    d.id = "loadFail"; d.setAttribute("role", "alert");
+    d.innerHTML = "<b>Fluke didn\u2019t finish loading.</b> A file didn\u2019t arrive \u2014 usually a brief hiccup just after an update. Your work is safe in this browser. <button type=\"button\" onclick=\"location.reload()\">Reload</button>";
+    document.body.prepend(d);
+  };
+  setTimeout(function () { window.flukeLoadFailed(); }, 12000);
+</script>
+<script type="module" src="editor.js" onerror="flukeLoadFailed()"></script>
 </head>
 <body>
 <header class="top">
@@ -19,7 +30,7 @@
     <span class="brand__name">Fluke</span>
     <span class="brand__by">by</span>
     <img class="brand__wordmark" src="brand/harpoon-wordmark.png" alt="Harpoon" />
-    <span class="brand__ver">v0.9</span>
+    <span class="brand__ver">v0.9.1</span>
   </h1>
   <div class="top-actions">
     <button type="button" class="secondary" id="newBtn">New</button>

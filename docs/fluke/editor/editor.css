@@ -264,3 +264,7 @@ button.sw:hover { transform: scale(1.15); }
 /* hover preview: only the chosen layer animates; the rest sit in their finished state */
 .f-solo .ha .ha-el:not(.solo) { animation: none !important; }
 .f-solo .ha .ha-el[data-ha-out]:not(.solo) { visibility: hidden !important; }
+
+/* ---- load failure notice (v0.9.1) ---- */
+#loadFail { position: sticky; top: 0; z-index: 3000; background: var(--yellow, #FBC54F); color: #031041; padding: 12px 18px; font-size: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#loadFail button { background: #031041; color: #fff; border: 0; border-radius: 8px; padding: 7px 12px; font: inherit; cursor: pointer; }

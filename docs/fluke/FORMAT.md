@@ -53,7 +53,8 @@ Common fields:
 **text** — `tag` is what it IS in the page outline: `h1`–`h6`, `p`, `blockquote`, `figcaption`, `span`,
 or `"decorative"` (hidden from screen readers). `style` names a preset; any preset field can be overridden on the
 element. `text` is plain text; a newline is a line break. `align`: `left` | `center` | `right`.
-`stretch` (optional, default 1) scales the letters sideways relative to their height, as Infogram allows when a text
+`nowrap: true` keeps the text on one line (Infogram one-line boxes are exactly as wide as their text, so the
+importer sets this for them). `stretch` (optional, default 1) scales the letters sideways relative to their height, as Infogram allows when a text
 box is resized unevenly: `1.065` is 6.5% wider. The box still occupies `w`.
 If the scene's `root` is a heading (`h1`–`h3`), its text layers must be `span` (or `decorative`): the words are parts of
 one heading, read as one ("It's a" + "gut" + "feeling" → "It's a gut feeling").
@@ -82,7 +83,7 @@ Fallback stack is always appended so text shows while fonts load.
   zoomIn, bounceIn, wipeInLeft, wipeInRight, wipeInUp, wipeInDown
 - **out:** fadeOut, fadeOutUp, fadeOutDown, fadeOutLeft, fadeOutRight, slideOutUp, slideOutDown, slideOutLeft,
   slideOutRight, zoomOut, wipeOutLeft, wipeOutRight, wipeOutUp, wipeOutDown
-- **attention:** bounce, flash, pulse, shake, wobble (set `loop: true` to repeat)
+- **attention:** bounce, flash, pulse, shake, headShake, wobble (set `loop: true` to repeat)
 
 Direction words follow Infogram/Animate.css: `fadeInRight` comes *from* the right; `slideOutLeft` leaves *to* the left.
 Wipes reveal with a moving edge: `wipeInLeft` grows from the left edge; `wipeOutLeft` shrinks away towards the left.

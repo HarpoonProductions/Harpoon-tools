@@ -49,6 +49,8 @@ function animationOf(p) {
   const a = p.animation;
   if (!a || !a.name || a.name === "none") return undefined;
   const out = { name: a.name, delay: a.delay ?? 0, duration: a.duration ?? 1 };
+  if (a.regime === "infinite") out.loop = true;          // Infogram's "repeat forever"
+  if (a.name === "headShake") out.easing = "ease-in-out"; // as Infogram plays it
   // Infogram's fades travel distance × their own size, and default to 1 (a full height or width) when unset
   if (a.distance !== undefined) out.distance = a.distance;
   else if (/^fade(In|Out)(Up|Down|Left|Right)$/.test(a.name)) out.distance = 1;
@@ -128,7 +130,7 @@ export function importInfogram(html, opts = {}) {
         color: rgbaToCss(fromTheme(d["ig:color"], theme.foregroundColor)) || "#000000",
       };
       const ls = parseFloat(fromTheme(d["ig:letterSpacing"], theme.letterSpacing));
-      if (ls) style.letterSpacing = r2(ls / fontPx);
+      if (ls) style.letterSpacing = Math.round((ls / fontPx) * 10000) / 10000;
       const stretch = Math.round((sx / sy) * 1000) / 1000;
       // share identical looks as one preset
       const key = JSON.stringify(style);
@@ -137,8 +139,9 @@ export function importInfogram(html, opts = {}) {
         styleKey.set(key, name); styles[name] = style;
       }
       const align = String(d.align || "").match(/CENTER|RIGHT/i)?.[0]?.toLowerCase() || "left";
+      const oneLine = !text.includes("\n") && base.h <= style.size * style.lineHeight * 1.25;
       elements.push({ id: nameFor("text"), type: "text", tag: "p", style: styleKey.get(key), text, ...(align !== "left" ? { align } : {}),
-        ...(Math.abs(stretch - 1) > 0.005 ? { stretch } : {}), ...base });
+        ...(Math.abs(stretch - 1) > 0.005 ? { stretch } : {}), ...(oneLine ? { nowrap: true } : {}), ...base });
     } else if (ent.type === "SHAPE") {
       const kind = p.type;
       if (kind === "rectangle" || kind === "ellipse" || kind === "circle") {
@@ -153,9 +156,12 @@ export function importInfogram(html, opts = {}) {
         warnings.push(`Shape type "${kind}" isn't supported yet; skipped`);
       }
     } else if (ent.type === "IMAGE") {
-      const src = p.url || p.src || p.image?.url || "";
-      elements.push({ id: nameFor("image"), type: "image", src, alt: "", fit: "contain", ...base });
-      warnings.push(`Image "${src.split("/").pop() || "?"}": upload to harpn, replace src and add alt text (or mark decorative)`);
+      // uploaded images are referenced by asset id; the page lists where each asset lives
+      const src = p.url || p.src || p.image?.url || (content.assets || {})[p.assetId] || "";
+      elements.push({ id: nameFor("image"), type: "image", src, alt: "", fit: ent.lockAspectRatio === false ? "cover" : "contain", ...base });
+      warnings.push(src
+        ? `Image ${src.split("/").pop()} is still hosted by Infogram: use “Replace image…” to put it on harpn, then add alt text (or mark it decorative)`
+        : "An image couldn't be found in the export: add it with “Upload or choose an image…”");
     } else {
       warnings.push(`Element type ${ent.type} isn't supported yet; skipped`);
     }

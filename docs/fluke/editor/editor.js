@@ -547,6 +547,7 @@ function elementProps(id) {
         select("Weight", E, "weight", [{ value: "", label: st.weight ? `(${st.weight})` : "(style)" }, ...WEIGHTS], { optional: true, number: false, apply: (v) => { if (v === "") delete E().weight; else E().weight = +v; } }),
         num("Line height", E, "lineHeight", { optional: true, step: 0.05, placeholder: st.lineHeight ?? "" })),
       num("Stretch sideways (1 = none)", E, "stretch", { optional: true, step: 0.01, min: 0.2, max: 5, placeholder: "1" }),
+      check("Keep on one line (never wrap)", E, "nowrap", { optional: true }),
       colour("Colour", E, "color", { optional: true, placeholder: st.color || "style colour" })));
   }
   if (e.type === "image") {
@@ -868,7 +869,11 @@ function wire() {
     try { setScene(JSON.parse(await f.text())); closeModals(); } catch (e) { toast("Couldn't read that file: " + e.message); }
   });
   $("#pasteBtn").addEventListener("click", () => {
-    try { const s = extractScene($("#pasteHtml").value); if (!s) return toast("No Fluke piece found in that HTML"); setScene(s); $("#pasteHtml").value = ""; closeModals(); toast("Opened"); }
+    const pasted = $("#pasteHtml").value.trim();
+    if (/^https?:\/\/([a-z0-9-]+\.)?infogram\.com\//i.test(pasted)) {
+      return toast("That's an Infogram link. Open it in your browser, save the page (File → Save Page As…, “Webpage, HTML only”), then choose the saved file under “Import from Infogram”.");
+    }
+    try { const s = extractScene(pasted); if (!s) return toast("No Fluke piece found in that HTML"); setScene(s); $("#pasteHtml").value = ""; closeModals(); toast("Opened"); }
     catch (e) { toast("Couldn't read that piece: " + e.message); }
   });
   $$("[data-example]").forEach((b) => b.addEventListener("click", async () => {

@@ -6,7 +6,7 @@ export const ANIMATIONS = {
     "slideInRight", "zoomIn", "bounceIn", "wipeInLeft", "wipeInRight", "wipeInUp", "wipeInDown"],
   out: ["fadeOut", "fadeOutUp", "fadeOutDown", "fadeOutLeft", "fadeOutRight", "slideOutUp", "slideOutDown",
     "slideOutLeft", "slideOutRight", "zoomOut", "wipeOutLeft", "wipeOutRight", "wipeOutUp", "wipeOutDown"],
-  attention: ["bounce", "flash", "pulse", "shake", "wobble"],
+  attention: ["bounce", "flash", "pulse", "shake", "headShake", "wobble"],
 };
 const ALL_ANIMATIONS = new Set([...ANIMATIONS.in, ...ANIMATIONS.out, ...ANIMATIONS.attention]);
 const OUT_ANIMATIONS = new Set(ANIMATIONS.out);
@@ -124,6 +124,7 @@ function elementRules(scene, e, i) {
       `text-align:${["left", "center", "right"].includes(e.align) ? e.align : "left"}`);
     if (s.letterSpacing) r.push(`letter-spacing:${num(s.letterSpacing)}em`);
     if (e.stretch && Math.abs(e.stretch - 1) > 0.001) r.push(`scale:${num(e.stretch)} 1`);
+    if (e.nowrap) r.push("white-space:nowrap");
   } else if (e.type === "rect" || e.type === "ellipse") {
     if (e.fill) r.push(`background:${cssVal(e.fill)}`);
     if (e.strokeWidth && e.stroke) r.push(`border:${num(e.strokeWidth / W * 100)}cqi solid ${cssVal(e.stroke)}`);
@@ -155,19 +156,21 @@ function mobileRules(scene, e) {
   return r;
 }
 
-function elementHtml(e, cls) {
+// inline = inside a heading wrapper, where only inline elements are valid HTML
+function elementHtml(e, cls, inline = false) {
+  const box = inline ? "span" : "div";
   const out = e.animate && OUT_ANIMATIONS.has(e.animate.name) ? " data-ha-out" : "";
   if (e.type === "text") {
     const body = esc(e.text).replace(/\r?\n/g, "<br>");
     const tag = e.tag || "p";
-    if (tag === "decorative") return `<div class="${cls} ha-text" aria-hidden="true"${out}>${body}</div>`;
+    if (tag === "decorative") return `<${box} class="${cls} ha-text" aria-hidden="true"${out}>${body}</${box}>`;
     return `<${tag} class="${cls} ha-text"${out}>${body}</${tag}>`;
   }
   if (e.type === "image") {
     const alt = e.decorative ? "" : esc(e.alt);
     return `<img class="${cls}" src="${esc(e.src)}" alt="${alt}" decoding="async"${e.decorative ? ' aria-hidden="true"' : ""}${out}>`;
   }
-  return `<div class="${cls}" aria-hidden="true"${out}></div>`;
+  return `<${box} class="${cls}" aria-hidden="true"${out}></${box}>`;
 }
 
 /**
@@ -214,7 +217,7 @@ export function renderScene(scene, opts = {}) {
   lines.push(`<div ${attrs.join(" ")}>`);
   lines.push(`<style>${include ? opts.runtimeCss.trim() + "\n" : ""}${css.join("\n")}</style>`);
   lines.push(`<${root} class="ha-scene"${label}>`);
-  els.forEach((e) => lines.push("  " + elementHtml(e, `ha-el ha-e-${slug(e.id)}`)));
+  els.forEach((e) => lines.push("  " + elementHtml(e, `ha-el ha-e-${slug(e.id)}`, HEADING_ROOTS.has(root))));
   lines.push(`</${root}>`);
   if (opts.embedSource) lines.push(`<script type="application/json" data-ha-scene>${JSON.stringify(scene).replace(/</g, "\\u003c")}</script>`);
   lines.push(`</div>`);

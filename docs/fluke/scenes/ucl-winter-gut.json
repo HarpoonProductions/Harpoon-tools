@@ -51,7 +51,8 @@
         "delay": 0,
         "duration": 1,
         "distance": 1
-      }
+      },
+      "nowrap": true
     },
     {
       "id": "gut",
@@ -69,7 +70,8 @@
         "name": "shake",
         "delay": 1,
         "duration": 1
-      }
+      },
+      "nowrap": true
     },
     {
       "id": "feeling",
@@ -87,7 +89,8 @@
         "name": "bounce",
         "delay": 2,
         "duration": 1
-      }
+      },
+      "nowrap": true
     }
   ],
   "source": {

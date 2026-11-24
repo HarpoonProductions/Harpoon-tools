@@ -1,0 +1,141 @@
+{
+  "format": "harpoon-animate/1",
+  "id": "ucl-winter-giving",
+  "title": "UCL Winter Giving – “Priceless: the gift of giving”",
+  "root": "h2",
+  "canvas": {
+    "width": 948,
+    "height": 658,
+    "background": "#FFFFFF"
+  },
+  "trigger": {
+    "on": "load",
+    "threshold": 0.25,
+    "replay": true
+  },
+  "styles": {
+    "priceless": {
+      "family": "UCL Sans",
+      "source": "story",
+      "weight": 600,
+      "italic": false,
+      "size": 176.67,
+      "lineHeight": 1.5,
+      "color": "#000000",
+      "letterSpacing": -0.0312
+    },
+    "line": {
+      "family": "UCL Sans",
+      "source": "story",
+      "weight": 600,
+      "italic": false,
+      "size": 177,
+      "lineHeight": 1.5,
+      "color": "#000000",
+      "letterSpacing": -0.0087
+    }
+  },
+  "elements": [
+    {
+      "id": "priceless",
+      "type": "text",
+      "tag": "span",
+      "style": "priceless",
+      "text": "Priceless:",
+      "stretch": 0.95,
+      "x": 0,
+      "y": -53,
+      "w": 717.53,
+      "h": 265,
+      "z": 2,
+      "animate": {
+        "name": "fadeInUp",
+        "delay": 0,
+        "duration": 1,
+        "distance": 0.1
+      },
+      "nowrap": true
+    },
+    {
+      "id": "the-gift",
+      "type": "text",
+      "tag": "span",
+      "style": "line",
+      "text": "the gift",
+      "stretch": 1.039,
+      "x": 0,
+      "y": 133,
+      "w": 647.13,
+      "h": 264.78,
+      "z": 4,
+      "animate": {
+        "name": "fadeInRight",
+        "delay": 0.5,
+        "duration": 1,
+        "distance": 0.1
+      },
+      "nowrap": true
+    },
+    {
+      "id": "of-giving",
+      "type": "text",
+      "tag": "span",
+      "style": "line",
+      "text": "of giving",
+      "stretch": 1.064,
+      "x": 0,
+      "y": 322,
+      "w": 783.5,
+      "h": 264.78,
+      "z": 5,
+      "animate": {
+        "name": "fadeInUp",
+        "delay": 1,
+        "duration": 1,
+        "distance": 0.1
+      },
+      "nowrap": true
+    },
+    {
+      "id": "brush",
+      "type": "image",
+      "src": "https://images.jifo.co/60431911_1795514692429.png",
+      "fit": "contain",
+      "x": 176,
+      "y": 336,
+      "w": 785,
+      "h": 311,
+      "z": 1,
+      "animate": {
+        "name": "headShake",
+        "delay": 3,
+        "duration": 1,
+        "loop": true,
+        "easing": "ease-in-out"
+      },
+      "decorative": true
+    },
+    {
+      "id": "cover",
+      "type": "rect",
+      "x": 176,
+      "y": 351,
+      "w": 766,
+      "h": 307,
+      "z": 3,
+      "animate": {
+        "name": "fadeOut",
+        "delay": 2,
+        "duration": 1,
+        "distance": 0.1
+      },
+      "fill": "#FFFFFF"
+    }
+  ],
+  "source": {
+    "from": "infogram",
+    "id": 505101156,
+    "title": "UCL Winter Giving",
+    "updatedAt": "2026-11-24T10:05:28.000Z"
+  }
+}

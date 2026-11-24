@@ -30,7 +30,7 @@
     <span class="brand__name">Fluke</span>
     <span class="brand__by">by</span>
     <img class="brand__wordmark" src="brand/harpoon-wordmark.png" alt="Harpoon" />
-    <span class="brand__ver">v0.9.4</span>
+    <span class="brand__ver">v0.9.5</span>
   </h1>
   <div class="top-actions">
     <button type="button" class="secondary" id="newBtn">New</button>
@@ -99,7 +99,12 @@
     <div class="modal__body">
       <section>
         <h3>Import from Infogram</h3>
-        <p class="helper">In Infogram: Download → HTML. Choose the .zip (or the index.html inside it).</p>
+        <p class="helper">Paste the link to a published Infogram piece…</p>
+        <div class="link-row">
+          <input type="url" id="infogramUrl" placeholder="https://infogram.com/…" aria-label="Infogram link" />
+          <button type="button" class="primary" id="infogramUrlBtn">Import</button>
+        </div>
+        <p class="helper">…or choose an Infogram download (Download → HTML: the .zip, or the index.html inside it), or a page saved from Infogram.</p>
         <input type="file" id="infogramFile" accept=".zip,.html,.htm" />
       </section>
       <section>

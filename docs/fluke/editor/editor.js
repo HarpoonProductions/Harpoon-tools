@@ -785,6 +785,24 @@ function duplicate(id) {
 function openModal(id) { const m = $(id); m.classList.add("open"); m.setAttribute("aria-hidden", "false"); (m.querySelector("button, input, textarea") || m).focus(); }
 function closeModals() { $$(".modal.open").forEach((m) => { m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }); }
 
+// Infogram pages can't be read from another site, so Harpoon Upload fetches the page and returns its scene data.
+const isInfogramLink = (v) => /^https?:\/\/([a-z0-9-]+\.)*infogram\.com\//i.test(String(v).trim());
+async function importInfogramLink(link) {
+  link = String(link).trim();
+  if (!isInfogramLink(link)) throw new Error("That isn't an infogram.com link");
+  toast("Fetching from Infogram…");
+  let r;
+  try { r = await fetch(`${UPLOAD_ORIGIN}/api/infogram?url=${encodeURIComponent(link)}`); }
+  catch { throw new Error("Couldn't reach Harpoon Upload to fetch the page — try again, or save the page and choose the file"); }
+  if (!r.ok) {
+    let msg = `Couldn't fetch that page (${r.status})`;
+    try { msg = (await r.json()).error || msg; } catch { /* not JSON */ }
+    throw new Error(msg);
+  }
+  const { scene: s, warnings } = await importInfogram(await r.text());
+  setScene(s, warnings);
+  toast(`Imported “${s.title}”`);
+}
 async function importInfogramFile(file) {
   let html;
   if (/\.zip$/i.test(file.name)) {
@@ -860,6 +878,13 @@ function wire() {
     const a = h("a", { href: URL.createObjectURL(new Blob([$("#exportCode").textContent], { type: ext === "json" ? "application/json" : "text/html" })), download: `${scene.id}${tab === "head" ? "-shared-code" : ""}.${ext}` });
     a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
+  const linkImport = async () => {
+    const v = $("#infogramUrl").value;
+    if (!v.trim()) return toast("Paste an Infogram link first");
+    try { await importInfogramLink(v); $("#infogramUrl").value = ""; closeModals(); } catch (e) { toast(e.message); }
+  };
+  $("#infogramUrlBtn").addEventListener("click", linkImport);
+  $("#infogramUrl").addEventListener("keydown", (ev) => { if (ev.key === "Enter") linkImport(); });
   $("#infogramFile").addEventListener("change", async (ev) => {
     const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
     try { await importInfogramFile(f); closeModals(); } catch (e) { toast(e.message); }
@@ -868,10 +893,11 @@ function wire() {
     const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
     try { setScene(JSON.parse(await f.text())); closeModals(); } catch (e) { toast("Couldn't read that file: " + e.message); }
   });
-  $("#pasteBtn").addEventListener("click", () => {
+  $("#pasteBtn").addEventListener("click", async () => {
     const pasted = $("#pasteHtml").value.trim();
-    if (/^https?:\/\/([a-z0-9-]+\.)?infogram\.com\//i.test(pasted)) {
-      return toast("That's an Infogram link. Open it in your browser, save the page (File → Save Page As…, “Webpage, HTML only”), then choose the saved file under “Import from Infogram”.");
+    if (isInfogramLink(pasted)) {
+      try { await importInfogramLink(pasted); $("#pasteHtml").value = ""; closeModals(); } catch (e) { toast(e.message); }
+      return;
     }
     try { const s = extractScene(pasted); if (!s) return toast("No Fluke piece found in that HTML"); setScene(s); $("#pasteHtml").value = ""; closeModals(); toast("Opened"); }
     catch (e) { toast("Couldn't read that piece: " + e.message); }

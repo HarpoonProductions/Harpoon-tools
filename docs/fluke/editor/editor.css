@@ -268,3 +268,7 @@ button.sw:hover { transform: scale(1.15); }
 /* ---- load failure notice (v0.9.1) ---- */
 #loadFail { position: sticky; top: 0; z-index: 3000; background: var(--yellow, #FBC54F); color: #031041; padding: 12px 18px; font-size: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 #loadFail button { background: #031041; color: #fff; border: 0; border-radius: 8px; padding: 7px 12px; font: inherit; cursor: pointer; }
+
+/* ---- Infogram link import (v0.9.5) ---- */
+.link-row { display: flex; gap: 8px; margin: 0 0 6px; }
+.link-row input { flex: 1; padding: 9px 10px; border: 1px solid #ccc; border-radius: 8px; font: inherit; }

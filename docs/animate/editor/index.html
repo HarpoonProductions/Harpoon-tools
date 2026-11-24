@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Harpoon Animate v0.2</title>
+<link rel="stylesheet" href="editor.css" />
+<style id="runtimeCss"></style>
+<style id="selStyle"></style>
+<script src="../runtime/ha.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+<script type="module" src="editor.js"></script>
+</head>
+<body>
+<header class="top">
+  <h1>Harpoon <em>Animate</em> <span class="ver">v0.2</span></h1>
+  <div class="top-actions">
+    <button type="button" class="secondary" id="newBtn">New</button>
+    <button type="button" class="secondary" id="openBtn">Open / import…</button>
+    <button type="button" class="secondary" id="undoBtn" title="Undo (⌘Z)">↶ Undo</button>
+    <button type="button" class="secondary" id="redoBtn" title="Redo (⇧⌘Z)">↷ Redo</button>
+    <button type="button" class="primary" id="exportBtn">Get the code</button>
+  </div>
+</header>
+
+<main class="app">
+  <aside class="panel left" aria-label="Scene, styles and layers">
+    <button type="button" class="row-btn" id="sceneBtn">⚙︎ Scene settings</button>
+    <h2>Type styles</h2>
+    <div id="styleList" class="list"></div>
+    <button type="button" class="secondary mini" id="addStyleBtn">+ Style</button>
+    <h2>Layers <span class="hint">reading order ↓</span></h2>
+    <div id="layerList" class="list"></div>
+    <div class="add-row">
+      <button type="button" class="secondary mini" data-add="text">+ Text</button>
+      <button type="button" class="secondary mini" data-add="rect">+ Box</button>
+      <button type="button" class="secondary mini" data-add="ellipse">+ Circle</button>
+      <button type="button" class="secondary mini" data-add="line">+ Line</button>
+      <button type="button" class="secondary mini" data-add="image">+ Image</button>
+    </div>
+  </aside>
+
+  <section class="center" aria-label="Preview">
+    <div class="preview-bar">
+      <div class="seg" role="group" aria-label="Layout">
+        <button type="button" class="seg-btn" data-view="desktop" aria-pressed="true">Desktop</button>
+        <button type="button" class="seg-btn" data-view="phone" aria-pressed="false">Phone</button>
+      </div>
+      <div class="seg" role="group" aria-label="Show">
+        <button type="button" class="seg-btn" data-frame="layout" aria-pressed="true" title="Everything visible, no animation — for arranging">Layout</button>
+        <button type="button" class="seg-btn" data-frame="start" aria-pressed="false" title="What readers see before it plays">Start</button>
+        <button type="button" class="seg-btn" data-frame="end" aria-pressed="false" title="What readers see after it plays">End</button>
+      </div>
+      <button type="button" class="primary mini" id="playBtn">▶ Play</button>
+    </div>
+    <div class="stage" id="stage">
+      <div id="preview" class="preview"></div>
+    </div>
+    <p class="stage-note" id="stageNote"></p>
+    <div id="issues" class="issues" aria-live="polite"></div>
+  </section>
+
+  <aside class="panel right" id="props" aria-label="Properties"></aside>
+</main>
+
+<div id="measure" aria-hidden="true"></div>
+
+<!-- Open / import -->
+<div class="modal" id="openModal" aria-hidden="true">
+  <div class="modal__box" role="dialog" aria-modal="true" aria-labelledby="openTitle">
+    <div class="modal__head"><h2 id="openTitle">Open or import</h2><button type="button" class="secondary mini" data-close>Close</button></div>
+    <div class="modal__body">
+      <section>
+        <h3>Import from Infogram</h3>
+        <p class="helper">In Infogram: Download → HTML. Choose the .zip (or the index.html inside it).</p>
+        <input type="file" id="infogramFile" accept=".zip,.html,.htm" />
+      </section>
+      <section>
+        <h3>Edit an existing piece</h3>
+        <p class="helper">Paste the HTML of a piece made with this tool.</p>
+        <textarea id="pasteHtml" placeholder="<!-- Harpoon Animate: …"></textarea>
+        <button type="button" class="secondary" id="pasteBtn">Open pasted piece</button>
+      </section>
+      <section>
+        <h3>Open a scene file</h3>
+        <input type="file" id="jsonFile" accept=".json,application/json" />
+      </section>
+      <section>
+        <h3>Examples</h3>
+        <div class="add-row">
+          <button type="button" class="secondary" data-example="ardalan-quote.json">UCL quote (Ardalan)</button>
+          <button type="button" class="secondary" data-example="test-kitchen-sink.json">Every element type</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- Export -->
+<div class="modal" id="exportModal" aria-hidden="true">
+  <div class="modal__box wide" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+    <div class="modal__head"><h2 id="exportTitle">Get the code</h2><button type="button" class="secondary mini" data-close>Close</button></div>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="piece" aria-selected="true">Piece</button>
+      <button type="button" role="tab" data-tab="lean" aria-selected="false">Piece (shared code in story)</button>
+      <button type="button" role="tab" data-tab="head" aria-selected="false">Story shared code</button>
+      <button type="button" role="tab" data-tab="json" aria-selected="false">Scene file</button>
+    </div>
+    <p class="helper pad" id="exportNote"></p>
+    <pre class="code" id="exportCode"></pre>
+    <div class="modal__foot">
+      <span class="helper" id="exportSize"></span>
+      <button type="button" class="secondary" id="downloadBtn">Download</button>
+      <button type="button" class="primary" id="copyBtn">Copy</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+</body>
+</html>

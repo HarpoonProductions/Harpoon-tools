@@ -1,0 +1,107 @@
+{
+  "format": "harpoon-animate/1",
+  "id": "ardalan-quote",
+  "title": "UCL Winter Giving - Quote Ardalan",
+  "root": "div",
+  "canvas": {
+    "width": 1000,
+    "height": 543,
+    "background": null
+  },
+  "trigger": {
+    "on": "view",
+    "threshold": 0.25,
+    "replay": true
+  },
+  "styles": {
+    "text-1": {
+      "family": "UCL Sans",
+      "source": "story",
+      "weight": 600,
+      "italic": false,
+      "size": 56.77,
+      "lineHeight": 1.2,
+      "color": "#000000"
+    },
+    "text-2": {
+      "family": "UCL Sans",
+      "source": "story",
+      "weight": 600,
+      "italic": false,
+      "size": 23.66,
+      "lineHeight": 1.2,
+      "color": "#000000"
+    }
+  },
+  "elements": [
+    {
+      "id": "text",
+      "type": "text",
+      "tag": "p",
+      "style": "text-1",
+      "text": "I wanted to do something to reflect my gratitude for the education I had. Our scholars have all obtained fantastic jobs and contributed to society in the UK",
+      "x": 48,
+      "y": 21,
+      "w": 840,
+      "h": 412.5,
+      "z": 1,
+      "animate": {
+        "name": "fadeInRight",
+        "delay": 1,
+        "duration": 1,
+        "distance": 0.1
+      }
+    },
+    {
+      "id": "box",
+      "type": "rect",
+      "x": 6,
+      "y": 26,
+      "w": 890,
+      "h": 487,
+      "z": 4,
+      "animate": {
+        "name": "slideOutLeft",
+        "delay": 0.5,
+        "duration": 0.5
+      },
+      "fill": "#EEDEFF"
+    },
+    {
+      "id": "line",
+      "type": "line",
+      "stroke": "#000000",
+      "strokeWidth": 2,
+      "x": -236,
+      "y": 262,
+      "w": 486,
+      "h": 14,
+      "z": 3,
+      "rotate": 90
+    },
+    {
+      "id": "text-2",
+      "type": "text",
+      "tag": "p",
+      "style": "text-2",
+      "text": "Cyrus (UCL Economics BSc 1972) and Juni Ardalan",
+      "x": 48,
+      "y": 449,
+      "w": 714,
+      "h": 59.58,
+      "z": 2,
+      "animate": {
+        "name": "fadeInUp",
+        "delay": 0,
+        "duration": 1,
+        "distance": 0.1
+      }
+    }
+  ],
+  "source": {
+    "from": "infogram",
+    "id": 505112526,
+    "title": "UCL Winter Giving - Quote Ardalan",
+    "updatedAt": "2026-11-23T11:07:44.000Z"
+  }
+}

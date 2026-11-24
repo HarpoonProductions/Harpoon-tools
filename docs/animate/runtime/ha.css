@@ -1,0 +1,49 @@
+/* Harpoon Animate runtime CSS v1 — shared by every scene; safe to include more than once. */
+.ha{container-type:inline-size;position:relative;margin:0;padding:0}
+.ha .ha-scene{position:relative;display:block;width:100%;margin:0;padding:0;border:0;overflow:clip}
+.ha .ha-el{position:absolute;box-sizing:border-box;margin:0;padding:0;border:0;background:none;box-shadow:none;max-width:none;transform-origin:50% 50%}
+.ha .ha-text{font:inherit;color:inherit;text-transform:none;text-decoration:none;quotes:none;white-space:normal;overflow-wrap:break-word;overflow:visible;font-kerning:normal}
+.ha .ha-text::before,.ha .ha-text::after{content:none}
+.ha img.ha-el{display:block;height:auto}
+/* View-triggered scenes wait at their first frame until the runtime adds .ha-run */
+@media (scripting:enabled){.ha[data-ha-trigger=view]:not(.ha-run) .ha-el{animation-play-state:paused}}
+.ha.ha-armed:not(.ha-run) .ha-el{animation-play-state:paused}
+.ha.ha-reset .ha-el{animation-name:none!important}
+@media (prefers-reduced-motion:reduce){.ha .ha-el{animation:none!important}.ha .ha-el[data-ha-out]{visibility:hidden}}
+/* ---- in ---- */
+@keyframes ha-fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes ha-fadeInUp{from{opacity:0;transform:translateY(var(--ha-d,10%))}to{opacity:1;transform:none}}
+@keyframes ha-fadeInDown{from{opacity:0;transform:translateY(calc(-1 * var(--ha-d,10%)))}to{opacity:1;transform:none}}
+@keyframes ha-fadeInLeft{from{opacity:0;transform:translateX(calc(-1 * var(--ha-d,10%)))}to{opacity:1;transform:none}}
+@keyframes ha-fadeInRight{from{opacity:0;transform:translateX(var(--ha-d,10%))}to{opacity:1;transform:none}}
+@keyframes ha-slideInUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes ha-slideInDown{from{transform:translateY(-100%)}to{transform:none}}
+@keyframes ha-slideInLeft{from{transform:translateX(-100%)}to{transform:none}}
+@keyframes ha-slideInRight{from{transform:translateX(100%)}to{transform:none}}
+@keyframes ha-zoomIn{from{opacity:0;transform:scale(.3)}50%{opacity:1}to{transform:none}}
+@keyframes ha-bounceIn{0%{opacity:0;transform:scale(.3)}20%{transform:scale(1.1)}40%{transform:scale(.9)}60%{opacity:1;transform:scale(1.03)}80%{transform:scale(.97)}to{opacity:1;transform:none}}
+@keyframes ha-wipeInLeft{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0)}}
+@keyframes ha-wipeInRight{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0)}}
+@keyframes ha-wipeInUp{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0)}}
+@keyframes ha-wipeInDown{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0)}}
+/* ---- out ---- */
+@keyframes ha-fadeOut{from{opacity:1}to{opacity:0;visibility:hidden}}
+@keyframes ha-fadeOutUp{from{opacity:1}to{opacity:0;transform:translateY(calc(-1 * var(--ha-d,10%)));visibility:hidden}}
+@keyframes ha-fadeOutDown{from{opacity:1}to{opacity:0;transform:translateY(var(--ha-d,10%));visibility:hidden}}
+@keyframes ha-fadeOutLeft{from{opacity:1}to{opacity:0;transform:translateX(calc(-1 * var(--ha-d,10%)));visibility:hidden}}
+@keyframes ha-fadeOutRight{from{opacity:1}to{opacity:0;transform:translateX(var(--ha-d,10%));visibility:hidden}}
+@keyframes ha-slideOutUp{from{transform:none}to{transform:translateY(-101%);visibility:hidden}}
+@keyframes ha-slideOutDown{from{transform:none}to{transform:translateY(101%);visibility:hidden}}
+@keyframes ha-slideOutLeft{from{transform:none}to{transform:translateX(-101%);visibility:hidden}}
+@keyframes ha-slideOutRight{from{transform:none}to{transform:translateX(101%);visibility:hidden}}
+@keyframes ha-zoomOut{from{opacity:1}50%{opacity:0;transform:scale(.3)}to{opacity:0;visibility:hidden}}
+@keyframes ha-wipeOutLeft{from{clip-path:inset(0)}to{clip-path:inset(0 100% 0 0);visibility:hidden}}
+@keyframes ha-wipeOutRight{from{clip-path:inset(0)}to{clip-path:inset(0 0 0 100%);visibility:hidden}}
+@keyframes ha-wipeOutUp{from{clip-path:inset(0)}to{clip-path:inset(0 0 100% 0);visibility:hidden}}
+@keyframes ha-wipeOutDown{from{clip-path:inset(0)}to{clip-path:inset(100% 0 0 0);visibility:hidden}}
+/* ---- attention ---- */
+@keyframes ha-bounce{0%,20%,53%,to{transform:none;animation-timing-function:cubic-bezier(.215,.61,.355,1)}40%,43%{transform:translateY(-30%);animation-timing-function:cubic-bezier(.755,.05,.855,.06)}70%{transform:translateY(-15%);animation-timing-function:cubic-bezier(.755,.05,.855,.06)}90%{transform:translateY(-4%)}}
+@keyframes ha-flash{0%,50%,to{opacity:1}25%,75%{opacity:0}}
+@keyframes ha-pulse{0%,to{transform:none}50%{transform:scale(1.05)}}
+@keyframes ha-shake{0%,to{transform:none}10%,30%,50%,70%,90%{transform:translateX(-4%)}20%,40%,60%,80%{transform:translateX(4%)}}
+@keyframes ha-wobble{0%,to{transform:none}15%{transform:translateX(-25%) rotate(-5deg)}30%{transform:translateX(20%) rotate(3deg)}45%{transform:translateX(-15%) rotate(-3deg)}60%{transform:translateX(10%) rotate(2deg)}75%{transform:translateX(-5%) rotate(-1deg)}}

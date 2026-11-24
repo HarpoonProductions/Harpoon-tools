@@ -1,0 +1,552 @@
+// Harpoon Animate editor v0.2 — forms-based editor for scenes.
+import { renderScene, validate, ANIMATIONS, extractScene } from "../src/render.js";
+import { importInfogram } from "../src/import-infogram.js";
+
+const DRAFT_KEY = "harpoon-animate-draft-v1";
+const PHONE_PREVIEW = 375;
+const DESKTOP_MEASURE = 760;
+
+// ---------------------------------------------------------------- helpers
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const slug = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "x";
+const round = (n, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
+function h(tag, attrs = {}, ...kids) {
+  const el = document.createElement(tag);
+  kids.flat(Infinity).forEach((k) => k != null && k !== false && el.append(k.nodeType ? k : document.createTextNode(k)));
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "class") el.className = v;
+    else if (k === "value" || k === "checked" || k === "selected") el[k] = v;
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  return el;
+}
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 1800);
+}
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode etc. */ } },
+};
+
+// ---------------------------------------------------------------- state
+let scene = null;
+let sel = { kind: "scene" };
+let view = "desktop";
+let frame = "layout";
+let importNotes = [];
+const runtime = { css: "", js: "" };
+
+const blankScene = () => ({
+  format: "harpoon-animate/1", id: "new-piece", title: "New piece", root: "div",
+  canvas: { width: 1000, height: 543, background: null },
+  trigger: { on: "view", threshold: 0.25, replay: true },
+  styles: {
+    heading: { family: "", source: "story", weight: 600, size: 56, lineHeight: 1.2, color: "#000000" },
+    body: { family: "", source: "story", weight: 400, size: 24, lineHeight: 1.35, color: "#000000" },
+  },
+  elements: [],
+});
+
+// ---------------------------------------------------------------- history
+let past = [], future = [], current = null, lastKey = null, lastTime = 0;
+function commit(key) {
+  const snap = JSON.stringify(scene);
+  if (snap === current) return;
+  const now = Date.now();
+  if (!(key && key === lastKey && now - lastTime < 900)) { if (current) past.push(current); if (past.length > 150) past.shift(); }
+  current = snap; future = []; lastKey = key; lastTime = now;
+  store.set(DRAFT_KEY, snap);
+  refresh();
+}
+function restore(snap) { scene = JSON.parse(snap); current = snap; lastKey = null; store.set(DRAFT_KEY, snap); fixSel(); refreshAll(); }
+function undo() { if (!past.length) return; future.push(current); restore(past.pop()); }
+function redo() { if (!future.length) return; past.push(current); restore(future.pop()); }
+function setScene(s, notes = []) {
+  if (current) past.push(current);
+  scene = s; current = JSON.stringify(s); future = []; lastKey = null;
+  store.set(DRAFT_KEY, current);
+  importNotes = notes; sel = { kind: "scene" };
+  refreshAll();
+}
+
+const elById = (id) => (scene.elements || []).find((e) => e.id === id);
+function fixSel() {
+  if (sel.kind === "element" && !elById(sel.id)) sel = { kind: "scene" };
+  if (sel.kind === "style" && !(scene.styles || {})[sel.name]) sel = { kind: "scene" };
+}
+function choose(s) { sel = s; renderLayers(); renderProps(); highlight(); }
+
+// ---------------------------------------------------------------- refresh
+function refresh() { renderLayers(); renderPreview(); updateButtons(); }
+function refreshAll() { refresh(); renderProps(); }
+function updateButtons() { $("#undoBtn").disabled = !past.length; $("#redoBtn").disabled = !future.length; }
+
+// ---------------------------------------------------------------- left panel
+const ICON = { text: "T", rect: "▭", ellipse: "◯", line: "╱", image: "▣" };
+function renderLayers() {
+  $("#sceneBtn").setAttribute("aria-current", sel.kind === "scene");
+  const sl = $("#styleList"); sl.replaceChildren();
+  Object.entries(scene.styles || {}).forEach(([name, st]) => {
+    sl.append(h("div", { class: "row" },
+      h("button", { type: "button", class: "row-btn", "aria-current": sel.kind === "style" && sel.name === name, onclick: () => choose({ kind: "style", name }) },
+        h("span", { class: "icon" }, "Aa"), h("span", { class: "name" }, name),
+        h("span", { class: "tag" }, `${st.size}·${st.weight}`))));
+  });
+  const ll = $("#layerList"); ll.replaceChildren();
+  const els = scene.elements || [];
+  if (!els.length) ll.append(h("p", { class: "helper" }, "No layers yet — add one below."));
+  els.forEach((e, i) => {
+    const out = e.animate && ANIMATIONS.out.includes(e.animate.name);
+    ll.append(h("div", { class: "row" },
+      h("button", { type: "button", class: "row-btn", "aria-current": sel.kind === "element" && sel.id === e.id, onclick: () => choose({ kind: "element", id: e.id }) },
+        h("span", { class: "icon", "aria-hidden": "true" }, ICON[e.type] || "?"),
+        h("span", { class: "name" }, e.id),
+        e.type === "text" ? h("span", { class: "tag" }, e.tag || "p") : null,
+        out ? h("span", { class: "tag", title: "Leaves during the animation" }, "out") : null,
+        e.m?.hidden ? h("span", { class: "tag", title: "Hidden on phones" }, "no 📱") : null),
+      h("button", { type: "button", class: "move", title: "Earlier in reading order", "aria-label": `Move ${e.id} up`, disabled: i === 0, onclick: () => moveLayer(i, -1) }, "↑"),
+      h("button", { type: "button", class: "move", title: "Later in reading order", "aria-label": `Move ${e.id} down`, disabled: i === els.length - 1, onclick: () => moveLayer(i, 1) }, "↓")));
+  });
+}
+function moveLayer(i, d) {
+  const els = scene.elements; const j = i + d;
+  [els[i], els[j]] = [els[j], els[i]];
+  // keep how things stack: give every element an explicit z first
+  els.forEach((e, k) => { if (e.z == null) e.z = (k === i ? j : k === j ? i : k) + 1; });
+  commit();
+}
+function uniqueId(base) { let id = slug(base), n = 2; while (elById(id)) id = `${slug(base)}-${n++}`; return id; }
+function addElement(type) {
+  const W = scene.canvas.width, H = scene.canvas.height;
+  const firstStyle = Object.keys(scene.styles || {})[0];
+  const z = Math.max(0, ...(scene.elements || []).map((e, i) => e.z ?? i + 1)) + 1;
+  const base = { x: round(W * 0.1), y: round(H * 0.1), w: round(W * 0.5), h: round(H * 0.2), z };
+  const make = {
+    text: { id: uniqueId("text"), type: "text", tag: "p", style: firstStyle, text: "New text", ...base, animate: { name: "fadeInUp", delay: 0, duration: 0.8 } },
+    rect: { id: uniqueId("box"), type: "rect", fill: "#EEDEFF", ...base, animate: { name: "wipeInLeft", delay: 0, duration: 0.6 } },
+    ellipse: { id: uniqueId("circle"), type: "ellipse", fill: "#C9495E", ...base, w: round(H * 0.3), h: round(H * 0.3), animate: { name: "zoomIn", delay: 0, duration: 0.6 } },
+    line: { id: uniqueId("line"), type: "line", stroke: "#000000", strokeWidth: 2, ...base, h: 6, animate: { name: "wipeInLeft", delay: 0, duration: 0.6 } },
+    image: { id: uniqueId("image"), type: "image", src: "", alt: "", fit: "contain", ...base, animate: { name: "fadeIn", delay: 0, duration: 0.8 } },
+  }[type];
+  if (!make.style) delete make.style;
+  scene.elements = [...(scene.elements || []), make];
+  sel = { kind: "element", id: make.id };
+  commit(); renderProps();
+}
+
+// ---------------------------------------------------------------- preview
+function previewHtml(s) {
+  try { return renderScene(s, { allowInvalid: true, includeRuntime: false }); }
+  catch (e) { return `<p style="color:#b3261e">Can't draw this scene: ${e.message}</p>`; }
+}
+function renderPreview() {
+  const p = $("#preview");
+  p.className = `preview ${view === "phone" ? "phone" : ""} f-${frame}`;
+  p.innerHTML = previewHtml(scene);
+  highlight();
+  const M = scene.mobile;
+  $("#stageNote").textContent = view === "phone"
+    ? (M ? `Phone layout: below ${M.below}px wide the ${M.width}×${M.height} canvas is used. Position fields now edit the phone layout.` : "No phone layout: the desktop design is scaled down. Turn one on in Scene settings.")
+    : `Desktop layout: ${scene.canvas.width}×${scene.canvas.height} canvas, scaled to fit the column. Story fonts show here only if installed on this computer.`;
+  scheduleMeasure();
+}
+function highlight() {
+  const css = sel.kind === "element" && elById(sel.id)
+    ? `#preview .ha-e-${slug(sel.id)}{outline:2px dashed #2a7de1!important;outline-offset:2px}` : "";
+  $("#selStyle").textContent = css;
+}
+function play() {
+  const p = $("#preview");
+  p.className = `preview ${view === "phone" ? "phone" : ""}`;
+  const piece = p.querySelector(".ha");
+  if (!piece) return;
+  if (window.HarpoonAnimate) window.HarpoonAnimate.play(piece);
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) toast("Your computer has reduced motion on, so animations are switched off");
+}
+
+// ---------------------------------------------------------------- issues (validation + overflow)
+let measureTimer = 0;
+function scheduleMeasure() { clearTimeout(measureTimer); measureTimer = setTimeout(measure, 150); }
+function overflowing(container) {
+  return $$(".ha-text", container).filter((n) => n.offsetParent !== null && (n.scrollHeight > n.clientHeight + 2 || n.scrollWidth > n.clientWidth + 2))
+    .map((n) => [...n.classList].find((c) => c.startsWith("ha-e-")).slice(5));
+}
+async function measure() {
+  const box = $("#measure");
+  const html = previewHtml(scene);
+  box.replaceChildren(h("div", { class: "f-layout", style: `width:${DESKTOP_MEASURE}px` }), h("div", { class: "f-layout", style: `width:${PHONE_PREVIEW}px` }));
+  box.children[0].innerHTML = html; box.children[1].innerHTML = html;
+  try { await document.fonts.ready; } catch { /* old browsers */ }
+  const nameOf = (s) => (scene.elements.find((e) => slug(e.id) === s) || {}).id || s;
+  const desk = overflowing(box.children[0]).map(nameOf);
+  const phone = scene.mobile ? overflowing(box.children[1]).map(nameOf) : [];
+  box.replaceChildren();
+  renderIssues(desk, phone);
+}
+function renderIssues(desk = [], phone = []) {
+  const { errors, warnings } = validate(scene);
+  const list = $("#issues"); list.replaceChildren();
+  const row = (cls, label, text, onx) => list.append(h("div", { class: `issue ${cls}` }, h("b", {}, label), h("span", {}, text),
+    onx ? h("button", { type: "button", class: "x", "aria-label": "Dismiss", onclick: onx }, "×") : null));
+  errors.forEach((e) => row("err", "Fix", e));
+  warnings.forEach((w) => row("warn", "Check", w));
+  desk.forEach((id) => row("warn", "Check", `“${id}” text overflows its box on desktop — make the box bigger or the text smaller`));
+  phone.forEach((id) => row("warn", "Check", `“${id}” text overflows its box on phones — adjust it in the Phone layout`));
+  importNotes.forEach((n, i) => row("note", "Import", n, () => { importNotes.splice(i, 1); renderIssues(desk, phone); }));
+  if (!list.children.length) row("ok", "Ready", "No problems found.");
+  $("#exportBtn").title = errors.length ? "Fix the problems listed under the preview first" : "";
+}
+
+// ---------------------------------------------------------------- property fields
+// Each field reads and writes obj()[key]; obj is a function so it survives undo (which replaces the scene).
+function field(label, control, extra) { return h("label", { class: "f" }, h("span", {}, label), control, extra || null); }
+function setVal(getObj, key, v, { optional, cleanup } = {}) {
+  const o = getObj();
+  if (v === undefined || v === "" || (typeof v === "number" && Number.isNaN(v))) { if (optional) delete o[key]; else return; }
+  else o[key] = v;
+  if (cleanup) cleanup();
+}
+function num(label, getObj, key, opts = {}) {
+  const v = getObj()[key];
+  const inp = h("input", { type: "number", step: opts.step ?? 1, min: opts.min, max: opts.max, value: v ?? "", placeholder: opts.placeholder ?? "" });
+  inp.addEventListener("input", () => { setVal(getObj, key, inp.value === "" ? undefined : parseFloat(inp.value), opts); commit(label + key); });
+  return field(label, inp);
+}
+function text(label, getObj, key, opts = {}) {
+  const tag = opts.multiline ? "textarea" : "input";
+  const inp = h(tag, { type: tag === "input" ? "text" : null, value: getObj()[key] ?? "", placeholder: opts.placeholder ?? "" });
+  inp.addEventListener(opts.onChangeOnly ? "change" : "input", () => {
+    if (opts.apply) opts.apply(inp.value, inp); else setVal(getObj, key, inp.value, opts);
+    commit(label + key);
+  });
+  return field(label, inp, opts.help ? h("span", { class: "helper" }, opts.help) : null);
+}
+function select(label, getObj, key, options, opts = {}) {
+  const cur = getObj()[key] ?? opts.fallback ?? "";
+  const s = h("select", {}, options.map((o) => Array.isArray(o.group)
+    ? h("optgroup", { label: o.label }, o.group.map((g) => h("option", { value: g.value ?? g, selected: (g.value ?? g) === cur }, g.label ?? g)))
+    : h("option", { value: o.value ?? o, selected: String(o.value ?? o) === String(cur) }, o.label ?? o)));
+  s.addEventListener("change", () => {
+    const v = opts.number ? parseFloat(s.value) : s.value;
+    if (opts.apply) opts.apply(v); else setVal(getObj, key, v, opts);
+    commit(); if (opts.rerender) renderProps();
+  });
+  return field(label, s);
+}
+function check(label, getObj, key, opts = {}) {
+  const c = h("input", { type: "checkbox", checked: opts.invert ? !getObj()[key] : !!getObj()[key] });
+  c.addEventListener("change", () => {
+    if (opts.apply) opts.apply(c.checked); else { const v = opts.invert ? !c.checked : c.checked; if (!v && opts.optional) delete getObj()[key]; else getObj()[key] = v; }
+    commit(); if (opts.rerender) renderProps();
+  });
+  return h("label", { class: "check" }, c, label);
+}
+function colour(label, getObj, key, opts = {}) {
+  const v = getObj()[key] || "";
+  const hex = /^#[0-9a-f]{6}$/i.test(v) ? v : "#000000";
+  const pick = h("input", { type: "color", value: hex, "aria-label": label + " picker" });
+  const t = h("input", { type: "text", value: v, placeholder: opts.placeholder ?? "none" });
+  pick.addEventListener("input", () => { t.value = pick.value.toUpperCase(); setVal(getObj, key, t.value, opts); commit(label + key); });
+  t.addEventListener("input", () => { if (/^#[0-9a-f]{6}$/i.test(t.value)) pick.value = t.value; setVal(getObj, key, t.value.trim(), opts); commit(label + key); });
+  return field(label, h("div", { class: "colour" }, pick, t));
+}
+const grid = (n, ...kids) => h("div", { class: n === 3 ? "grid3" : "grid2" }, ...kids);
+const section = (title, ...kids) => h("fieldset", {}, h("legend", {}, title), ...kids);
+
+// ---------------------------------------------------------------- right panel
+function renderProps() {
+  const p = $("#props"); p.replaceChildren(); p.className = "panel right props";
+  if (sel.kind === "style") return p.append(...styleProps(sel.name));
+  if (sel.kind === "element" && elById(sel.id)) return p.append(...elementProps(sel.id));
+  p.append(...sceneProps());
+}
+
+function sceneProps() {
+  const S = () => scene, C = () => scene.canvas, T = () => (scene.trigger ||= { on: "view", threshold: 0.25, replay: true });
+  const out = [h("p", { class: "title" }, "Scene settings"), h("p", { class: "sub" }, "The whole piece: size, behaviour and phone layout.")];
+  out.push(section("Piece",
+    text("Title", S, "title"),
+    text("Short name (used in the code)", S, "id", { onChangeOnly: true, apply: (v, inp) => { scene.id = slug(v); inp.value = scene.id; } }),
+    select("Wrapper element", S, "root", [{ value: "div", label: "div — no special meaning" }, { value: "figure", label: "figure — quote or image with caption" }, { value: "section", label: "section" }, { value: "header", label: "header — e.g. an animated title" }], { fallback: "div" }),
+    text("Label for screen readers (optional)", S, "label", { optional: true, placeholder: "e.g. Quote from Cyrus Ardalan" })));
+  out.push(section("Canvas",
+    grid(2, num("Width", C, "width", { min: 1 }), num("Height", C, "height", { min: 1 })),
+    colour("Background", C, "background", { optional: true, placeholder: "transparent" }),
+    h("p", { class: "helper" }, "Canvas units, not pixels: the piece scales to the width of the column it sits in.")));
+  out.push(section("Animation trigger",
+    select("Play", T, "on", [{ value: "view", label: "When scrolled into view" }, { value: "load", label: "As soon as the page loads" }], { rerender: true }),
+    T().on === "view" ? grid(2,
+      select("When this much is visible", T, "threshold", [0.1, 0.25, 0.5, 0.75].map((v) => ({ value: v, label: `${v * 100}%` })), { number: true }),
+      h("div", {}, check("Replay when scrolled back to", T, "replay"))) : h("p", { class: "helper" }, "No script needed: it plays as soon as the browser draws it.")));
+  const hasM = !!scene.mobile;
+  out.push(section("Phone layout",
+    check("Use a separate phone layout", S, "mobile", { apply: (on) => {
+      if (on) scene.mobile = { below: 560, width: 375, height: Math.round(scene.canvas.height / scene.canvas.width * 375 * 1.5) };
+      else { delete scene.mobile; scene.elements.forEach((e) => delete e.m); }
+    }, rerender: true }),
+    hasM ? [grid(3, num("Below (px)", () => scene.mobile, "below", { min: 200 }), num("Width", () => scene.mobile, "width", { min: 1 }), num("Height", () => scene.mobile, "height", { min: 1 })),
+      h("p", { class: "helper" }, "Switch the preview to Phone to arrange it. Layers you don't move keep their desktop position, scaled."),
+      h("div", { class: "actions" }, h("button", { type: "button", class: "secondary mini", onclick: copyDesktopToPhone }, "Copy desktop positions to phone"))]
+      : h("p", { class: "helper" }, "Without one, the desktop design is scaled down on phones — fine for big type, too small for long quotes.")));
+  return out;
+}
+function copyDesktopToPhone() {
+  const M = scene.mobile, W = scene.canvas.width, H = scene.canvas.height;
+  scene.elements.forEach((e) => {
+    e.m = { ...(e.m || {}), x: round(e.x * M.width / W), y: round(e.y * M.height / H), w: round(e.w * M.width / W), h: round(e.h * M.height / H) };
+    if (e.type === "text") { const st = (scene.styles || {})[e.style] || {}; e.m.size = round((e.size ?? st.size ?? 16) * M.width / W); }
+  });
+  commit(); toast("Copied — now adjust in Phone view");
+}
+
+const WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900].map((w) => ({ value: w, label: String(w) }));
+function styleProps(name) {
+  const St = () => scene.styles[name];
+  const used = scene.elements.filter((e) => e.style === name).length;
+  return [
+    h("p", { class: "title" }, `Type style: ${name}`),
+    h("p", { class: "sub" }, `How text looks. Used by ${used} layer${used === 1 ? "" : "s"}. What the text is (heading, quote…) is set on each layer.`),
+    section("Style",
+      text("Name", () => ({ name }), "name", { onChangeOnly: true, apply: (v, inp) => {
+        const nn = slug(v); if (!nn || nn === name || scene.styles[nn]) { inp.value = name; return; }
+        scene.styles[nn] = scene.styles[name]; delete scene.styles[name];
+        scene.elements.forEach((e) => { if (e.style === name) e.style = nn; });
+        sel = { kind: "style", name: nn }; setTimeout(renderProps);
+      } }),
+      text("Font family", St, "family", { placeholder: "blank = the story's font", help: "e.g. UCL Sans, or a Google Font such as DM Serif Display" }),
+      select("Font comes from", St, "source", [{ value: "story", label: "The story (already loaded)" }, { value: "google", label: "Google Fonts (added automatically)" }], { fallback: "story" }),
+      grid(2, select("Weight", St, "weight", WEIGHTS, { number: true, fallback: 400 }), h("div", {}, h("span", { class: "f" }, " "), check("Italic", St, "italic", { optional: true }))),
+      grid(3, num("Size", St, "size", { min: 1, step: 0.5 }), num("Line height", St, "lineHeight", { min: 0.5, step: 0.05 }), num("Spacing (em)", St, "letterSpacing", { step: 0.01, optional: true, placeholder: "0" })),
+      colour("Colour", St, "color", { placeholder: "#000000" }),
+      text("Fallback fonts", St, "fallback", { optional: true, placeholder: "system-ui, sans-serif" })),
+    h("div", { class: "actions" },
+      h("button", { type: "button", class: "danger mini", disabled: used > 0, title: used ? "Still used by layers" : "", onclick: () => { delete scene.styles[name]; sel = { kind: "scene" }; commit(); renderProps(); } }, "Delete style")),
+  ];
+}
+function addStyle() {
+  let n = 1; while (scene.styles[`style-${n}`]) n++;
+  const name = `style-${n}`;
+  scene.styles = { ...(scene.styles || {}), [name]: { family: "", source: "story", weight: 400, size: 32, lineHeight: 1.2, color: "#000000" } };
+  sel = { kind: "style", name }; commit(); renderProps();
+}
+
+const ANIM_OPTIONS = [{ value: "", label: "None" },
+  { label: "Enter", group: ANIMATIONS.in }, { label: "Leave", group: ANIMATIONS.out }, { label: "Attention", group: ANIMATIONS.attention }];
+const EASINGS = [{ value: "ease", label: "Ease" }, { value: "ease-out", label: "Ease out (gentle stop)" }, { value: "ease-in", label: "Ease in" },
+  { value: "ease-in-out", label: "Ease in and out" }, { value: "linear", label: "Linear" }, { value: "cubic-bezier(.34,1.56,.64,1)", label: "Overshoot" }];
+const TAGS = [{ value: "h1", label: "H1 — page title" }, { value: "h2", label: "H2 — heading" }, { value: "h3", label: "H3" }, { value: "h4", label: "H4" },
+  { value: "p", label: "Paragraph" }, { value: "blockquote", label: "Quote" }, { value: "figcaption", label: "Caption (in a figure)" }, { value: "span", label: "Inline text" },
+  { value: "decorative", label: "Decorative — hidden from screen readers" }];
+
+function elementProps(id) {
+  const E = () => elById(sel.id) || {};
+  const e = E();
+  const out = [h("p", { class: "title" }, `${{ text: "Text", rect: "Box", ellipse: "Circle", line: "Line", image: "Image" }[e.type]} layer`)];
+  out.push(text("Layer name", E, "id", { onChangeOnly: true, apply: (v, inp) => {
+    const nid = slug(v); if (!nid || (nid !== e.id && elById(nid))) { inp.value = e.id; toast("That name is taken"); return; }
+    E().id = nid; sel = { kind: "element", id: nid }; inp.value = nid;
+  } }));
+
+  if (e.type === "text") {
+    const st = (scene.styles || {})[e.style] || {};
+    out.push(section("Text",
+      text("Text", E, "text", { multiline: true }),
+      grid(2, select("What it is", E, "tag", TAGS, { fallback: "p" }), select("Align", E, "align", ["left", "center", "right"], { fallback: "left", optional: true })),
+      select("Type style", E, "style", [{ value: "", label: "(none)" }, ...Object.keys(scene.styles || {})], { optional: true, rerender: true }),
+      h("p", { class: "helper" }, "Leave these blank to use the type style."),
+      grid(3, num("Size", E, "size", { optional: true, step: 0.5, placeholder: st.size ?? "" }),
+        select("Weight", E, "weight", [{ value: "", label: st.weight ? `(${st.weight})` : "(style)" }, ...WEIGHTS], { optional: true, number: false, apply: (v) => { if (v === "") delete E().weight; else E().weight = +v; } }),
+        num("Line height", E, "lineHeight", { optional: true, step: 0.05, placeholder: st.lineHeight ?? "" })),
+      colour("Colour", E, "color", { optional: true, placeholder: st.color || "style colour" })));
+  }
+  if (e.type === "image") {
+    out.push(section("Image",
+      text("Image URL", E, "src", { help: "Upload to harpn with upload.har.pn, then paste the link." }),
+      check("Decorative (no alt text needed)", E, "decorative", { optional: true, rerender: true }),
+      e.decorative ? null : text("Alt text", E, "alt", { placeholder: "Describe what the image shows" }),
+      select("Fit", E, "fit", [{ value: "contain", label: "Whole image" }, { value: "cover", label: "Fill the box (crop)" }], { fallback: "contain" })));
+  }
+  if (e.type === "rect" || e.type === "ellipse") {
+    out.push(section("Look",
+      colour("Fill", E, "fill", { optional: true }),
+      grid(2, colour("Border", E, "stroke", { optional: true }), num("Border width", E, "strokeWidth", { optional: true, min: 0, placeholder: "0" })),
+      e.type === "rect" ? num("Corner radius", E, "radius", { optional: true, min: 0, placeholder: "0" }) : null));
+  }
+  if (e.type === "line") {
+    out.push(section("Look", grid(2, colour("Colour", E, "stroke"), num("Thickness", E, "strokeWidth", { min: 0.5, step: 0.5 })),
+      h("p", { class: "helper" }, "Drawn across the box. Rotate 90° for a vertical rule.")));
+  }
+
+  // Position: desktop or phone, following the preview toggle
+  const phone = view === "phone" && scene.mobile;
+  if (phone) {
+    const M = () => { const el = E(); return (el.m ||= {}); };
+    const tidy = () => { const el = E(); if (el.m && !Object.keys(el.m).length) delete el.m; };
+    const M2 = scene.mobile, W = scene.canvas.width, H = scene.canvas.height;
+    const ph = (k, total, full) => String(round(e[k] * total / full));
+    out.push(section("Position — phone layout",
+      h("p", { class: "phone-flag" }, "📱 Editing the phone layout. Blank = keep the desktop position, scaled."),
+      check("Hide on phones", M, "hidden", { optional: true, cleanup: tidy, apply: (on) => { if (on) M().hidden = true; else { delete M().hidden; tidy(); } }, rerender: true }),
+      e.m?.hidden ? null : [grid(2, num("X", M, "x", { optional: true, cleanup: tidy, placeholder: ph("x", M2.width, W) }), num("Y", M, "y", { optional: true, cleanup: tidy, placeholder: ph("y", M2.height, H) })),
+        grid(2, num("Width", M, "w", { optional: true, cleanup: tidy, placeholder: ph("w", M2.width, W) }), num("Height", M, "h", { optional: true, cleanup: tidy, placeholder: ph("h", M2.height, H) })),
+        e.type === "text" ? num("Text size on phones", M, "size", { optional: true, cleanup: tidy, step: 0.5 }) : null]));
+  } else {
+    out.push(section("Position",
+      grid(2, num("X", E, "x"), num("Y", E, "y")),
+      grid(2, num("Width", E, "w", { min: 0 }), num("Height", E, "h", { min: 0 })),
+      grid(3, num("Rotate °", E, "rotate", { optional: true, placeholder: "0" }), num("Opacity", E, "opacity", { optional: true, min: 0, max: 1, step: 0.05, placeholder: "1" }), num("Stack", E, "z", { optional: true, step: 1, placeholder: "auto" })),
+      h("p", { class: "helper" }, "Arrow keys nudge the selected layer (Shift = 10). Higher Stack sits on top.")));
+  }
+
+  const A = () => E().animate || {};
+  const a = e.animate || {};
+  const isFade = /^fade(In|Out)(Up|Down|Left|Right)$/.test(a.name || "");
+  out.push(section("Animation",
+    select("Animation", () => ({ name: a.name || "" }), "name", ANIM_OPTIONS, { rerender: true, apply: (v) => {
+      if (!v) delete E().animate; else E().animate = { delay: 0, duration: 0.8, ...(E().animate || {}), name: v };
+    } }),
+    a.name ? [grid(2, num("Delay (s)", () => (E().animate ||= {}), "delay", { min: 0, step: 0.1, placeholder: "0" }), num("Duration (s)", () => (E().animate ||= {}), "duration", { min: 0.05, step: 0.1, placeholder: "1" })),
+      select("Easing", () => (E().animate ||= {}), "easing", EASINGS, { fallback: "ease", optional: true }),
+      isFade ? num("Travel (fraction of its size)", () => (E().animate ||= {}), "distance", { optional: true, min: 0, step: 0.05, placeholder: "0.1" }) : null,
+      ANIMATIONS.attention.includes(a.name) ? check("Loop forever", () => (E().animate ||= {}), "loop", { optional: true }) : null] : null));
+
+  out.push(h("div", { class: "actions" },
+    h("button", { type: "button", class: "secondary mini", onclick: () => duplicate(e.id) }, "Duplicate"),
+    h("button", { type: "button", class: "danger mini", onclick: () => { scene.elements = scene.elements.filter((x) => x.id !== e.id); sel = { kind: "scene" }; commit(); renderProps(); } }, "Delete layer")));
+  void A;
+  return out;
+}
+function duplicate(id) {
+  const src = elById(id); const copy = JSON.parse(JSON.stringify(src));
+  copy.id = uniqueId(src.id); copy.x += 20; copy.y += 20;
+  const i = scene.elements.indexOf(src);
+  scene.elements.splice(i + 1, 0, copy);
+  sel = { kind: "element", id: copy.id }; commit(); renderProps();
+}
+
+// ---------------------------------------------------------------- open / import
+function openModal(id) { const m = $(id); m.classList.add("open"); m.setAttribute("aria-hidden", "false"); (m.querySelector("button, input, textarea") || m).focus(); }
+function closeModals() { $$(".modal.open").forEach((m) => { m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }); }
+
+async function importInfogramFile(file) {
+  let html;
+  if (/\.zip$/i.test(file.name)) {
+    if (!window.JSZip) throw new Error("The zip reader didn't load — unzip it and choose index.html instead");
+    const zip = await window.JSZip.loadAsync(file);
+    const idx = Object.keys(zip.files).filter((n) => /(^|\/)index\.html?$/i.test(n)).sort((a, b) => a.length - b.length)[0];
+    if (!idx) throw new Error("No index.html in that zip");
+    html = await zip.file(idx).async("string");
+  } else html = await file.text();
+  const { scene: s, warnings } = importInfogram(html);
+  setScene(s, warnings);
+  toast(`Imported “${s.title}”`);
+}
+
+// ---------------------------------------------------------------- export
+let tab = "piece";
+const NOTES = {
+  piece: "Everything in one block — paste into a Shorthand HTML block. The shared animation code is included, so it works on its own and loads with the page.",
+  lean: "For stories that already have the shared code (next tab) in their head. Lighter when a story has several pieces.",
+  head: "Add once per story: Shorthand → story settings → custom head code. Then use “Piece (shared code in story)” for each piece.",
+  json: "The editable source. Keep it for the library, or open it here later. (Pieces also carry it, so pasting a piece back in works too.)",
+};
+function exportText() {
+  if (tab === "json") return JSON.stringify(scene, null, 2);
+  if (tab === "head") return `<!-- Harpoon Animate shared code -->\n<style>${runtime.css.trim()}</style>\n<script>${runtime.js.trim()}</script>`;
+  const { errors } = validate(scene);
+  if (errors.length) return "Fix these first:\n- " + errors.join("\n- ");
+  return renderScene(scene, { runtimeCss: runtime.css, runtimeJs: runtime.js, includeRuntime: tab === "piece", embedSource: true });
+}
+function showTab(t) {
+  tab = t;
+  $$("#exportModal [role=tab]").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === t));
+  $("#exportNote").textContent = NOTES[t];
+  const txt = exportText();
+  $("#exportCode").textContent = txt;
+  $("#exportSize").textContent = `${(new Blob([txt]).size / 1024).toFixed(1)} KB`;
+}
+
+// ---------------------------------------------------------------- wiring
+function wire() {
+  $("#sceneBtn").addEventListener("click", () => choose({ kind: "scene" }));
+  $("#addStyleBtn").addEventListener("click", addStyle);
+  $$("[data-add]").forEach((b) => b.addEventListener("click", () => addElement(b.dataset.add)));
+  $$("[data-view]").forEach((b) => b.addEventListener("click", () => {
+    view = b.dataset.view; $$("[data-view]").forEach((x) => x.setAttribute("aria-pressed", x === b)); renderPreview(); renderProps();
+  }));
+  $$("[data-frame]").forEach((b) => b.addEventListener("click", () => {
+    frame = b.dataset.frame; $$("[data-frame]").forEach((x) => x.setAttribute("aria-pressed", x === b)); renderPreview();
+  }));
+  $("#playBtn").addEventListener("click", play);
+  $("#preview").addEventListener("click", (ev) => {
+    const n = ev.target.closest(".ha-el"); if (!n) return;
+    const s = [...n.classList].find((c) => c.startsWith("ha-e-")).slice(5);
+    const e = scene.elements.find((x) => slug(x.id) === s); if (e) choose({ kind: "element", id: e.id });
+  });
+  $("#undoBtn").addEventListener("click", undo);
+  $("#redoBtn").addEventListener("click", redo);
+  $("#newBtn").addEventListener("click", () => { if (confirm("Start a new piece? You can undo this.")) setScene(blankScene()); });
+  $("#openBtn").addEventListener("click", () => openModal("#openModal"));
+  $("#exportBtn").addEventListener("click", () => { openModal("#exportModal"); showTab(validate(scene).errors.length ? "json" : tab); });
+  $$("[data-close]").forEach((b) => b.addEventListener("click", closeModals));
+  $$(".modal").forEach((m) => m.addEventListener("click", (e) => { if (e.target === m) closeModals(); }));
+  $$("#exportModal [role=tab]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+  $("#copyBtn").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText($("#exportCode").textContent); toast("Copied"); } catch { toast("Copy failed — select the text and copy it"); }
+  });
+  $("#downloadBtn").addEventListener("click", () => {
+    const ext = tab === "json" ? "json" : "html";
+    const a = h("a", { href: URL.createObjectURL(new Blob([$("#exportCode").textContent], { type: ext === "json" ? "application/json" : "text/html" })), download: `${scene.id}${tab === "head" ? "-shared-code" : ""}.${ext}` });
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+  $("#infogramFile").addEventListener("change", async (ev) => {
+    const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
+    try { await importInfogramFile(f); closeModals(); } catch (e) { toast(e.message); }
+  });
+  $("#jsonFile").addEventListener("change", async (ev) => {
+    const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
+    try { setScene(JSON.parse(await f.text())); closeModals(); } catch (e) { toast("Couldn't read that file: " + e.message); }
+  });
+  $("#pasteBtn").addEventListener("click", () => {
+    try { const s = extractScene($("#pasteHtml").value); if (!s) return toast("No Harpoon Animate piece found in that HTML"); setScene(s); $("#pasteHtml").value = ""; closeModals(); toast("Opened"); }
+    catch (e) { toast("Couldn't read that piece: " + e.message); }
+  });
+  $$("[data-example]").forEach((b) => b.addEventListener("click", async () => {
+    try { setScene(await (await fetch("../scenes/" + b.dataset.example)).json()); closeModals(); } catch (e) { toast(e.message); }
+  }));
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") return closeModals();
+    const typing = ev.target instanceof Element && ev.target.closest("input, textarea, select, [contenteditable]");
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "z" && !typing) { ev.preventDefault(); ev.shiftKey ? redo() : undo(); return; }
+    if (typing || sel.kind !== "element" || !ev.key.startsWith("Arrow") || $(".modal.open")) return;
+    const e = elById(sel.id); if (!e) return;
+    ev.preventDefault();
+    const step = ev.shiftKey ? 10 : 1;
+    const t = view === "phone" && scene.mobile ? (e.m ||= {}) : e;
+    const M = scene.mobile, W = scene.canvas.width, H = scene.canvas.height;
+    if (t === e.m) { t.x ??= round(e.x * M.width / W); t.y ??= round(e.y * M.height / H); }
+    if (ev.key === "ArrowLeft") t.x = round(t.x - step); if (ev.key === "ArrowRight") t.x = round(t.x + step);
+    if (ev.key === "ArrowUp") t.y = round(t.y - step); if (ev.key === "ArrowDown") t.y = round(t.y + step);
+    commit("nudge"); renderProps();
+  });
+}
+
+// ---------------------------------------------------------------- start
+async function start() {
+  wire();
+  try {
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css").then((r) => r.text()), fetch("../runtime/ha.js").then((r) => r.text())]);
+    runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
+  } catch (e) { toast("Couldn't load the animation code: " + e.message); }
+  let s = null;
+  const draft = store.get(DRAFT_KEY);
+  if (draft) { try { s = JSON.parse(draft); } catch { s = null; } }
+  if (!s) { try { s = await (await fetch("../scenes/ardalan-quote.json")).json(); } catch { s = blankScene(); } }
+  scene = s; current = JSON.stringify(s);
+  refreshAll();
+}
+start();

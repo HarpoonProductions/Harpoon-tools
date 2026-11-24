@@ -1,0 +1,397 @@
+{
+  "format": "harpoon-animate/1",
+  "id": "fluke-showcase",
+  "title": "Fluke showcase",
+  "root": "section",
+  "label": "Fluke by Harpoon: animated pieces without the embed",
+  "canvas": {
+    "width": 1000,
+    "height": 600,
+    "background": "#031041"
+  },
+  "mobile": {
+    "below": 560,
+    "width": 375,
+    "height": 480
+  },
+  "trigger": {
+    "on": "view",
+    "threshold": 0.25,
+    "replay": true
+  },
+  "styles": {
+    "kicker": {
+      "family": "DM Sans",
+      "source": "google",
+      "weight": 700,
+      "size": 20,
+      "lineHeight": 1.2,
+      "letterSpacing": 0.18,
+      "color": "#FBC54F",
+      "fallback": "system-ui, sans-serif"
+    },
+    "display": {
+      "family": "DM Serif Display",
+      "source": "google",
+      "weight": 400,
+      "size": 64,
+      "lineHeight": 1.05,
+      "color": "#FFFFFF",
+      "fallback": "Georgia, serif"
+    },
+    "body": {
+      "family": "DM Sans",
+      "source": "google",
+      "weight": 400,
+      "size": 22,
+      "lineHeight": 1.4,
+      "color": "#C9CEE6",
+      "fallback": "system-ui, sans-serif"
+    },
+    "label": {
+      "family": "DM Sans",
+      "source": "google",
+      "weight": 500,
+      "size": 15,
+      "lineHeight": 1.2,
+      "letterSpacing": 0.12,
+      "color": "#9AA0B8",
+      "fallback": "system-ui, sans-serif"
+    },
+    "stat": {
+      "family": "DM Serif Display",
+      "source": "google",
+      "weight": 400,
+      "size": 56,
+      "lineHeight": 1,
+      "color": "#FFFFFF",
+      "fallback": "Georgia, serif"
+    }
+  },
+  "elements": [
+    {
+      "id": "kicker",
+      "type": "text",
+      "tag": "p",
+      "style": "kicker",
+      "text": "FLUKE BY HARPOON",
+      "x": 70,
+      "y": 66,
+      "w": 600,
+      "h": 30,
+      "z": 8,
+      "animate": {
+        "name": "fadeInDown",
+        "delay": 0.6,
+        "duration": 0.6,
+        "distance": 0.5
+      },
+      "m": {
+        "x": 24,
+        "y": 34,
+        "w": 260,
+        "h": 20,
+        "size": 12
+      }
+    },
+    {
+      "id": "headline",
+      "type": "text",
+      "tag": "h2",
+      "style": "display",
+      "text": "Animated pieces,\nwithout the embed.",
+      "x": 70,
+      "y": 108,
+      "w": 600,
+      "h": 150,
+      "z": 9,
+      "animate": {
+        "name": "fadeInUp",
+        "delay": 0.8,
+        "duration": 0.9,
+        "distance": 0.15,
+        "easing": "cubic-bezier(.34,1.56,.64,1)"
+      },
+      "m": {
+        "x": 24,
+        "y": 62,
+        "w": 330,
+        "h": 84,
+        "size": 34
+      }
+    },
+    {
+      "id": "body",
+      "type": "text",
+      "tag": "p",
+      "style": "body",
+      "text": "Live text and real headings, phone layouts and scroll-triggered motion \u2014 plain HTML that loads with the story.",
+      "x": 70,
+      "y": 300,
+      "w": 520,
+      "h": 100,
+      "z": 10,
+      "animate": {
+        "name": "fadeIn",
+        "delay": 1.9,
+        "duration": 0.8
+      },
+      "m": {
+        "x": 24,
+        "y": 186,
+        "w": 327,
+        "h": 110,
+        "size": 16
+      }
+    },
+    {
+      "id": "before-label",
+      "type": "text",
+      "tag": "p",
+      "style": "label",
+      "text": "INFOGRAM EXPORT",
+      "x": 70,
+      "y": 440,
+      "w": 220,
+      "h": 22,
+      "z": 11,
+      "animate": {
+        "name": "fadeIn",
+        "delay": 2.3,
+        "duration": 0.5
+      },
+      "m": {
+        "x": 24,
+        "y": 326,
+        "w": 150,
+        "h": 30,
+        "size": 11
+      }
+    },
+    {
+      "id": "before",
+      "type": "text",
+      "tag": "p",
+      "style": "stat",
+      "text": "84 MB",
+      "color": "#9AA0B8",
+      "x": 70,
+      "y": 468,
+      "w": 200,
+      "h": 64,
+      "z": 12,
+      "animate": {
+        "name": "fadeInUp",
+        "delay": 2.4,
+        "duration": 0.6,
+        "distance": 0.3
+      },
+      "m": {
+        "x": 24,
+        "y": 362,
+        "w": 150,
+        "h": 44,
+        "size": 36
+      }
+    },
+    {
+      "id": "after-label",
+      "type": "text",
+      "tag": "p",
+      "style": "label",
+      "text": "THE SAME QUOTE IN FLUKE",
+      "color": "#FBC54F",
+      "x": 340,
+      "y": 440,
+      "w": 300,
+      "h": 22,
+      "z": 13,
+      "animate": {
+        "name": "fadeIn",
+        "delay": 2.9,
+        "duration": 0.5
+      },
+      "m": {
+        "x": 190,
+        "y": 326,
+        "w": 160,
+        "h": 30,
+        "size": 11
+      }
+    },
+    {
+      "id": "after",
+      "type": "text",
+      "tag": "p",
+      "style": "stat",
+      "text": "11 KB",
+      "x": 340,
+      "y": 468,
+      "w": 200,
+      "h": 64,
+      "z": 14,
+      "animate": {
+        "name": "bounceIn",
+        "delay": 3.0,
+        "duration": 1
+      },
+      "m": {
+        "x": 190,
+        "y": 362,
+        "w": 150,
+        "h": 44,
+        "size": 36
+      }
+    },
+    {
+      "id": "logo",
+      "type": "image",
+      "src": "https://harpoonproductions.github.io/Harpoon-tools/fluke/editor/brand/harpoon-roundel.png",
+      "alt": "Harpoon",
+      "fit": "contain",
+      "x": 780,
+      "y": 130,
+      "w": 140,
+      "h": 140,
+      "z": 6,
+      "animate": {
+        "name": "zoomIn",
+        "delay": 1.4,
+        "duration": 0.7
+      },
+      "m": {
+        "x": 300,
+        "y": 26,
+        "w": 52,
+        "h": 52
+      }
+    },
+    {
+      "id": "ring",
+      "type": "ellipse",
+      "stroke": "#FBC54F",
+      "strokeWidth": 3,
+      "x": 740,
+      "y": 90,
+      "w": 220,
+      "h": 220,
+      "z": 5,
+      "animate": {
+        "name": "zoomIn",
+        "delay": 1.1,
+        "duration": 0.9
+      },
+      "m": {
+        "hidden": true
+      }
+    },
+    {
+      "id": "rule",
+      "type": "line",
+      "stroke": "#FBC54F",
+      "strokeWidth": 3,
+      "x": 70,
+      "y": 266,
+      "w": 140,
+      "h": 6,
+      "z": 7,
+      "animate": {
+        "name": "wipeInLeft",
+        "delay": 1.4,
+        "duration": 0.6
+      },
+      "m": {
+        "x": 24,
+        "y": 160,
+        "w": 80,
+        "h": 6
+      }
+    },
+    {
+      "id": "arrow",
+      "type": "line",
+      "stroke": "#FBC54F",
+      "strokeWidth": 2,
+      "x": 270,
+      "y": 497,
+      "w": 50,
+      "h": 6,
+      "z": 4,
+      "animate": {
+        "name": "wipeInLeft",
+        "delay": 2.7,
+        "duration": 0.4
+      },
+      "m": {
+        "x": 160,
+        "y": 381,
+        "w": 22,
+        "h": 6
+      }
+    },
+    {
+      "id": "diamond",
+      "type": "rect",
+      "stroke": "#4A5A9C",
+      "strokeWidth": 2,
+      "rotate": 45,
+      "x": 830,
+      "y": 390,
+      "w": 80,
+      "h": 80,
+      "z": 3,
+      "animate": {
+        "name": "wobble",
+        "delay": 3.3,
+        "duration": 1.2
+      },
+      "m": {
+        "hidden": true
+      }
+    },
+    {
+      "id": "pulse",
+      "type": "ellipse",
+      "fill": "#FBC54F",
+      "x": 904,
+      "y": 500,
+      "w": 36,
+      "h": 36,
+      "z": 2,
+      "animate": {
+        "name": "pulse",
+        "delay": 3.8,
+        "duration": 1.6,
+        "loop": true
+      },
+      "m": {
+        "x": 330,
+        "y": 430,
+        "w": 24,
+        "h": 24
+      }
+    },
+    {
+      "id": "reveal",
+      "type": "rect",
+      "fill": "#FBC54F",
+      "x": 0,
+      "y": 0,
+      "w": 660,
+      "h": 600,
+      "z": 20,
+      "animate": {
+        "name": "slideOutLeft",
+        "delay": 0.2,
+        "duration": 0.7,
+        "easing": "cubic-bezier(.65,0,.35,1)"
+      },
+      "m": {
+        "x": 0,
+        "y": 0,
+        "w": 375,
+        "h": 480
+      }
+    }
+  ]
+}

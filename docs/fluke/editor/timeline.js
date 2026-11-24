@@ -31,6 +31,7 @@ export function renderTimeline() {
     rt.append(h("span", { class: "tl-tick", style: `left:${(t / total) * 100}%` }, t % 1 === 0 ? `${t}s` : ""));
   }
   rt.append(h("div", { class: "tl-playhead", id: "tlPlayhead" }));
+  rt.title = "Click or drag along the ruler to see any moment";
   ruler.append(rt); rows.push(ruler);
 
   api.scene.elements.forEach((e) => {
@@ -53,6 +54,7 @@ export function renderTimeline() {
   });
   if (!api.scene.elements.length) rows.push(h("p", { class: "helper" }, "Add layers to see their timing here."));
   host.replaceChildren(...rows);
+  const t = api.getScrub(); if (t != null) showPlayhead(t, total); // keep the scrubbed moment marked after edits
 }
 
 function startDrag(ev) {
@@ -84,6 +86,29 @@ function startDrag(ev) {
   host.addEventListener("pointermove", move); host.addEventListener("pointerup", up); host.addEventListener("pointercancel", up);
 }
 
+// Scrubbing: click or drag along the ruler to freeze the canvas at that moment
+function startScrub(ev) {
+  const track = $("#timeline .tl-ruler .tl-track"); if (!track) return;
+  ev.preventDefault();
+  const r = track.getBoundingClientRect(), total = totalTime();
+  const host = $("#timeline");
+  host.setPointerCapture(ev.pointerId);
+  const go = (x) => {
+    const t = Math.round(Math.max(0, Math.min(total, ((x - r.left) / r.width) * total)) / STEP) * STEP;
+    showPlayhead(t, total); api.scrubTo(+t.toFixed(2));
+  };
+  go(ev.clientX);
+  const move = (m) => go(m.clientX);
+  const up = () => { host.removeEventListener("pointermove", move); host.removeEventListener("pointerup", up); host.removeEventListener("pointercancel", up); };
+  host.addEventListener("pointermove", move); host.addEventListener("pointerup", up); host.addEventListener("pointercancel", up);
+}
+export function showPlayhead(t, total = totalTime()) {
+  cancelAnimationFrame(playRaf);
+  const ph = $("#tlPlayhead"); if (!ph) return;
+  ph.style.display = "block"; ph.style.left = `${Math.min(1, t / total) * 100}%`; ph.dataset.t = `${t.toFixed(2)}s`;
+}
+export function hidePlayhead() { const ph = $("#tlPlayhead"); if (ph) { ph.style.display = "none"; ph.removeAttribute("data-t"); } }
+
 // Moves the playhead across the ruler while the preview plays
 export function runPlayhead() {
   cancelAnimationFrame(playRaf);
@@ -110,5 +135,9 @@ function h(tag, attrs = {}, ...kids) {
 
 export function initTimeline(a, animations) {
   api = a; ANIM = animations;
-  $("#timeline").addEventListener("pointerdown", (ev) => { if (ev.button === 0) startDrag(ev); });
+  $("#timeline").addEventListener("pointerdown", (ev) => {
+    if (ev.button !== 0) return;
+    if (ev.target.closest(".tl-ruler .tl-track")) return startScrub(ev);
+    startDrag(ev);
+  });
 }

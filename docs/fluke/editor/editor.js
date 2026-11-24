@@ -2,7 +2,7 @@
 import { renderScene, validate, ANIMATIONS, extractScene } from "../src/render.js";
 import { importInfogram } from "../src/import-infogram.js";
 import { initCanvas, drawOverlay, setOverlayHidden } from "./canvas.js";
-import { initTimeline, renderTimeline, runPlayhead } from "./timeline.js";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js";
 import { loadRegistry, loadKit, kitStyles, loadKitFonts } from "./kits.js";
 import { openFontPicker, loadFontList, googleFont } from "./fonts.js";
 import { initLibrary, openLibrary, save as saveToLibrary, refreshStatus, forgetRef } from "./library.js";
@@ -45,6 +45,7 @@ let view = "desktop";
 let frame = "layout";
 let importNotes = [];
 let kit = null, kitId = null; // the loaded client kit for scene.kit
+let scrubT = null; // seconds: the moment shown while scrubbing the timeline (null = not scrubbing)
 const runtime = { css: "", js: "" };
 
 const blankScene = () => ({
@@ -172,6 +173,7 @@ function renderPreview() {
   p.innerHTML = previewHtml(scene);
   highlight();
   setOverlayHidden(false);
+  if (scrubT != null) applyScrub();
   const M = scene.mobile;
   $("#stageNote").textContent = view === "phone"
     ? (M ? `Phone layout: below ${M.below}px wide the ${M.width}×${M.height} canvas is used. Position fields now edit the phone layout.` : "No phone layout: the desktop design is scaled down. Turn one on in Scene settings.")
@@ -181,7 +183,19 @@ function renderPreview() {
 function highlight() {
   $("#selStyle").textContent = ""; // the selection box (canvas.js) shows what's selected
 }
+// Scrubbing: every layer paused at the same moment, so the canvas shows exactly that frame of the animation
+function applyScrub() {
+  const p = $("#preview");
+  p.className = `preview ${view === "phone" ? "phone" : ""} f-scrub`;
+  p.querySelector(".ha")?.classList.add("ha-run");
+  setOverlayHidden(true);
+  p.querySelectorAll(".ha-el").forEach((el) => el.getAnimations().forEach((an) => { an.pause(); an.currentTime = scrubT * 1000; }));
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) toast("Your computer has reduced motion on, so animations can't be shown");
+}
+function scrubTo(t) { scrubT = t; applyScrub(); }
+function endScrub() { if (scrubT == null) return; scrubT = null; hidePlayhead(); renderPreview(); }
 function play() {
+  scrubT = null; hidePlayhead();
   const p = $("#preview");
   p.className = `preview ${view === "phone" ? "phone" : ""}`;
   const piece = p.querySelector(".ha");
@@ -223,6 +237,72 @@ function renderIssues(desk = [], phone = []) {
   importNotes.forEach((n, i) => row("note", "Import", n, () => { importNotes.splice(i, 1); renderIssues(desk, phone); }));
   if (!list.children.length) row("ok", "Ready", "No problems found.");
   $("#exportBtn").title = errors.length ? "Fix the problems listed under the preview first" : "";
+}
+
+// ---------------------------------------------------------------- animation chooser (hover to preview)
+// "fadeInRight" → "Fade in right"
+const animLabel = (n) => (n ? n.replace(/([A-Z])/g, " $1").toLowerCase().replace(/^./, (c) => c.toUpperCase()) : "None");
+function setAnimation(name) {
+  const e = elById(sel.id); if (!e) return;
+  if (!name) delete e.animate; else e.animate = { delay: 0, duration: 0.8, ...(e.animate || {}), name };
+  commit(); renderProps();
+}
+function animField() {
+  const cur = elById(sel.id)?.animate?.name || "";
+  const btn = h("button", { type: "button", class: "anim-btn", "aria-haspopup": "listbox", "aria-expanded": "false",
+    onclick: () => openAnimPicker(btn) }, h("span", {}, animLabel(cur)), h("span", { class: "anim-caret", "aria-hidden": "true" }, "▾"));
+  return h("div", { class: "f" }, h("span", { id: "animFieldLabel" }, "Animation"), btn);
+}
+// Plays one animation on the selected layer, with every other layer held in its finished state
+function previewAnimation(name) {
+  const e = elById(sel.id); if (!e) return;
+  const copy = structuredClone(scene);
+  const t = copy.elements.find((x) => x.id === e.id);
+  if (!name) delete t.animate; else t.animate = { duration: 0.8, ...(e.animate || {}), name, delay: 0 };
+  const p = $("#preview");
+  p.className = `preview ${view === "phone" ? "phone" : ""} f-solo`;
+  p.innerHTML = previewHtml(copy);
+  p.querySelector(`.ha-e-${slug(e.id)}`)?.classList.add("solo");
+  p.querySelector(".ha")?.classList.add("ha-run");
+  setOverlayHidden(true);
+}
+let animPop = null;
+function closeAnimPicker() {
+  if (!animPop) return;
+  animPop.remove(); animPop = null;
+  document.removeEventListener("pointerdown", onAnimOutside, true);
+  document.querySelector(".anim-btn")?.setAttribute("aria-expanded", "false");
+  renderPreview();
+}
+function onAnimOutside(ev) { if (animPop && !animPop.contains(ev.target) && !ev.target.closest(".anim-btn")) closeAnimPicker(); }
+function openAnimPicker(anchor) {
+  if (animPop) return closeAnimPicker();
+  endScrub();
+  const cur = elById(sel.id)?.animate?.name || "";
+  const opt = (name) => h("button", { type: "button", role: "option", class: `anim-opt${name === cur ? " current" : ""}`, "aria-selected": String(name === cur), "data-name": name,
+    onmouseenter: () => previewAnimation(name), onfocus: () => previewAnimation(name),
+    onclick: () => { const n = name; closeAnimPicker(); setAnimation(n); } }, animLabel(name));
+  const group = (title, names) => h("div", { class: "anim-group" }, h("div", { class: "anim-group__title" }, title), h("div", { class: "anim-grid" }, names.map(opt)));
+  animPop = h("div", { class: "anim-pop", role: "listbox", "aria-labelledby": "animFieldLabel" },
+    h("p", { class: "anim-hint" }, "Hover (or use the arrow keys) to see it on the layer · click to choose · Esc to cancel"),
+    group("Enter", ANIMATIONS.in), group("Leave", ANIMATIONS.out), group("Attention", ANIMATIONS.attention), group("No animation", [""]));
+  const pop = animPop;
+  pop.addEventListener("keydown", (k) => {
+    // keys used here must not also reach the editor (arrow keys there nudge the selected layer)
+    if (!["Escape", "ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"].includes(k.key)) return;
+    k.preventDefault(); k.stopPropagation();
+    if (k.key === "Escape") { closeAnimPicker(); anchor.focus(); return; }
+    const opts = [...pop.querySelectorAll(".anim-opt")], i = opts.indexOf(document.activeElement);
+    const next = k.key === "ArrowDown" || k.key === "ArrowRight" ? Math.min(opts.length - 1, i + 1) : Math.max(0, i - 1);
+    opts[next]?.focus();
+  });
+  animPop.addEventListener("mouseleave", () => { if (animPop) renderPreview(); });
+  document.body.append(animPop);
+  const r = anchor.getBoundingClientRect(), w = Math.min(560, innerWidth - 24);
+  Object.assign(animPop.style, { width: w + "px", left: Math.max(12, Math.min(r.right - w, innerWidth - w - 12)) + "px", top: Math.min(r.bottom + 6, innerHeight - 380) + "px" });
+  anchor.setAttribute("aria-expanded", "true");
+  document.addEventListener("pointerdown", onAnimOutside, true);
+  (animPop.querySelector(".anim-opt.current") || animPop.querySelector(".anim-opt")).focus({ preventScroll: true });
 }
 
 // ---------------------------------------------------------------- property fields
@@ -307,6 +387,7 @@ const section = (title, ...kids) => h("fieldset", {}, h("legend", {}, title), ..
 
 // ---------------------------------------------------------------- right panel
 function renderProps() {
+  if (animPop) { animPop.remove(); animPop = null; document.removeEventListener("pointerdown", onAnimOutside, true); }
   const p = $("#props"); p.replaceChildren(); p.className = "panel right props";
   if (sel.kind === "style") return p.append(...styleProps(sel.name));
   if (sel.kind === "element" && elById(sel.id)) return p.append(...elementProps(sel.id));
@@ -383,8 +464,6 @@ function addStyle() {
   sel = { kind: "style", name }; commit(); renderProps();
 }
 
-const ANIM_OPTIONS = [{ value: "", label: "None" },
-  { label: "Enter", group: ANIMATIONS.in }, { label: "Leave", group: ANIMATIONS.out }, { label: "Attention", group: ANIMATIONS.attention }];
 const EASINGS = [{ value: "ease", label: "Ease" }, { value: "ease-out", label: "Ease out (gentle stop)" }, { value: "ease-in", label: "Ease in" },
   { value: "ease-in-out", label: "Ease in and out" }, { value: "linear", label: "Linear" }, { value: "cubic-bezier(.34,1.56,.64,1)", label: "Overshoot" }];
 const TAGS = [{ value: "h1", label: "H1 — page title" }, { value: "h2", label: "H2 — heading" }, { value: "h3", label: "H3" }, { value: "h4", label: "H4" },
@@ -459,9 +538,7 @@ function elementProps(id) {
   const a = e.animate || {};
   const isFade = /^fade(In|Out)(Up|Down|Left|Right)$/.test(a.name || "");
   out.push(section("Animation",
-    select("Animation", () => ({ name: a.name || "" }), "name", ANIM_OPTIONS, { rerender: true, apply: (v) => {
-      if (!v) delete E().animate; else E().animate = { delay: 0, duration: 0.8, ...(E().animate || {}), name: v };
-    } }),
+    animField(),
     a.name ? [grid(2, num("Delay (s)", () => (E().animate ||= {}), "delay", { min: 0, step: 0.1, placeholder: "0" }), num("Duration (s)", () => (E().animate ||= {}), "duration", { min: 0.05, step: 0.1, placeholder: "1" })),
       select("Easing", () => (E().animate ||= {}), "easing", EASINGS, { fallback: "ease", optional: true }),
       isFade ? num("Travel (fraction of its size)", () => (E().animate ||= {}), "distance", { optional: true, min: 0, step: 0.05, placeholder: "0.1" }) : null,
@@ -661,7 +738,7 @@ function wire() {
     view = b.dataset.view; $$("[data-view]").forEach((x) => x.setAttribute("aria-pressed", x === b)); renderPreview(); renderProps();
   }));
   $$("[data-frame]").forEach((b) => b.addEventListener("click", () => {
-    frame = b.dataset.frame; $$("[data-frame]").forEach((x) => x.setAttribute("aria-pressed", x === b)); renderPreview();
+    frame = b.dataset.frame; scrubT = null; hidePlayhead(); $$("[data-frame]").forEach((x) => x.setAttribute("aria-pressed", x === b)); renderPreview();
   }));
   $("#playBtn").addEventListener("click", play);
   $("#undoBtn").addEventListener("click", undo);
@@ -705,8 +782,8 @@ function wire() {
     try { setScene(await (await fetch("../scenes/" + b.dataset.example)).json()); closeModals(); } catch (e) { toast(e.message); }
   }));
   document.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape") return closeModals();
-    const typing = ev.target instanceof Element && ev.target.closest("input, textarea, select, [contenteditable]");
+    if (ev.key === "Escape") { endScrub(); return closeModals(); }
+    const typing = ev.target instanceof Element && ev.target.closest("input, textarea, select, [contenteditable], .anim-pop");
     if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "z" && !typing) { ev.preventDefault(); ev.shiftKey ? redo() : undo(); return; }
     if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "s") { ev.preventDefault(); saveToLibrary(); return; }
     if (!typing && sel.kind === "element" && (ev.key === "Delete" || ev.key === "Backspace") && !$(".modal.open")) {
@@ -734,6 +811,7 @@ const api = {
   get scene() { return scene; }, get sel() { return sel; }, get view() { return view; },
   choose, commit, renderProps, slug, stack, stackPos, toast,
   getScene: () => scene,
+  scrubTo, endScrub, getScrub: () => scrubT,
   loadScene: (s) => setScene(s, [], { keepLibrary: true }),
   renderStatic: (s) => previewHtml(s),
 };

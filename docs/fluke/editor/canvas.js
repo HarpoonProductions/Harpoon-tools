@@ -8,6 +8,8 @@ const DIR = { nw: [-1, -1], n: [0, -1], ne: [1, -1], e: [1, 0], se: [1, 1], s: [
 let gestureId = 0;
 let dragging = false;
 let hidden = false;
+let cycleTimer = 0;   // a second click picks the layer underneath — unless it turns out to be a double-click
+let editing = null;   // id of the text layer being edited in place
 
 const $ = (s, r = document) => r.querySelector(s);
 
@@ -51,7 +53,7 @@ export function drawOverlay(guides = []) {
   const ov = $("#overlay");
   if (!ov || !api?.scene) return; // scene not loaded yet
   const g = geometry();
-  if (!g || hidden) { ov.replaceChildren(); return; }
+  if (!g || hidden || editing) { ov.replaceChildren(); return; }
   Object.assign(ov.style, { left: g.left + "px", top: g.top + "px", width: g.width + "px", height: g.height + "px" });
   const kids = [];
   guides.forEach((gd) => {
@@ -183,7 +185,7 @@ function startGesture(kind, ev, e, wasSelected) {
     stage.removeEventListener("pointerup", onUp);
     stage.removeEventListener("pointercancel", onUp);
     dragging = false;
-    if (!moved && kind === "move" && wasSelected) cycleUnder(start);
+    if (!moved && kind === "move" && wasSelected) { clearTimeout(cycleTimer); cycleTimer = setTimeout(() => cycleUnder(start), 280); }
     else { api.renderProps(); drawOverlay(); }
   };
   stage.addEventListener("pointermove", onMove);
@@ -213,6 +215,7 @@ export function initCanvas(a) {
   const stage = $("#stageInner");
   stage.addEventListener("pointerdown", (ev) => {
     if (ev.button !== 0) return;
+    if (api.getScrub() != null) api.endScrub(); // back from the scrubbed frame to editing
     const st = ev.target.closest("[data-stack]");
     if (st) { ev.preventDefault(); if (!st.disabled) api.stack(st.dataset.stack); return; }
     const handle = ev.target.closest("[data-handle]");
@@ -228,6 +231,66 @@ export function initCanvas(a) {
     }
     if (ev.target.closest("#preview")) api.choose({ kind: "scene" });
   });
+  // double-click a text layer to type straight into it
+  stage.addEventListener("dblclick", (ev) => {
+    clearTimeout(cycleTimer);
+    const under = document.elementsFromPoint(ev.clientX, ev.clientY)
+      .filter((n) => n.classList?.contains("ha-text") && n.closest("#preview")).map(elementIdFromNode).filter(Boolean);
+    const cur = selected();
+    const id = cur?.type === "text" && (under.includes(cur.id) || ev.target.closest(".sel-box")) ? cur.id : under[0];
+    if (id) { ev.preventDefault(); startTextEdit(id); }
+  });
   new ResizeObserver(() => drawOverlay()).observe($("#preview"));
   addEventListener("resize", () => drawOverlay());
 }
+
+// ---------------------------------------------------------------- edit text in place
+// A textarea laid exactly over the layer, in the layer's own font, size, spacing, colour and alignment, so it wraps
+// the way the piece will. The real text is hidden underneath while you type; each keystroke updates the scene.
+export function startTextEdit(id) {
+  if (editing) finishTextEdit();
+  const e = api.scene.elements.find((x) => x.id === id);
+  if (!e || e.type !== "text") return;
+  if (!(api.sel.kind === "element" && api.sel.id === id)) api.choose({ kind: "element", id });
+  const node = $(`#preview .ha-e-${api.slug(id)}`), g = geometry();
+  if (!node || !g) return;
+  const b = boxOf(e), cs = getComputedStyle(node);
+  let layer = $("#editLayer");
+  if (!layer) { layer = document.createElement("div"); layer.id = "editLayer"; $("#stageInner").append(layer); }
+  Object.assign(layer.style, { left: g.left + "px", top: g.top + "px", width: g.width + "px", height: g.height + "px" });
+  const hide = document.createElement("style");
+  hide.id = "editHide"; hide.textContent = `#preview .ha-e-${api.slug(id)}{visibility:hidden!important}`;
+  document.head.append(hide);
+  const ta = document.createElement("textarea");
+  ta.className = "text-edit"; ta.value = e.text || ""; ta.spellcheck = true;
+  ta.setAttribute("aria-label", `Text of ${id}`);
+  const minH = b.h * g.sy;
+  Object.assign(ta.style, {
+    left: b.x * g.sx + "px", top: b.y * g.sy + "px", width: b.w * g.sx + "px", height: minH + "px", rotate: b.r + "deg",
+    fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight, fontStyle: cs.fontStyle,
+    lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing, color: cs.color, textAlign: cs.textAlign,
+  });
+  const grow = () => { ta.style.height = "auto"; ta.style.height = Math.max(minH, ta.scrollHeight) + "px"; };
+  const key = "g:text-" + id + "-" + ++gestureId;
+  ta.addEventListener("input", () => {
+    const el = api.scene.elements.find((x) => x.id === id); if (!el) return finishTextEdit();
+    el.text = ta.value; api.commit(key); grow();
+  });
+  ta.addEventListener("keydown", (k) => {
+    if (k.key === "Escape" || (k.key === "Enter" && (k.metaKey || k.ctrlKey))) { k.preventDefault(); k.stopPropagation(); finishTextEdit(); }
+  });
+  ta.addEventListener("blur", () => finishTextEdit());
+  layer.replaceChildren(ta);
+  editing = id;
+  setOverlayHidden(true);
+  grow(); ta.focus(); ta.select();
+}
+export function finishTextEdit() {
+  if (!editing) return;
+  editing = null;
+  $("#editHide")?.remove();
+  const layer = $("#editLayer"); if (layer) layer.replaceChildren();
+  setOverlayHidden(false);
+  api.renderProps();
+}
+export const isEditingText = () => !!editing;

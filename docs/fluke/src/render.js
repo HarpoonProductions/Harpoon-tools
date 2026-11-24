@@ -11,7 +11,8 @@ export const ANIMATIONS = {
 const ALL_ANIMATIONS = new Set([...ANIMATIONS.in, ...ANIMATIONS.out, ...ANIMATIONS.attention]);
 const OUT_ANIMATIONS = new Set(ANIMATIONS.out);
 const TEXT_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6", "p", "blockquote", "figcaption", "span", "decorative"]);
-const ROOT_TAGS = new Set(["div", "figure", "section", "header"]);
+const ROOT_TAGS = new Set(["div", "figure", "section", "header", "h1", "h2", "h3"]);
+const HEADING_ROOTS = new Set(["h1", "h2", "h3"]);
 const TYPES = new Set(["text", "rect", "ellipse", "line", "image"]);
 
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -42,6 +43,8 @@ export function validate(scene) {
       const tag = e.tag || "p";
       if (!TEXT_TAGS.has(tag)) errors.push(`${where}: unknown tag "${tag}"`);
       if (tag === "h1") h1++;
+      if (HEADING_ROOTS.has(scene.root) && !["span", "decorative"].includes(tag))
+        errors.push(`${where}: inside a heading wrapper, text must be "span" (inline text) or decorative`);
       if (tag === "figcaption" && (scene.root || "div") !== "figure") warnings.push(`${where}: figcaption only means something inside root "figure"`);
       if (e.style && !(scene.styles || {})[e.style]) errors.push(`${where}: unknown style "${e.style}"`);
       if (!String(e.text || "").trim()) warnings.push(`${where}: empty text`);
@@ -52,6 +55,7 @@ export function validate(scene) {
     }
     if (e.animate && e.animate.name && !ALL_ANIMATIONS.has(e.animate.name)) errors.push(`${where}: unknown animation "${e.animate.name}"`);
   });
+  if (scene.root === "h1") h1++;
   if (h1 > 1) warnings.push(`${h1} H1s in one piece — a page should normally have only one`);
   return { errors, warnings };
 }
@@ -92,6 +96,9 @@ export function googleFontsUrl(scene, fontInfo = null) {
 
 function boxRules(e, W, H, ov = {}) {
   const b = { x: e.x, y: e.y, w: e.w, h: e.h, ...ov };
+  // Stretched text is laid out in a narrower (or wider) box and scaled sideways about its centre to fill w.
+  const st = e.type === "text" && e.stretch && Math.abs(e.stretch - 1) > 0.001 ? e.stretch : 1;
+  if (st !== 1) { const inner = b.w / st; b.x += (b.w - inner) / 2; b.w = inner; }
   const r = [];
   if (e.type === "line") {
     const sw = e.strokeWidth ?? 2;
@@ -116,6 +123,7 @@ function elementRules(scene, e, i) {
       `font-size:${num(s.size / W * 100)}cqi`, `line-height:${num(s.lineHeight)}`, `color:${cssVal(s.color)}`,
       `text-align:${["left", "center", "right"].includes(e.align) ? e.align : "left"}`);
     if (s.letterSpacing) r.push(`letter-spacing:${num(s.letterSpacing)}em`);
+    if (e.stretch && Math.abs(e.stretch - 1) > 0.001) r.push(`scale:${num(e.stretch)} 1`);
   } else if (e.type === "rect" || e.type === "ellipse") {
     if (e.fill) r.push(`background:${cssVal(e.fill)}`);
     if (e.strokeWidth && e.stroke) r.push(`border:${num(e.strokeWidth / W * 100)}cqi solid ${cssVal(e.stroke)}`);
@@ -181,11 +189,12 @@ export function renderScene(scene, opts = {}) {
   const trig = { on: "view", threshold: 0.25, replay: true, ...(scene.trigger || {}) };
 
   const css = [];
-  css.push(`${S} .ha-scene{aspect-ratio:${num(W)}/${num(H)}${scene.canvas.background ? ";background:" + cssVal(scene.canvas.background) : ""}}`);
+  // --ha-u is one canvas unit, so movements written in canvas units (bounce, shake) scale with the piece
+  css.push(`${S} .ha-scene{aspect-ratio:${num(W)}/${num(H)};--ha-u:${num(100 / W, 5)}cqi${scene.canvas.background ? ";background:" + cssVal(scene.canvas.background) : ""}}`);
   els.forEach((e, i) => css.push(`${S} .ha-e-${slug(e.id)}{${elementRules(scene, e, i).join(";")}}`));
   if (scene.mobile) {
     const M = scene.mobile;
-    const mob = [`${S} .ha-scene{aspect-ratio:${num(M.width)}/${num(M.height)}}`];
+    const mob = [`${S} .ha-scene{aspect-ratio:${num(M.width)}/${num(M.height)};--ha-u:${num(100 / M.width, 5)}cqi}`];
     els.forEach((e) => { const r = mobileRules(scene, e); if (r) mob.push(`${S} .ha-e-${slug(e.id)}{${r.join(";")}}`); });
     css.push(`@container (max-width:${num(M.below - 0.02, 2)}px){${mob.join("")}}`);
   }

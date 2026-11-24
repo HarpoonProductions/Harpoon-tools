@@ -231,9 +231,24 @@ function play() {
 // ---------------------------------------------------------------- issues (validation + overflow)
 let measureTimer = 0;
 function scheduleMeasure() { clearTimeout(measureTimer); measureTimer = setTimeout(measure, 150); }
+// Text overflows when it needs more lines than its box has room for, or a word is wider than the box.
+// (Comparing scrollHeight would flag fonts whose letters reach slightly beyond their line height — common with tight
+// line spacing, and Infogram's one-line boxes — even though nothing is cut off or pushed out of place.)
 function overflowing(container) {
-  return $$(".ha-text", container).filter((n) => n.offsetParent !== null && (n.scrollHeight > n.clientHeight + 2 || n.scrollWidth > n.clientWidth + 2))
-    .map((n) => [...n.classList].find((c) => c.startsWith("ha-e-")).slice(5));
+  return $$(".ha-text", container).filter((n) => {
+    if (n.offsetParent === null) return false;
+    const cs = getComputedStyle(n);
+    const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
+    const range = document.createRange(); range.selectNodeContents(n);
+    const rects = [...range.getClientRects()].filter((r) => r.width > 0);
+    if (!rects.length) return false;
+    const box = n.getBoundingClientRect();
+    const tops = rects.map((r) => r.top).sort((x, y) => x - y);
+    const lines = tops.reduce((count, t, i) => (i && t - tops[i - 1] > lh * 0.5 ? count + 1 : count), 1);
+    const tooTall = lines * lh > box.height + lh * 0.3;
+    const tooWide = rects.some((r) => r.right > box.right + 2 || r.left < box.left - 2);
+    return tooTall || tooWide;
+  }).map((n) => [...n.classList].find((c) => c.startsWith("ha-e-")).slice(5));
 }
 async function measure() {
   const box = $("#measure");
@@ -442,7 +457,8 @@ function sceneProps() {
   out.push(section("Piece",
     text("Title", S, "title"),
     text("Short name (used in the code)", S, "id", { onChangeOnly: true, apply: (v, inp) => { scene.id = slug(v); inp.value = scene.id; } }),
-    select("Wrapper element", S, "root", [{ value: "div", label: "div — no special meaning" }, { value: "figure", label: "figure — quote or image with caption" }, { value: "section", label: "section" }, { value: "header", label: "header — e.g. an animated title" }], { fallback: "div" }),
+    select("Wrapper element", S, "root", [{ value: "div", label: "div — no special meaning" }, { value: "figure", label: "figure — quote or image with caption" }, { value: "section", label: "section" }, { value: "header", label: "header — e.g. an animated title" },
+      { value: "h1", label: "H1 heading — words are parts of one title" }, { value: "h2", label: "H2 heading — words are parts of one heading" }, { value: "h3", label: "H3 heading" }], { fallback: "div" }),
     text("Label for screen readers (optional)", S, "label", { optional: true, placeholder: "e.g. Quote from Cyrus Ardalan" })));
   out.push(section("Canvas",
     grid(2, num("Width", C, "width", { min: 1 }), num("Height", C, "height", { min: 1 })),
@@ -530,6 +546,7 @@ function elementProps(id) {
       grid(3, num("Size", E, "size", { optional: true, step: 0.5, placeholder: st.size ?? "" }),
         select("Weight", E, "weight", [{ value: "", label: st.weight ? `(${st.weight})` : "(style)" }, ...WEIGHTS], { optional: true, number: false, apply: (v) => { if (v === "") delete E().weight; else E().weight = +v; } }),
         num("Line height", E, "lineHeight", { optional: true, step: 0.05, placeholder: st.lineHeight ?? "" })),
+      num("Stretch sideways (1 = none)", E, "stretch", { optional: true, step: 0.01, min: 0.2, max: 5, placeholder: "1" }),
       colour("Colour", E, "color", { optional: true, placeholder: st.color || "style colour" })));
   }
   if (e.type === "image") {

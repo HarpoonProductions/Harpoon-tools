@@ -6,7 +6,7 @@
   "canvas": {
     "width": 1000,
     "height": 543,
-    "background": null
+    "background": "#FFFFFF"
   },
   "trigger": {
     "on": "view",
@@ -19,7 +19,7 @@
       "source": "story",
       "weight": 600,
       "italic": false,
-      "size": 56.77,
+      "size": 60,
       "lineHeight": 1.2,
       "color": "#000000"
     },
@@ -28,7 +28,7 @@
       "source": "story",
       "weight": 600,
       "italic": false,
-      "size": 23.66,
+      "size": 25,
       "lineHeight": 1.2,
       "color": "#000000"
     }
@@ -40,6 +40,7 @@
       "tag": "p",
       "style": "text-1",
       "text": "I wanted to do something to reflect my gratitude for the education I had. Our scholars have all obtained fantastic jobs and contributed to society in the UK",
+      "stretch": 0.946,
       "x": 48,
       "y": 21,
       "w": 840,
@@ -51,6 +52,18 @@
         "duration": 1,
         "distance": 0.1
       }
+    },
+    {
+      "id": "line",
+      "type": "line",
+      "stroke": "#000000",
+      "strokeWidth": 2,
+      "x": -236,
+      "y": 262,
+      "w": 486,
+      "h": 14,
+      "z": 3,
+      "rotate": 90
     },
     {
       "id": "box",
@@ -68,23 +81,12 @@
       "fill": "#EEDEFF"
     },
     {
-      "id": "line",
-      "type": "line",
-      "stroke": "#000000",
-      "strokeWidth": 2,
-      "x": -236,
-      "y": 262,
-      "w": 486,
-      "h": 14,
-      "z": 3,
-      "rotate": 90
-    },
-    {
       "id": "text-2",
       "type": "text",
       "tag": "p",
       "style": "text-2",
       "text": "Cyrus (UCL Economics BSc 1972) and Juni Ardalan",
+      "stretch": 0.946,
       "x": 48,
       "y": 449,
       "w": 714,

@@ -1,0 +1,99 @@
+{
+  "format": "harpoon-animate/1",
+  "id": "ucl-winter-gut",
+  "title": "UCL Winter Giving – “It’s a gut feeling”",
+  "root": "h2",
+  "canvas": {
+    "width": 1282,
+    "height": 744,
+    "background": "#000000"
+  },
+  "trigger": {
+    "on": "view",
+    "threshold": 0.25,
+    "replay": true
+  },
+  "styles": {
+    "lead": {
+      "family": "UCL Sans",
+      "source": "story",
+      "weight": 600,
+      "italic": false,
+      "size": 102.59,
+      "lineHeight": 1.2,
+      "color": "#FFFFFF"
+    },
+    "big": {
+      "family": "UCL Sans",
+      "source": "story",
+      "weight": 600,
+      "italic": false,
+      "size": 342.29,
+      "lineHeight": 1.2,
+      "color": "#FFFFFF"
+    }
+  },
+  "elements": [
+    {
+      "id": "its-a",
+      "type": "text",
+      "tag": "span",
+      "style": "lead",
+      "text": "It's a",
+      "stretch": 1.046,
+      "x": 77,
+      "y": 99,
+      "w": 248.31,
+      "h": 122.53,
+      "z": 1,
+      "animate": {
+        "name": "fadeInDown",
+        "delay": 0,
+        "duration": 1,
+        "distance": 1
+      }
+    },
+    {
+      "id": "gut",
+      "type": "text",
+      "tag": "span",
+      "style": "big",
+      "text": "gut",
+      "stretch": 1.065,
+      "x": 358,
+      "y": -34,
+      "w": 611.6,
+      "h": 408.84,
+      "z": 2,
+      "animate": {
+        "name": "shake",
+        "delay": 1,
+        "duration": 1
+      }
+    },
+    {
+      "id": "feeling",
+      "type": "text",
+      "tag": "span",
+      "style": "big",
+      "text": "feeling",
+      "stretch": 1.031,
+      "x": 60,
+      "y": 275,
+      "w": 1180.16,
+      "h": 408.84,
+      "z": 3,
+      "animate": {
+        "name": "bounce",
+        "delay": 2,
+        "duration": 1
+      }
+    }
+  ],
+  "source": {
+    "from": "infogram",
+    "id": 505087146,
+    "title": "UCL Winter - Gut",
+    "updatedAt": "2026-11-23T10:35:01.000Z"
+  }
+}

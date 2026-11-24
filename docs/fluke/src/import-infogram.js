@@ -49,7 +49,9 @@ function animationOf(p) {
   const a = p.animation;
   if (!a || !a.name || a.name === "none") return undefined;
   const out = { name: a.name, delay: a.delay ?? 0, duration: a.duration ?? 1 };
+  // Infogram's fades travel distance × their own size, and default to 1 (a full height or width) when unset
   if (a.distance !== undefined) out.distance = a.distance;
+  else if (/^fade(In|Out)(Up|Down|Left|Right)$/.test(a.name)) out.distance = 1;
   return out;
 }
 
@@ -69,6 +71,16 @@ export function importInfogram(html, opts = {}) {
   if (blockIds.length > 1) warnings.push(`Export has ${blockIds.length} pages; imported page ${(opts.pageIndex || 0) + 1} only`);
   const block = doc.blocks[blockIds[opts.pageIndex || 0]];
   const bg = block?.design?.background?.color;
+  // Text often takes its size and line spacing from the Infogram theme ("{{fontSize}}"): resolve those from the
+  // theme's text templates (h1, h2, body, caption), then the theme defaults.
+  const design = content.design || {};
+  const themeText = (template) => ({ ...(design.defaults || {}), ...((design.elements || {}).TEXT || {})[template] });
+  const fromTheme = (v, themeVal) => {
+    const s = String(v ?? "");
+    if (!s.includes("{{")) return s;
+    if (themeVal !== undefined && themeVal !== null && themeVal !== "") return String(themeVal);
+    return (s.match(/\|([^}]*)\}\}/) || [])[1] ?? "";
+  };
 
   const styles = {};
   const styleKey = new Map();
@@ -101,17 +113,23 @@ export function importInfogram(html, opts = {}) {
       const raw = d["ig:fontFamily"];
       const mapped = (opts.fontMap || {})[String(raw || "").replace(/^ig[a-z]*-/i, "")];
       const fam = mapped || parseFamily(raw);
-      const weight = fam.weight ?? (parseInt(d["ig:fontWeight"], 10) || 400);
-      const scale = p.scaleX || 1;
+      const theme = themeText(p.template);
+      const weight = fam.weight ?? (parseInt(fromTheme(d["ig:fontWeight"], theme.fontWeight), 10) || 400);
+      const fontPx = parseFloat(fromTheme(d["ig:fontSize"], theme.fontSize)) || 16;
+      // Infogram scales text boxes, and not always evenly: size follows the height, "stretch" carries the difference
+      const sx = p.scaleX || 1, sy = p.scaleY || sx;
+      const lh = parseFloat(fromTheme(d["ig:lineHeight"], theme.lineHeight));
       const style = {
         family: fam.family || null, source: fam.source || "story", weight,
-        italic: fam.italic || d["ig:fontStyle"] === "italic",
-        size: r2(parseFloat(d["ig:fontSize"]) * scale),
-        lineHeight: parseFloat(d["ig:lineHeight"]) || 1.2,
-        color: rgbaToCss(d["ig:color"]) || "#000000",
+        italic: fam.italic || fromTheme(d["ig:fontStyle"], theme.fontStyle) === "italic",
+        size: r2(fontPx * sy),
+        // a px line height (e.g. "15px") is relative to the font size
+        lineHeight: r2((/px$/.test(String(lh)) || lh > 4 ? lh / fontPx : lh) || 1.2),
+        color: rgbaToCss(fromTheme(d["ig:color"], theme.foregroundColor)) || "#000000",
       };
-      const ls = parseFloat(d["ig:letterSpacing"]);
-      if (ls) style.letterSpacing = r2(ls / parseFloat(d["ig:fontSize"]));
+      const ls = parseFloat(fromTheme(d["ig:letterSpacing"], theme.letterSpacing));
+      if (ls) style.letterSpacing = r2(ls / fontPx);
+      const stretch = Math.round((sx / sy) * 1000) / 1000;
       // share identical looks as one preset
       const key = JSON.stringify(style);
       if (!styleKey.has(key)) {
@@ -119,7 +137,8 @@ export function importInfogram(html, opts = {}) {
         styleKey.set(key, name); styles[name] = style;
       }
       const align = String(d.align || "").match(/CENTER|RIGHT/i)?.[0]?.toLowerCase() || "left";
-      elements.push({ id: nameFor("text"), type: "text", tag: "p", style: styleKey.get(key), text, ...(align !== "left" ? { align } : {}), ...base });
+      elements.push({ id: nameFor("text"), type: "text", tag: "p", style: styleKey.get(key), text, ...(align !== "left" ? { align } : {}),
+        ...(Math.abs(stretch - 1) > 0.005 ? { stretch } : {}), ...base });
     } else if (ent.type === "SHAPE") {
       const kind = p.type;
       if (kind === "rectangle" || kind === "ellipse" || kind === "circle") {
@@ -143,7 +162,9 @@ export function importInfogram(html, opts = {}) {
   });
 
   // Reading order: top-to-bottom, then left-to-right. Stacking order is kept separately in z.
-  elements.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  // Reading order: by vertical centre, then left to right (tall text boxes start well above their letters)
+  const cy = (e) => e.y + e.h / 2;
+  elements.sort((a, b) => (Math.abs(cy(a) - cy(b)) > 20 ? cy(a) - cy(b) : a.x - b.x));
 
   if (elements.some((e) => e.type === "text")) warnings.push("All text imported as <p>: set headings, quotes and captions (tag) by hand");
   warnings.push("No phone layout: add one if the text gets too small on narrow screens");
@@ -153,7 +174,7 @@ export function importInfogram(html, opts = {}) {
     id: opts.id || slug(data.title) || "infogram-import",
     title: data.title || "Imported from Infogram",
     root: "div",
-    canvas: { width: page.width, height: page.height, background: data.properties?.transparent ? null : rgbaToCss(bg) },
+    canvas: { width: page.width, height: page.height, background: /rgba\([^)]*,\s*0\)$/.test(bg || "") ? null : rgbaToCss(bg) || null },
     trigger: trigger || { on: "view", threshold: 0.25, replay: true },
     styles,
     elements,

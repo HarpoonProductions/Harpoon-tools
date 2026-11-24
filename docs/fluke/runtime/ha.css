@@ -1,6 +1,6 @@
 /* Fluke runtime CSS v1 — shared by every scene; safe to include more than once. */
 .ha{container-type:inline-size;position:relative;margin:0;padding:0}
-.ha .ha-scene{position:relative;display:block;width:100%;margin:0;padding:0;border:0;overflow:clip}
+.ha .ha-scene{position:relative;display:block;width:100%;margin:0;padding:0;border:0;overflow:clip;font:inherit;letter-spacing:normal;text-transform:none}
 .ha .ha-el{position:absolute;box-sizing:border-box;margin:0;padding:0;border:0;background:none;box-shadow:none;max-width:none;transform-origin:50% 50%}
 .ha .ha-text{font:inherit;color:inherit;text-transform:none;text-decoration:none;quotes:none;white-space:normal;overflow-wrap:break-word;overflow:visible;font-kerning:normal}
 .ha .ha-text::before,.ha .ha-text::after{content:none}
@@ -42,8 +42,8 @@
 @keyframes ha-wipeOutUp{from{clip-path:inset(0)}to{clip-path:inset(0 0 100% 0);visibility:hidden}}
 @keyframes ha-wipeOutDown{from{clip-path:inset(0)}to{clip-path:inset(100% 0 0 0);visibility:hidden}}
 /* ---- attention ---- */
-@keyframes ha-bounce{0%,20%,53%,to{transform:none;animation-timing-function:cubic-bezier(.215,.61,.355,1)}40%,43%{transform:translateY(-30%);animation-timing-function:cubic-bezier(.755,.05,.855,.06)}70%{transform:translateY(-15%);animation-timing-function:cubic-bezier(.755,.05,.855,.06)}90%{transform:translateY(-4%)}}
+@keyframes ha-bounce{0%,20%,53%,80%,to{transform:none;animation-timing-function:cubic-bezier(.215,.61,.355,1)}40%,43%{transform:translateY(calc(-30 * var(--ha-u,1px)));animation-timing-function:cubic-bezier(.755,.05,.855,.06)}70%{transform:translateY(calc(-15 * var(--ha-u,1px)));animation-timing-function:cubic-bezier(.755,.05,.855,.06)}90%{transform:translateY(calc(-4 * var(--ha-u,1px)))}}
 @keyframes ha-flash{0%,50%,to{opacity:1}25%,75%{opacity:0}}
 @keyframes ha-pulse{0%,to{transform:none}50%{transform:scale(1.05)}}
-@keyframes ha-shake{0%,to{transform:none}10%,30%,50%,70%,90%{transform:translateX(-4%)}20%,40%,60%,80%{transform:translateX(4%)}}
+@keyframes ha-shake{0%,to{transform:none}10%,30%,50%,70%,90%{transform:translateX(calc(-10 * var(--ha-u,1px)))}20%,40%,60%,80%{transform:translateX(calc(10 * var(--ha-u,1px)))}}
 @keyframes ha-wobble{0%,to{transform:none}15%{transform:translateX(-25%) rotate(-5deg)}30%{transform:translateX(20%) rotate(3deg)}45%{transform:translateX(-15%) rotate(-3deg)}60%{transform:translateX(10%) rotate(2deg)}75%{transform:translateX(-5%) rotate(-1deg)}}

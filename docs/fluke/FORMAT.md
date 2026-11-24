@@ -11,7 +11,7 @@ Readers only ever receive the rendered HTML — nothing is fetched at read time.
   "format": "harpoon-animate/1",
   "id": "ardalan-quote",               // used to scope CSS: #ha-ardalan-quote
   "title": "UCL Winter Giving – Ardalan quote",
-  "root": "figure",                    // "div" (default) | "figure" | "section" | "header"
+  "root": "figure",                    // "div" (default) | "figure" | "section" | "header" | "h1" | "h2" | "h3"
   "label": null,                       // optional aria-label for the whole piece
 
   "canvas": { "width": 1000, "height": 543, "background": null },
@@ -53,6 +53,10 @@ Common fields:
 **text** — `tag` is what it IS in the page outline: `h1`–`h6`, `p`, `blockquote`, `figcaption`, `span`,
 or `"decorative"` (hidden from screen readers). `style` names a preset; any preset field can be overridden on the
 element. `text` is plain text; a newline is a line break. `align`: `left` | `center` | `right`.
+`stretch` (optional, default 1) scales the letters sideways relative to their height, as Infogram allows when a text
+box is resized unevenly: `1.065` is 6.5% wider. The box still occupies `w`.
+If the scene's `root` is a heading (`h1`–`h3`), its text layers must be `span` (or `decorative`): the words are parts of
+one heading, read as one ("It's a" + "gut" + "feeling" → "It's a gut feeling").
 H1 is allowed (e.g. an animated story title); validation only warns when a scene has more than one.
 
 **rect / ellipse** — `fill`, `stroke`, `strokeWidth`, `radius` (rect). Decorative: hidden from screen readers.
@@ -82,7 +86,10 @@ Fallback stack is always appended so text shows while fonts load.
 
 Direction words follow Infogram/Animate.css: `fadeInRight` comes *from* the right; `slideOutLeft` leaves *to* the left.
 Wipes reveal with a moving edge: `wipeInLeft` grows from the left edge; `wipeOutLeft` shrinks away towards the left.
-`distance` (fade-ins/outs only) is how far it travels as a fraction of its own size (default 0.1).
+`distance` (fade-ins/outs only) is how far it travels as a fraction of its own size (default 0.1; Infogram's
+default is 1, which the importer writes in explicitly).
+`bounce` and `shake` move in canvas units, like Infogram and Animate.css: bounce rises 30, 15 then 4 units; shake
+moves 10 units each way. They scale with the piece.
 
 ## Behaviour (runtime)
 - **load:** pure CSS. Animations start as soon as the browser paints the element — no script involved.

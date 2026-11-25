@@ -31,6 +31,11 @@ const cssVal = (v) => String(v ?? "").replace(/[;{}<>]/g, "");
 export function validate(scene) {
   const errors = [], warnings = [];
   if (!scene || typeof scene !== "object") return { errors: ["Scene is not an object"], warnings };
+  if (hasGroups(scene.elements)) {
+    const ge = groupProblems(scene.elements);
+    if (ge.length) return { errors: ge, warnings };
+    return validate(flattenGroups(scene)); // checks the placed layers as they'll be drawn
+  }
   if (!scene.id) errors.push("Scene needs an id");
   const c = scene.canvas || {};
   if (!(c.width > 0 && c.height > 0)) errors.push("canvas.width and canvas.height must be positive numbers");
@@ -243,9 +248,12 @@ function elementHtml(e, cls, inline = false, sid = "") {
  *               { asColumn: true } — draw a full-screen piece as a plain canvas (editor preview)
  *               { fontInfo } — family → { weights, italic } for Google Fonts, so requests match what exists
  */
-export function renderScene(scene, opts = {}) {
-  const { errors } = validate(scene);
+export function renderScene(source, opts = {}) {
+  const { errors } = validate(source);
   if (errors.length && !opts.allowInvalid) throw new Error("Scene is invalid:\n- " + errors.join("\n- "));
+  // groups become ordinary layers; the embedded source keeps them as groups
+  let scene = source;
+  try { scene = flattenGroups(source); } catch { /* half-made group in the editor: draw the rest */ scene = { ...source, elements: (source.elements || []).filter((e) => e.type !== "group") }; }
   if (!(scene.canvas?.width > 0 && scene.canvas?.height > 0)) return "";
   const sid = "ha-" + slug(scene.id);
   const S = `#${sid}`;
@@ -295,9 +303,9 @@ export function renderScene(scene, opts = {}) {
   lines.push(`<div ${attrs.join(" ")}>`);
   lines.push(`<style>${include ? opts.runtimeCss.trim() + "\n" : ""}${css.join("\n")}</style>`);
   lines.push(`<${root} class="ha-scene"${label}>`);
-  els.forEach((e) => lines.push("  " + elementHtml(e, `ha-el ha-e-${slug(e.id)}`, HEADING_ROOTS.has(root), sid)));
+  els.forEach((e) => lines.push("  " + elementHtml(e, `ha-el ha-e-${slug(e.id)}${e.group ? ` ha-g-${slug(e.group)}` : ""}`, HEADING_ROOTS.has(root), sid)));
   lines.push(`</${root}>`);
-  if (opts.embedSource) lines.push(`<script type="application/json" data-ha-scene>${JSON.stringify(scene).replace(/</g, "\\u003c")}</script>`);
+  if (opts.embedSource) lines.push(`<script type="application/json" data-ha-scene>${JSON.stringify(source).replace(/</g, "\\u003c")}</script>`);
   lines.push(`</div>`);
   if (include && trig.on !== "load") lines.push(`<script>${opts.runtimeJs.trim()}</script>`);
   return lines.join("\n");
@@ -308,4 +316,84 @@ export function extractScene(html) {
   const m = String(html).match(/<script type="application\/json" data-ha-scene>([\s\S]*?)<\/script>/);
   if (!m) return null;
   return JSON.parse(m[1]);
+}
+
+// ---------------------------------------------------------------- groups
+// A group is another piece placed inside this one (editor: "Place a piece…"). It keeps a copy of that piece's layers
+// in the piece's own canvas units ({ canvas, styles, elements }), plus a box (x, y, w, h) where it sits here and
+// `start`, seconds added to every animation inside it. When drawn, its layers are mapped into its box and become
+// ordinary layers (ids "group-layer", carrying `group`), so the HTML, CSS and runtime need nothing new.
+const hasGroups = (els) => (els || []).some((e) => e?.type === "group");
+const stackRank = (els) => els.map((e, i) => ({ e, z: e.z ?? i + 1, i })).sort((a, b) => a.z - b.z || a.i - b.i).map((x) => x.e);
+
+function groupProblems(els, where = "") {
+  const errors = [];
+  (els || []).forEach((g, i) => {
+    if (g?.type !== "group") return;
+    const at = `${where}group ${g.id || "#" + (i + 1)}`;
+    if (!g.id) errors.push(`${at}: needs an id`);
+    for (const k of ["x", "y", "w", "h"]) if (typeof g[k] !== "number") errors.push(`${at}: ${k} must be a number`);
+    if (!(g.canvas?.width > 0 && g.canvas?.height > 0)) errors.push(`${at}: canvas.width and canvas.height must be positive numbers`);
+    if (!Array.isArray(g.elements)) errors.push(`${at}: needs elements`);
+    else errors.push(...groupProblems(g.elements, at + " › "));
+  });
+  return errors;
+}
+
+// The group's layers, mapped into its box (desktop) and, when the scene has a phone layout, into its phone box
+function expandGroup(scene, g) {
+  const gc = g.canvas, inner = flattenGroups({ canvas: gc, styles: g.styles || {}, elements: g.elements || [] }).elements;
+  const ranked = stackRank(inner);
+  const sx = g.w / gc.width, sy = g.h / gc.height;
+  const M = scene.mobile, W = scene.canvas.width, H = scene.canvas.height;
+  const pb = M ? { x: g.m?.x ?? g.x * M.width / W, y: g.m?.y ?? g.y * M.height / H, w: g.m?.w ?? g.w * M.width / W, h: g.m?.h ?? g.h * M.height / H } : null;
+  const px = pb && pb.w / gc.width, py = pb && pb.h / gc.height;
+  const r = (n) => Math.round(n * 1000) / 1000;
+  return inner.map((c) => {
+    const k = { ...c, id: `${g.id}-${c.id}`, group: g.id, _rank: ranked.indexOf(c),
+      x: r(g.x + c.x * sx), y: r(g.y + c.y * sy), w: r(c.w * sx), h: r(c.h * sy) };
+    delete k.z; delete k.m;
+    if (c.type === "text") {
+      // the placed piece's type style travels with the text, sized to the group
+      const st = textStyle({ styles: g.styles || {} }, c);
+      delete k.style;
+      Object.assign(k, pick(st, ["family", "source", "weight", "italic", "lineHeight", "letterSpacing", "color", "fallback"]), { size: r(st.size * sx) });
+      if (k.family == null) delete k.family;
+    }
+    if (c.strokeWidth != null) k.strokeWidth = r(c.strokeWidth * sx);
+    if (c.radius != null) k.radius = r(c.radius * sx);
+    if (c.animate) k.animate = { ...c.animate, delay: r((c.animate.delay || 0) + (g.start || 0)) };
+    if (pb) {
+      if (g.m?.hidden) k.m = { hidden: true };
+      else {
+        k.m = { x: r(pb.x + c.x * px), y: r(pb.y + c.y * py), w: r(c.w * px), h: r(c.h * py) };
+        if (c.type === "text") k.m.size = r(textStyle({ styles: g.styles || {} }, c).size * px);
+        if (c.type === "line" && c.strokeWidth != null) k.m.strokeWidth = r(c.strokeWidth * px);
+      }
+    }
+    return k;
+  });
+}
+
+/** The scene with every group replaced by its layers (reading order kept; stacking: a group's layers sit together at
+ *  the group's place in the stack). Scenes without groups come back unchanged. */
+export function flattenGroups(scene) {
+  if (!hasGroups(scene?.elements)) return scene;
+  const parts = new Map(scene.elements.map((e) => [e, e.type === "group" ? expandGroup(scene, e) : null]));
+  let z = 0;
+  for (const e of stackRank(scene.elements)) {
+    const kids = parts.get(e);
+    if (kids) stackRank(kids.map((k) => ({ ...k, z: k._rank + 1 }))).forEach((k) => { kids.find((x) => x.id === k.id).z = ++z; });
+    else parts.set(e, [{ ...e, z: ++z }]);
+  }
+  const elements = scene.elements.flatMap((e) => parts.get(e)).map(({ _rank, ...k }) => k);
+  return { ...scene, elements };
+}
+
+/** When a group's animations run, in seconds from the start of the piece: { from, to } (null if nothing animates). */
+export function groupSpan(g) {
+  const kids = flattenGroups({ canvas: g.canvas, styles: g.styles || {}, elements: g.elements || [] }).elements.filter((c) => c.animate?.name);
+  if (!kids.length) return null;
+  const from = Math.min(...kids.map((c) => c.animate.delay || 0)), to = Math.max(...kids.map((c) => (c.animate.delay || 0) + (c.animate.duration ?? 1)));
+  return { from: from + (g.start || 0), to: to + (g.start || 0) };
 }

@@ -51,7 +51,7 @@ Common fields:
 | field | meaning |
 |---|---|
 | `id` | short name, unique in the scene |
-| `type` | `text` \| `rect` \| `ellipse` \| `line` \| `image` |
+| `type` | `text` \| `rect` \| `ellipse` \| `line` \| `image` \| `group` (a placed piece — see below) |
 | `x`, `y`, `w`, `h` | box in canvas units |
 | `rotate` | degrees (default 0) |
 | `opacity` | 0–1 (default 1). Fade animations end (or start, for fade-outs) at this, not at 1 |
@@ -83,6 +83,17 @@ otherwise wide enough to sweep the whole height). `soft` 0–1 blurs the brush e
 **Blend modes and drawings:** `multiply` makes white see-through and darkens what's underneath, so a pencil drawing on white
 paper can sit over (or under) a colour stroke and look printed together, whichever is on top. It mixes with everything
 behind the layer, including the story's own background.
+
+**group** (a placed piece — editor: *Open / import → Place a piece inside this one*, or *Place in this piece* in the
+library): a copy of another piece, moved, sized and stacked as one layer.
+`{ "id", "type": "group", "title", "x", "y", "w", "h", "z", "start", "m", "canvas": { "width", "height" }, "styles", "elements" }`.
+`canvas`, `styles` and `elements` are the placed piece's own, in its own canvas units; they are copied when it is placed,
+so changing the original later doesn't change the copy. `start` (seconds) is added to every animation inside, to play
+several placed pieces in turn. Keep `w`/`h` in the piece's proportions, or its layers pull out of line. `m` gives the
+group a phone-layout box (or `hidden`). No rotate, opacity or blend on the group itself; groups can contain groups.
+When drawn, its layers are mapped into its box and become ordinary layers with ids `group-layer` (a type style becomes
+the text's own settings, scaled), sitting together at the group's place in the stack, in the group's place in reading
+order. The embedded source keeps the group.
 
 ## Client kit and colours
 `kit` (optional) records which client kit the piece was made with: `{ "id": "uksi", "label": "UK Sport" }`.

@@ -15,6 +15,7 @@ function kindOf(name) {
 }
 function totalTime() {
   const ends = api.scene.elements.filter((e) => e.animate?.name).map((e) => (e.animate.delay || 0) + (e.animate.duration ?? 1));
+  api.scene.elements.filter((e) => e.type === "group").forEach((g) => { const s = api.groupSpan(g); if (s) ends.push(s.to); });
   return Math.max(1, ...ends) + 0.5;
 }
 const fmt = (n) => (Math.round(n * 100) / 100).toString().replace(/^0\./, ".") + "s";
@@ -39,7 +40,16 @@ export function renderTimeline() {
     const selected = api.sel.kind === "element" && api.sel.id === e.id;
     const label = h("button", { type: "button", class: "tl-label", "aria-current": selected ? "true" : null, onclick: () => api.choose({ kind: "element", id: e.id }) }, e.id);
     const track = h("div", { class: "tl-track" });
-    if (a?.name) {
+    const span = e.type === "group" ? api.groupSpan(e) : null;
+    if (span) {
+      // a placed piece: one bar for everything inside it; drag it to change when it starts
+      track.append(h("div", { class: "tl-bar k-in group", "data-id": e.id, "data-part": "move",
+        style: `left:${(span.from / total) * 100}%;width:${(Math.max(0.05, span.to - span.from) / total) * 100}%`,
+        title: `Placed piece: plays ${fmt(span.from)}–${fmt(span.to)} — drag to change when it starts` },
+        h("span", { class: "tl-name" }, `placed piece · ${(e.elements || []).length} layers`)));
+    } else if (e.type === "group") {
+      track.append(h("span", { class: "tl-none" }, "placed piece — nothing inside animates"));
+    } else if (a?.name) {
       const d = a.delay || 0, du = a.duration ?? 1;
       const bar = h("div", {
         class: `tl-bar k-${kindOf(a.name)}${a.loop ? " loop" : ""}`, "data-id": e.id, "data-part": "move",
@@ -60,21 +70,23 @@ export function renderTimeline() {
 function startDrag(ev) {
   const bar = ev.target.closest("[data-part]"); if (!bar) return;
   const id = bar.dataset.id, part = bar.dataset.part;
-  const e = api.scene.elements.find((x) => x.id === id); if (!e?.animate) return;
+  const e = api.scene.elements.find((x) => x.id === id); if (!e || (!e.animate && e.type !== "group")) return;
+  const isGroup = e.type === "group";
   ev.preventDefault();
   if (!(api.sel.kind === "element" && api.sel.id === id)) api.choose({ kind: "element", id });
   const track = bar.closest(".tl-track") || $("#timeline .tl-track");
   const width = track.getBoundingClientRect().width;
   frozenTotal = totalTime();
   const pps = width / frozenTotal;
-  const x0 = ev.clientX, d0 = e.animate.delay || 0, du0 = e.animate.duration ?? 1;
+  const x0 = ev.clientX, d0 = isGroup ? e.start || 0 : e.animate.delay || 0, du0 = isGroup ? 0 : e.animate.duration ?? 1;
   const key = "g:t" + ++gestureId;
   const host = $("#timeline");
   host.setPointerCapture(ev.pointerId);
   const snap = (v, free) => (free ? Math.round(v * 1000) / 1000 : Math.round(v / STEP) * STEP);
   const move = (m) => {
-    const el = api.scene.elements.find((x) => x.id === id); if (!el?.animate) return;
+    const el = api.scene.elements.find((x) => x.id === id); if (!el || (!el.animate && !isGroup)) return;
     const dt = (m.clientX - x0) / pps;
+    if (isGroup) { el.start = Math.max(0, +snap(d0 + dt, m.altKey).toFixed(3)); if (!el.start) delete el.start; api.commit(key); return; }
     if (part === "end") el.animate.duration = Math.max(STEP, +snap(du0 + dt, m.altKey).toFixed(3));
     else el.animate.delay = Math.max(0, +snap(d0 + dt, m.altKey).toFixed(3));
     api.commit(key);

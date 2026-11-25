@@ -365,6 +365,8 @@ function card(r, body) {
     h("div", { class: "lib-actions" },
       h("button", { type: "button", class: "secondary mini", onclick: () => openRow(r.id) }, "Open"),
       h("button", { type: "button", class: "secondary mini", onclick: () => openRow(r.id, { asCopy: true }) }, "Duplicate"),
+      r.scene && !isCurrent ? h("button", { type: "button", class: "secondary mini", title: "Add a copy of this piece to the one you're editing, as one movable layer",
+        onclick: () => { closeLibrary(); api.placeScene(r.scene); } }, "Place in this piece") : null,
       h("button", { type: "button", class: "secondary mini", onclick: async () => {
         if (!confirm(`Archive “${r.title}”? It leaves the library list; it isn't deleted and can be brought back from Supabase.`)) return;
         try { await backend.update(r.id, { archived_at: new Date().toISOString(), updated_by: me.email }); if (isCurrent) setRef(null); api.toast("Archived"); render(body); }

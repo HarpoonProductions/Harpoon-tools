@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit } from "../src/render.js?v=1c15d80";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=1c15d80";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=1c15d80";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan } from "../src/render.js?v=7de185a";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=7de185a";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=7de185a";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=1c15d80"), import("./fonts.js?v=1c15d80"), import("./library.js?v=1c15d80")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=7de185a"), import("./fonts.js?v=7de185a"), import("./library.js?v=7de185a")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=1c15d80"); }
+  try { mod = await import("../src/import-infogram.js?v=7de185a"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -148,7 +148,7 @@ function applyKitStyles(k) {
 function updateButtons() { $("#undoBtn").disabled = !past.length; $("#redoBtn").disabled = !future.length; }
 
 // ---------------------------------------------------------------- left panel
-const ICON = { text: "T", rect: "▭", ellipse: "◯", line: "╱", image: "▣" };
+const ICON = { text: "T", rect: "▭", ellipse: "◯", line: "╱", image: "▣", group: "▦" };
 function renderLayers() {
   $("#sceneBtn").setAttribute("aria-current", sel.kind === "scene");
   const sl = $("#styleList"); sl.replaceChildren();
@@ -584,12 +584,13 @@ const TAGS = [{ value: "h1", label: "H1 — page title" }, { value: "h2", label:
 function elementProps(id) {
   const E = () => elById(sel.id) || {};
   const e = E();
-  const out = [h("p", { class: "title" }, `${{ text: "Text", rect: "Box", ellipse: "Circle", line: "Line", image: "Image" }[e.type]} layer`)];
+  const out = [h("p", { class: "title" }, e.type === "group" ? "Placed piece" : `${{ text: "Text", rect: "Box", ellipse: "Circle", line: "Line", image: "Image" }[e.type]} layer`)];
   out.push(text("Layer name", E, "id", { onChangeOnly: true, apply: (v, inp) => {
     const nid = slug(v); if (!nid || (nid !== e.id && elById(nid))) { inp.value = e.id; toast("That name is taken"); return; }
     E().id = nid; sel = { kind: "element", id: nid }; inp.value = nid;
   } }));
 
+  if (e.type === "group") out.push(groupFields(e, E));
   if (e.type === "text") {
     const st = (scene.styles || {})[e.style] || {};
     out.push(section("Text",
@@ -642,10 +643,11 @@ function elementProps(id) {
     out.push(section("Position",
       grid(2, num("X", E, "x"), num("Y", E, "y")),
       grid(2, num("Width", E, "w", { min: 0 }), num("Height", E, "h", { min: 0 })),
-      grid(2, num("Rotate °", E, "rotate", { optional: true, placeholder: "0" }), num("Opacity", E, "opacity", { optional: true, min: 0, max: 1, step: 0.05, placeholder: "1" })),
+      e.type === "group" ? null : grid(2, num("Rotate °", E, "rotate", { optional: true, placeholder: "0" }), num("Opacity", E, "opacity", { optional: true, min: 0, max: 1, step: 0.05, placeholder: "1" })),
       h("p", { class: "helper" }, "Arrow keys nudge the selected layer (Shift = 10).")));
   }
   out.push(stackSection(e.id));
+  if (e.type === "group") { out.push(layerActions(e)); return out; }
   out.push(section("Blend",
     select("Blend with what's behind", E, "blend", BLENDS.map((b) => ({ value: b, label: BLEND_LABELS[b] || b })), { fallback: "normal", apply: (v) => { if (v === "normal") delete E().blend; else E().blend = v; } }),
     h("p", { class: "helper" }, "Multiply makes white see-through and darkens what's underneath — right for pencil or ink drawn on white paper.")));
@@ -661,11 +663,62 @@ function elementProps(id) {
       ANIMATIONS.attention.includes(a.name) ? check("Loop forever", () => (E().animate ||= {}), "loop", { optional: true }) : null,
       a.name === "brushIn" && e.type === "image" ? brushFields(e, E) : null] : null));
 
-  out.push(h("div", { class: "actions" },
-    h("button", { type: "button", class: "secondary mini", onclick: () => duplicate(e.id) }, "Duplicate"),
-    h("button", { type: "button", class: "danger mini", onclick: () => { scene.elements = scene.elements.filter((x) => x.id !== e.id); sel = { kind: "scene" }; commit(); renderProps(); } }, "Delete layer")));
+  out.push(layerActions(e));
   void A;
   return out;
+}
+function layerActions(e) {
+  return h("div", { class: "actions" },
+    h("button", { type: "button", class: "secondary mini", onclick: () => duplicate(e.id) }, "Duplicate"),
+    h("button", { type: "button", class: "danger mini", onclick: () => { scene.elements = scene.elements.filter((x) => x.id !== e.id); sel = { kind: "scene" }; commit(); renderProps(); } }, "Delete layer"));
+}
+
+// ---------------------------------------------------------------- placed pieces (groups)
+function groupFields(e, E) {
+  const n = (e.elements || []).length, span = groupSpan(e), gc = e.canvas || {};
+  const ratio = gc.width && gc.height ? gc.height / gc.width : null;
+  const off = ratio && Math.abs(e.h - e.w * ratio) > Math.max(1, e.h * 0.01);
+  return section("Placed piece",
+    h("p", { class: "helper" }, `A copy of “${e.title || e.id}” — ${n} layer${n === 1 ? "" : "s"}, moved and sized as one. Changing the original later won't change this copy.`),
+    num("Start after (seconds)", E, "start", { optional: true, min: 0, step: 0.1, placeholder: "0" }),
+    h("p", { class: "helper" }, span ? `Delays everything inside it: it plays from ${fmtS(span.from)} to ${fmtS(span.to)}. Give each placed piece a later start to play them in turn.` : "Nothing inside it animates."),
+    off ? h("p", { class: "phone-flag" }, "Its box has been stretched out of proportion, which pulls its layers out of line.") : null,
+    h("div", { class: "actions" },
+      ratio ? h("button", { type: "button", class: "secondary mini", disabled: !off, onclick: () => { E().h = round(E().w * ratio); commit(); renderProps(); drawOverlay(); } }, "Restore its proportions") : null,
+      h("button", { type: "button", class: "secondary mini", title: "Turn it back into separate layers you can edit one by one", onclick: () => ungroup(e.id) }, "Ungroup")));
+}
+const fmtS = (n) => `${Math.round(n * 100) / 100}s`;
+
+// Place another piece inside this one, as a group: a copy of its layers in one movable, resizable box
+function placeScene(src) {
+  if (!src?.canvas?.width || !src?.canvas?.height || !Array.isArray(src.elements)) { toast("That isn't a Fluke piece"); return; }
+  const W = scene.canvas.width, H = scene.canvas.height, sw = src.canvas.width, sh = src.canvas.height;
+  const n = scene.elements.filter((e) => e.type === "group").length;
+  let w = W * 0.3, hh = w * sh / sw;
+  if (hh > H * 0.8) { hh = H * 0.8; w = hh * sw / sh; }
+  // side by side, left to right, each starting a little after the one before
+  const x = Math.max(0, Math.min(W - w, W * 0.05 + n * (w + W * 0.03))), y = (H - hh) / 2;
+  const z = Math.max(0, ...scene.elements.map((e, i) => e.z ?? i + 1)) + 1;
+  const g = { id: uniqueId(src.id || "piece"), type: "group", title: src.title || src.id || "Placed piece",
+    x: round(x), y: round(y), w: round(w), h: round(hh), z, start: round(n * 0.6),
+    canvas: { width: sw, height: sh }, styles: structuredClone(src.styles || {}), elements: structuredClone(src.elements) };
+  if (!g.start) delete g.start;
+  scene.elements = [...scene.elements, g];
+  sel = { kind: "element", id: g.id };
+  commit(); renderProps();
+  toast(`Placed “${g.title}”${g.start ? ` — starts after ${g.start}s` : ""}`, 3500);
+}
+// A placed piece back to separate layers, where it sat in the stack and in reading order
+function ungroup(id) {
+  const g = elById(id); if (!g) return;
+  const kids = flattenGroups({ ...scene, elements: [g] }).elements.map(({ group, ...k }) => k);
+  kids.forEach((k) => { k.id = uniqueId(k.id); });
+  const order = stackOrder().flatMap((e) => (e === g ? [...kids].sort((a, b) => a.z - b.z) : [e]));
+  const i = scene.elements.indexOf(g);
+  scene.elements.splice(i, 1, ...kids);
+  order.forEach((e, k) => { e.z = k + 1; });
+  sel = { kind: "scene" }; commit(); renderProps();
+  toast(`Ungrouped into ${kids.length} layers`);
 }
 const BLEND_LABELS = { normal: "Normal", multiply: "Multiply (white disappears)", screen: "Screen (black disappears)", darken: "Darken",
   lighten: "Lighten", overlay: "Overlay", "color-burn": "Colour burn", "soft-light": "Soft light" };
@@ -971,6 +1024,11 @@ function wire() {
     const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
     try { await importInfogramFile(f); closeModals(); } catch (e) { toast(e.message); }
   });
+  $("#placeFile").addEventListener("change", async (ev) => {
+    const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
+    try { const txt = await f.text(); const s = /^\s*</.test(txt) ? extractScene(txt) : JSON.parse(txt); closeModals(); placeScene(s); }
+    catch (e) { toast("Couldn't read that file: " + e.message); }
+  });
   $("#jsonFile").addEventListener("change", async (ev) => {
     const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
     try { setScene(JSON.parse(await f.text())); closeModals(); } catch (e) { toast("Couldn't read that file: " + e.message); }
@@ -1020,7 +1078,7 @@ const api = {
   scrubTo, endScrub, getScrub: () => scrubT,
   loadScene: (s) => setScene(s, [], { keepLibrary: true }),
   renderStatic: (s) => previewHtml(s),
-  renderPreview, brushOf, brushPathD,
+  renderPreview, brushOf, brushPathD, placeScene, groupSpan,
 };
 async function start() {
   await loadOptionalParts();
@@ -1028,7 +1086,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=1c15d80").then((r) => r.text()), fetch("../runtime/ha.js?v=1c15d80").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=7de185a").then((r) => r.text()), fetch("../runtime/ha.js?v=7de185a").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

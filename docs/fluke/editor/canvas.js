@@ -209,6 +209,9 @@ function cycleUnder(pt) {
   api.choose({ kind: "element", id: ids[(i + 1) % ids.length] });
 }
 function elementIdFromNode(n) {
+  // a layer inside a placed piece selects the piece
+  const g = [...n.classList].find((k) => k.startsWith("ha-g-"));
+  if (g) { const ge = api.scene.elements.find((x) => api.slug(x.id) === g.slice(5)); if (ge) return ge.id; }
   const c = [...n.classList].find((k) => k.startsWith("ha-e-")); if (!c) return null;
   const s = c.slice(5);
   const e = api.scene.elements.find((x) => api.slug(x.id) === s); return e ? e.id : null;

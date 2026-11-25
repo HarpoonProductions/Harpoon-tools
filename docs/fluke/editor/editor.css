@@ -298,3 +298,8 @@ button.lib-status { border: 0; cursor: pointer; font: inherit; font-size: 12px; 
 /* an unset colour shows a checkerboard rather than black */
 .colour input[type=color].empty::-webkit-color-swatch { background: repeating-conic-gradient(#d9d9d4 0 25%, #fff 0 50%) 0 0 / 10px 10px !important; }
 .colour input[type=color].empty::-moz-color-swatch { background: repeating-conic-gradient(#d9d9d4 0 25%, #fff 0 50%) 0 0 / 10px 10px !important; }
+/* the stacking number in the layer list opens the layer's Stacking settings */
+.zbadge { cursor: pointer; }
+.zbadge:hover { border-color: currentColor; color: inherit; }
+@keyframes flashFs { from { background: #fff1cc; } to { background: transparent; } }
+fieldset.flash { animation: flashFs 1.6s ease-out; border-radius: 8px; }

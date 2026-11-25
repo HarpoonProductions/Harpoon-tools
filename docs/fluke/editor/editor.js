@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit } from "../src/render.js?v=dcebf36";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=dcebf36";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=dcebf36";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit } from "../src/render.js?v=1c15d80";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=1c15d80";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=1c15d80";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=dcebf36"), import("./fonts.js?v=dcebf36"), import("./library.js?v=dcebf36")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=1c15d80"), import("./fonts.js?v=1c15d80"), import("./library.js?v=1c15d80")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=dcebf36"); }
+  try { mod = await import("../src/import-infogram.js?v=1c15d80"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -52,9 +52,9 @@ function h(tag, attrs = {}, ...kids) {
   }
   return el;
 }
-function toast(msg) {
+function toast(msg, ms = 1800) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 1800);
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), ms);
 }
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -167,12 +167,13 @@ function renderLayers() {
       h("button", { type: "button", class: "row-btn", "aria-current": sel.kind === "element" && sel.id === e.id, onclick: () => choose({ kind: "element", id: e.id }, { reveal: true }) },
         h("span", { class: "icon", "aria-hidden": "true" }, ICON[e.type] || "?"),
         h("span", { class: "name" }, e.id),
-        h("span", { class: "zbadge", title: `Stacking: ${stackPos(e.id)} of ${els.length} (1 = at the back)` }, String(stackPos(e.id))),
+        h("span", { class: "zbadge", title: `In front/behind: ${stackPos(e.id)} of ${els.length} (1 = at the back). Click to change.`,
+          onclick: (ev) => { ev.stopPropagation(); showStacking(e.id); } }, String(stackPos(e.id))),
         e.type === "text" ? h("span", { class: "tag" }, e.tag || "p") : null,
         out ? h("span", { class: "tag", title: "Leaves during the animation" }, "out") : null,
         e.m?.hidden ? h("span", { class: "tag", title: "Hidden on phones" }, "no 📱") : null),
-      h("button", { type: "button", class: "move", title: "Earlier in reading order", "aria-label": `Move ${e.id} up`, disabled: i === 0, onclick: () => moveLayer(i, -1) }, "↑"),
-      h("button", { type: "button", class: "move", title: "Later in reading order", "aria-label": `Move ${e.id} down`, disabled: i === els.length - 1, onclick: () => moveLayer(i, 1) }, "↓")));
+      h("button", { type: "button", class: "move", title: "Earlier in reading order (what screen readers hear first). Doesn't change what sits in front.", "aria-label": `Move ${e.id} earlier in reading order`, disabled: i === 0, onclick: () => moveLayer(i, -1) }, "↑"),
+      h("button", { type: "button", class: "move", title: "Later in reading order (what screen readers hear first). Doesn't change what sits in front.", "aria-label": `Move ${e.id} later in reading order`, disabled: i === els.length - 1, onclick: () => moveLayer(i, 1) }, "↓")));
   });
 }
 function moveLayer(i, d) {
@@ -181,6 +182,16 @@ function moveLayer(i, d) {
   // keep how things stack: give every element an explicit z first
   els.forEach((e, k) => { if (e.z == null) e.z = (k === i ? j : k === j ? i : k) + 1; });
   commit();
+  // the arrows are easily mistaken for "in front / behind": say what they did, once per session
+  if (!moveLayer.told) { moveLayer.told = true; toast("Reading order changed — that's what screen readers follow. To put a layer in front or behind, click its number.", 5000); }
+}
+// select a layer and bring its Stacking settings into view, briefly highlighted
+function showStacking(id) {
+  choose({ kind: "element", id });
+  const fs = [...$("#props").querySelectorAll("fieldset")].find((f) => f.querySelector("legend")?.textContent === "Stacking");
+  if (!fs) return;
+  fs.scrollIntoView({ behavior: "smooth", block: "center" });
+  fs.classList.remove("flash"); void fs.offsetWidth; fs.classList.add("flash");
 }
 function uniqueId(base) { let id = slug(base), n = 2; while (elById(id)) id = `${slug(base)}-${n++}`; return id; }
 function addElement(type) {
@@ -1017,7 +1028,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=dcebf36").then((r) => r.text()), fetch("../runtime/ha.js?v=dcebf36").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=1c15d80").then((r) => r.text()), fetch("../runtime/ha.js?v=1c15d80").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit } from "../src/render.js?v=c3de504";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=c3de504";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=c3de504";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit } from "../src/render.js?v=dcebf36";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=dcebf36";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=dcebf36";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=c3de504"), import("./fonts.js?v=c3de504"), import("./library.js?v=c3de504")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=dcebf36"), import("./fonts.js?v=dcebf36"), import("./library.js?v=dcebf36")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=c3de504"); }
+  try { mod = await import("../src/import-infogram.js?v=dcebf36"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -122,7 +122,12 @@ function fixSel() {
   if (sel.kind === "element" && !elById(sel.id)) sel = { kind: "scene" };
   if (sel.kind === "style" && !(scene.styles || {})[sel.name]) sel = { kind: "scene" };
 }
-function choose(s) { sel = s; renderLayers(); renderProps(); highlight(); drawOverlay(); renderTimeline(); }
+// reveal: when the panels are stacked (narrow windows) the settings panel is below the timeline — bring it into view
+function choose(s, { reveal = false } = {}) {
+  sel = s; renderLayers(); renderProps(); highlight(); drawOverlay(); renderTimeline();
+  const p = $("#props"), r = p.getBoundingClientRect();
+  if (reveal && (r.top > innerHeight - 80 || r.bottom < 80)) p.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 // ---------------------------------------------------------------- refresh
 function refresh() { renderLayers(); renderPreview(); renderTimeline(); updateButtons(); refreshStatus(); }
@@ -149,7 +154,7 @@ function renderLayers() {
   const sl = $("#styleList"); sl.replaceChildren();
   Object.entries(scene.styles || {}).forEach(([name, st]) => {
     sl.append(h("div", { class: "row" },
-      h("button", { type: "button", class: "row-btn", "aria-current": sel.kind === "style" && sel.name === name, onclick: () => choose({ kind: "style", name }) },
+      h("button", { type: "button", class: "row-btn", "aria-current": sel.kind === "style" && sel.name === name, onclick: () => choose({ kind: "style", name }, { reveal: true }) },
         h("span", { class: "icon" }, "Aa"), h("span", { class: "name" }, name),
         h("span", { class: "tag" }, `${st.size}·${st.weight}`))));
   });
@@ -159,7 +164,7 @@ function renderLayers() {
   els.forEach((e, i) => {
     const out = e.animate && ANIMATIONS.out.includes(e.animate.name);
     ll.append(h("div", { class: "row" },
-      h("button", { type: "button", class: "row-btn", "aria-current": sel.kind === "element" && sel.id === e.id, onclick: () => choose({ kind: "element", id: e.id }) },
+      h("button", { type: "button", class: "row-btn", "aria-current": sel.kind === "element" && sel.id === e.id, onclick: () => choose({ kind: "element", id: e.id }, { reveal: true }) },
         h("span", { class: "icon", "aria-hidden": "true" }, ICON[e.type] || "?"),
         h("span", { class: "name" }, e.id),
         h("span", { class: "zbadge", title: `Stacking: ${stackPos(e.id)} of ${els.length} (1 = at the back)` }, String(stackPos(e.id))),
@@ -437,16 +442,17 @@ const linkedToken = (v) => (String(v || "").match(/^var\(--hse-([a-z0-9-]+)\s*,/
 function colour(label, getObj, key, opts = {}) {
   const v = getObj()[key] || "";
   const hex = (String(v).match(/#[0-9a-f]{6}/i) || ["#000000"])[0];
-  const pick = h("input", { type: "color", value: hex.toLowerCase(), "aria-label": label + " picker" });
+  const pick = h("input", { type: "color", value: hex.toLowerCase(), "aria-label": label + " picker", class: v ? "" : "empty" });
   const t = h("input", { type: "text", value: v, placeholder: opts.placeholder ?? "none" });
   const note = h("span", { class: "linked" });
   const showLink = () => {
     const tok = linkedToken(t.value), sw = tok && kit?.swatches.find((x) => x.token === tok);
     note.textContent = tok ? `🔗 ${sw ? sw.name : tok} from the ${kit?.label || "client"} kit — follows the client's tokens in HSE` : "";
   };
-  pick.addEventListener("input", () => { t.value = pick.value.toUpperCase(); setVal(getObj, key, t.value, opts); showLink(); commit(label + key); });
+  t.addEventListener("input", () => pick.classList.toggle("empty", !t.value.trim()));
+  pick.addEventListener("input", () => { pick.classList.remove("empty"); t.value = pick.value.toUpperCase(); setVal(getObj, key, t.value, opts); showLink(); commit(label + key); });
   t.addEventListener("input", () => { const m = t.value.match(/#[0-9a-f]{6}/i); if (m) pick.value = m[0].toLowerCase(); setVal(getObj, key, t.value.trim(), opts); showLink(); commit(label + key); });
-  const use = (val) => { t.value = val; const m = val.match(/#[0-9a-f]{6}/i); if (m) pick.value = m[0].toLowerCase(); setVal(getObj, key, val, opts); showLink(); commit(); };
+  const use = (val) => { pick.classList.remove("empty"); t.value = val; const m = val.match(/#[0-9a-f]{6}/i); if (m) pick.value = m[0].toLowerCase(); setVal(getObj, key, val, opts); showLink(); commit(); };
   const swatch = (val, name) => h("button", { type: "button", class: "sw", style: `background:${val}`, title: name, "aria-label": name, onclick: () => use(val) });
   const kitRow = kit ? h("div", { class: "swatches", role: "group", "aria-label": `${kit.label} colours` },
     kit.swatches.map((sw) => swatch(`var(--hse-${sw.token}, ${sw.hex})`, `${sw.name} ${sw.hex}`))) : null;
@@ -903,7 +909,8 @@ function showTab(t) {
 
 // ---------------------------------------------------------------- wiring
 function wire() {
-  $("#sceneBtn").addEventListener("click", () => choose({ kind: "scene" }));
+  $("#sceneBtn").addEventListener("click", () => choose({ kind: "scene" }, { reveal: true }));
+  $("#libStatus").addEventListener("click", () => saveToLibrary());
   $("#addStyleBtn").addEventListener("click", addStyle);
   $$("[data-add]").forEach((b) => b.addEventListener("click", () => addElement(b.dataset.add)));
   $$("[data-view]").forEach((b) => b.addEventListener("click", () => {
@@ -1010,7 +1017,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=c3de504").then((r) => r.text()), fetch("../runtime/ha.js?v=c3de504").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=dcebf36").then((r) => r.text()), fetch("../runtime/ha.js?v=dcebf36").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

@@ -206,8 +206,9 @@ async function openRow(id, { asCopy = false, scene = null } = {}) {
 // ---------------------------------------------------------------- status chip in the header
 function updateStatus() {
   const chip = document.getElementById("libStatus"); if (!chip || !api) return;
-  if (!ref) { chip.textContent = "Not in library"; chip.className = "lib-status none"; return; }
-  if (isDirty()) { chip.textContent = "Unsaved changes"; chip.className = "lib-status dirty"; }
+  // the chip is also the Save button (as is ⌘S)
+  if (!ref) { chip.textContent = "Save to library"; chip.className = "lib-status none"; return; }
+  if (isDirty()) { chip.textContent = "Save changes"; chip.className = "lib-status dirty"; }
   else { chip.textContent = "Saved ✓"; chip.className = "lib-status ok"; }
 }
 export const refreshStatus = updateStatus;

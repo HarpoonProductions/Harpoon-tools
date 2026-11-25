@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Fluke</title>
 <link rel="icon" type="image/png" href="brand/harpoon-roundel.png" />
-<link rel="stylesheet" href="editor.css?v=c3de504" />
+<link rel="stylesheet" href="editor.css?v=dcebf36" />
 <style id="runtimeCss"></style>
 <style id="selStyle"></style>
-<script src="../runtime/ha.js?v=c3de504"></script>
+<script src="../runtime/ha.js?v=dcebf36"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
 <script>
   // If the editor's core doesn't arrive, say so instead of showing an empty editor
@@ -21,7 +21,7 @@
   };
   setTimeout(function () { window.flukeLoadFailed(); }, 12000);
 </script>
-<script type="module" src="editor.js?v=c3de504" onerror="flukeLoadFailed()"></script>
+<script type="module" src="editor.js?v=dcebf36" onerror="flukeLoadFailed()"></script>
 </head>
 <body>
 <header class="top">
@@ -30,11 +30,11 @@
     <span class="brand__name">Fluke</span>
     <span class="brand__by">by</span>
     <img class="brand__wordmark" src="brand/harpoon-wordmark.png" alt="Harpoon" />
-    <span class="brand__ver">v0.11</span>
+    <span class="brand__ver">v0.11.1</span>
   </h1>
   <div class="top-actions">
     <button type="button" class="secondary" id="newBtn">New</button>
-    <span id="libStatus" class="lib-status none" title="Library status — ⌘S saves">Not in library</span>
+    <button type="button" id="libStatus" class="lib-status none" title="Save to the library (⌘S)">Save to library</button>
     <button type="button" class="secondary" id="libraryBtn">Library</button>
     <button type="button" class="secondary" id="openBtn">Open / import…</button>
     <button type="button" class="secondary" id="undoBtn" title="Undo (⌘Z)">↶ Undo</button>

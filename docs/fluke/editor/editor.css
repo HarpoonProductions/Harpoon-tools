@@ -291,3 +291,10 @@ button.sw:hover { transform: scale(1.15); }
 .new-kind span { font-size: 13px; color: var(--muted); line-height: 1.4; }
 .new-kind:hover, .new-kind:focus-visible { border-color: currentColor; outline: none; box-shadow: 0 0 0 2px rgba(0,0,0,.08); }
 @media (max-width: 560px) { .new-kinds { grid-template-columns: 1fr; } }
+/* the library chip doubles as the Save button */
+button.lib-status { border: 0; cursor: pointer; font: inherit; font-size: 12px; }
+.top button.lib-status.none { background: rgba(255,255,255,.18); color: #fff; }
+.top button.lib-status:hover { filter: brightness(1.12); }
+/* an unset colour shows a checkerboard rather than black */
+.colour input[type=color].empty::-webkit-color-swatch { background: repeating-conic-gradient(#d9d9d4 0 25%, #fff 0 50%) 0 0 / 10px 10px !important; }
+.colour input[type=color].empty::-moz-color-swatch { background: repeating-conic-gradient(#d9d9d4 0 25%, #fff 0 50%) 0 0 / 10px 10px !important; }

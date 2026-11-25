@@ -45,7 +45,7 @@ Common fields:
 | `type` | `text` \| `rect` \| `ellipse` \| `line` \| `image` |
 | `x`, `y`, `w`, `h` | box in canvas units |
 | `rotate` | degrees (default 0) |
-| `opacity` | 0–1 (default 1) |
+| `opacity` | 0–1 (default 1). Fade animations end (or start, for fade-outs) at this, not at 1 |
 | `z` | stacking order (default: position in the list). Independent of reading order. |
 | `blend` | how it mixes with what's behind: `normal` (default), `multiply`, `screen`, `darken`, `lighten`, `overlay`, `color-burn`, `soft-light` |
 | `animate` | `{ "name", "delay", "duration", "easing", "distance", "loop" }` (seconds) |

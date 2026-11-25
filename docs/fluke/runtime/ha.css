@@ -14,28 +14,28 @@
 .ha.ha-reset .ha-el{animation-name:none!important}
 @media (prefers-reduced-motion:reduce){.ha .ha-el{animation:none!important}.ha .ha-el[data-ha-out]{visibility:hidden}}
 /* ---- in ---- */
-@keyframes ha-fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes ha-fadeInUp{from{opacity:0;transform:translateY(var(--ha-d,10%))}to{opacity:1;transform:none}}
-@keyframes ha-fadeInDown{from{opacity:0;transform:translateY(calc(-1 * var(--ha-d,10%)))}to{opacity:1;transform:none}}
-@keyframes ha-fadeInLeft{from{opacity:0;transform:translateX(calc(-1 * var(--ha-d,10%)))}to{opacity:1;transform:none}}
-@keyframes ha-fadeInRight{from{opacity:0;transform:translateX(var(--ha-d,10%))}to{opacity:1;transform:none}}
+@keyframes ha-fadeIn{from{opacity:0}to{opacity:var(--ha-o,1)}}
+@keyframes ha-fadeInUp{from{opacity:0;transform:translateY(var(--ha-d,10%))}to{opacity:var(--ha-o,1);transform:none}}
+@keyframes ha-fadeInDown{from{opacity:0;transform:translateY(calc(-1 * var(--ha-d,10%)))}to{opacity:var(--ha-o,1);transform:none}}
+@keyframes ha-fadeInLeft{from{opacity:0;transform:translateX(calc(-1 * var(--ha-d,10%)))}to{opacity:var(--ha-o,1);transform:none}}
+@keyframes ha-fadeInRight{from{opacity:0;transform:translateX(var(--ha-d,10%))}to{opacity:var(--ha-o,1);transform:none}}
 @keyframes ha-slideInUp{from{transform:translateY(100%)}to{transform:none}}
 @keyframes ha-slideInDown{from{transform:translateY(-100%)}to{transform:none}}
 @keyframes ha-slideInLeft{from{transform:translateX(-100%)}to{transform:none}}
 @keyframes ha-slideInRight{from{transform:translateX(100%)}to{transform:none}}
-@keyframes ha-zoomIn{from{opacity:0;transform:scale(.3)}50%{opacity:1}to{transform:none}}
-@keyframes ha-bounceIn{0%{opacity:0;transform:scale(.3)}20%{transform:scale(1.1)}40%{transform:scale(.9)}60%{opacity:1;transform:scale(1.03)}80%{transform:scale(.97)}to{opacity:1;transform:none}}
+@keyframes ha-zoomIn{from{opacity:0;transform:scale(.3)}50%{opacity:var(--ha-o,1)}to{transform:none}}
+@keyframes ha-bounceIn{0%{opacity:0;transform:scale(.3)}20%{transform:scale(1.1)}40%{transform:scale(.9)}60%{opacity:var(--ha-o,1);transform:scale(1.03)}80%{transform:scale(.97)}to{opacity:var(--ha-o,1);transform:none}}
 @keyframes ha-wipeInLeft{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0)}}
 @keyframes ha-wipeInRight{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0)}}
 @keyframes ha-wipeInUp{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0)}}
 @keyframes ha-wipeInDown{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0)}}
 @keyframes ha-brushIn{from{stroke-dashoffset:1.02}to{stroke-dashoffset:0}}
 /* ---- out ---- */
-@keyframes ha-fadeOut{from{opacity:1}to{opacity:0;visibility:hidden}}
-@keyframes ha-fadeOutUp{from{opacity:1}to{opacity:0;transform:translateY(calc(-1 * var(--ha-d,10%)));visibility:hidden}}
-@keyframes ha-fadeOutDown{from{opacity:1}to{opacity:0;transform:translateY(var(--ha-d,10%));visibility:hidden}}
-@keyframes ha-fadeOutLeft{from{opacity:1}to{opacity:0;transform:translateX(calc(-1 * var(--ha-d,10%)));visibility:hidden}}
-@keyframes ha-fadeOutRight{from{opacity:1}to{opacity:0;transform:translateX(var(--ha-d,10%));visibility:hidden}}
+@keyframes ha-fadeOut{from{opacity:var(--ha-o,1)}to{opacity:0;visibility:hidden}}
+@keyframes ha-fadeOutUp{from{opacity:var(--ha-o,1)}to{opacity:0;transform:translateY(calc(-1 * var(--ha-d,10%)));visibility:hidden}}
+@keyframes ha-fadeOutDown{from{opacity:var(--ha-o,1)}to{opacity:0;transform:translateY(var(--ha-d,10%));visibility:hidden}}
+@keyframes ha-fadeOutLeft{from{opacity:var(--ha-o,1)}to{opacity:0;transform:translateX(calc(-1 * var(--ha-d,10%)));visibility:hidden}}
+@keyframes ha-fadeOutRight{from{opacity:var(--ha-o,1)}to{opacity:0;transform:translateX(var(--ha-d,10%));visibility:hidden}}
 @keyframes ha-slideOutUp{from{transform:none}to{transform:translateY(-101%);visibility:hidden}}
 @keyframes ha-slideOutDown{from{transform:none}to{transform:translateY(101%);visibility:hidden}}
 @keyframes ha-slideOutLeft{from{transform:none}to{transform:translateX(-101%);visibility:hidden}}

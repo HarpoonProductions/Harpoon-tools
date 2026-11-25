@@ -126,7 +126,7 @@ function elementRules(scene, e, i) {
   const r = boxRules(e, W, H);
   r.push(`z-index:${e.z ?? i + 1}`);
   if (e.rotate) r.push(`rotate:${num(e.rotate)}deg`);
-  if (e.opacity !== undefined && e.opacity !== 1) r.push(`opacity:${num(e.opacity)}`);
+  if (e.opacity !== undefined && e.opacity !== 1) r.push(`opacity:${num(e.opacity)}`, `--ha-o:${num(e.opacity)}`); // fades end at this, not 1
   if (e.blend && e.blend !== "normal" && BLENDS.includes(e.blend)) r.push(`mix-blend-mode:${e.blend}`);
   if (e.type === "text") {
     const s = textStyle(scene, e);

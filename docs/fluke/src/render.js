@@ -16,6 +16,9 @@ const HEADING_ROOTS = new Set(["h1", "h2", "h3"]);
 const TYPES = new Set(["text", "rect", "ellipse", "line", "image"]);
 export const BLENDS = ["normal", "multiply", "screen", "darken", "lighten", "overlay", "color-burn", "soft-light"];
 // Image-only animations: the image is drawn as inline SVG and revealed through a moving mask
+// canvas.fit: "column" scales with the column it sits in (default); "cover"/"contain" fill the screen (a whole section)
+export const FITS = ["column", "cover", "contain"];
+export const isScreenFit = (scene) => scene?.canvas?.fit === "cover" || scene?.canvas?.fit === "contain";
 export const IMAGE_ONLY_ANIMATIONS = new Set(["brushIn"]);
 const isBrush = (e) => e.type === "image" && e.animate?.name === "brushIn";
 
@@ -32,8 +35,9 @@ export function validate(scene) {
   const c = scene.canvas || {};
   if (!(c.width > 0 && c.height > 0)) errors.push("canvas.width and canvas.height must be positive numbers");
   if (scene.root && !ROOT_TAGS.has(scene.root)) errors.push(`root must be one of ${[...ROOT_TAGS].join(", ")}`);
-  if (scene.mobile && !(scene.mobile.below > 0 && scene.mobile.width > 0 && scene.mobile.height > 0))
-    errors.push("mobile needs below, width and height");
+  if (c.fit !== undefined && !FITS.includes(c.fit)) errors.push(`canvas.fit must be one of ${FITS.join(", ")}`);
+  if (scene.mobile && !((isScreenFit(scene) || scene.mobile.below > 0) && scene.mobile.width > 0 && scene.mobile.height > 0))
+    errors.push(isScreenFit(scene) ? "mobile needs width and height" : "mobile needs below, width and height");
   const seen = new Set();
   let h1 = 0;
   (scene.elements || []).forEach((e, i) => {
@@ -236,6 +240,7 @@ function elementHtml(e, cls, inline = false, sid = "") {
  *               { includeRuntime: false } — the story already carries it
  *               { embedSource: true } — include the scene JSON so the piece can be pasted back into the editor
  *               { allowInvalid: true } — render anyway (editor preview while the scene is half-made)
+ *               { asColumn: true } — draw a full-screen piece as a plain canvas (editor preview)
  *               { fontInfo } — family → { weights, italic } for Google Fonts, so requests match what exists
  */
 export function renderScene(scene, opts = {}) {
@@ -249,17 +254,30 @@ export function renderScene(scene, opts = {}) {
   const trig = { on: "view", threshold: 0.25, replay: true, ...(scene.trigger || {}) };
 
   const css = [];
+  const bg = scene.canvas.background ? ";background:" + cssVal(scene.canvas.background) : "";
+  // Full-screen pieces (fit cover/contain) fill the window's height and their block's width. The canvas is scaled to
+  // cover it (edges may be cropped) or to fit inside it (bands of background), centred; the scene is then the
+  // container that text sizes and positions are measured against. The editor previews them as a plain canvas (asColumn).
+  const screen = isScreenFit(scene) && !opts.asColumn;
+  const cname = sid.replace(/[^a-z0-9-]/gi, "");
+  const fit = scene.canvas.fit === "contain" ? "min" : "max";
+  const screenBox = (w, h) => `width:${fit}(100cqw,${num(100 * w / h, 4)}cqh)`;
+  if (screen) {
+    css.push(`${S}{height:100vh;height:100svh;container:${cname}/size;overflow:clip${bg}}`);
+    css.push(`${S} .ha-scene{position:absolute;left:50%;top:50%;translate:-50% -50%;container-type:inline-size;${screenBox(W, H)}}`);
+  }
   // --ha-u is one canvas unit, so movements written in canvas units (bounce, shake) scale with the piece
-  css.push(`${S} .ha-scene{aspect-ratio:${num(W)}/${num(H)};--ha-u:${num(100 / W, 5)}cqi${scene.canvas.background ? ";background:" + cssVal(scene.canvas.background) : ""}}`);
+  css.push(`${S} .ha-scene{aspect-ratio:${num(W)}/${num(H)};--ha-u:${num(100 / W, 5)}cqi${bg}}`);
   els.forEach((e, i) => {
     css.push(`${S} .ha-e-${slug(e.id)}{${elementRules(scene, e, i).join(";")}}`);
     if (isBrush(e) && !HEADING_ROOTS.has(scene.root || "div")) css.push(`${S} .ha-e-${slug(e.id)} .ha-brush{${brushRule(e)}}`);
   });
   if (scene.mobile) {
     const M = scene.mobile;
-    const mob = [`${S} .ha-scene{aspect-ratio:${num(M.width)}/${num(M.height)};--ha-u:${num(100 / M.width, 5)}cqi}`];
+    const mob = [`${S} .ha-scene{aspect-ratio:${num(M.width)}/${num(M.height)};--ha-u:${num(100 / M.width, 5)}cqi${screen ? ";" + screenBox(M.width, M.height) : ""}}`];
     els.forEach((e) => { const r = mobileRules(scene, e); if (r) mob.push(`${S} .ha-e-${slug(e.id)}{${r.join(";")}}`); });
-    css.push(`@container (max-width:${num(M.below - 0.02, 2)}px){${mob.join("")}}`);
+    // full screen: the phone layout is used whenever the screen is taller than it is wide
+    css.push(screen ? `@container ${cname} (orientation:portrait){${mob.join("")}}` : `@container (max-width:${num((M.below || 560) - 0.02, 2)}px){${mob.join("")}}`);
   }
 
   const include = opts.includeRuntime !== false && opts.runtimeCss && opts.runtimeJs;

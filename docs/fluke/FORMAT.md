@@ -14,8 +14,10 @@ Readers only ever receive the rendered HTML — nothing is fetched at read time.
   "root": "figure",                    // "div" (default) | "figure" | "section" | "header" | "h1" | "h2" | "h3"
   "label": null,                       // optional aria-label for the whole piece
 
-  "canvas": { "width": 1000, "height": 543, "background": null },
+  "canvas": { "width": 1000, "height": 543, "background": null,   // background null = transparent
+              "fit": "column" },                               // "column" (default) | "contain" | "cover" — see below
   "mobile": { "below": 560, "width": 375, "height": 520 },   // optional phone layout (see below)
+  "page": "#F4EFE6",                   // editor only: the story's page colour, shown behind the preview
 
   "trigger": { "on": "view", "threshold": 0.25, "replay": true },  // "view" | "load"
 
@@ -35,6 +37,13 @@ All positions and sizes are in **canvas units**. The scene scales with the width
 second canvas (`mobile.width` × `mobile.height`). Each element can override its box or text size there with an
 `m` object (`{ "x", "y", "w", "h", "size", "hidden" }`) in phone-canvas units. Elements without `m` are scaled
 from the desktop layout.
+
+**Full screen** (`canvas.fit` `contain` or `cover`): for a whole section, e.g. a 2560 × 1440 canvas with a 1440 × 2560
+phone layout. The piece is as tall as the window (`100svh`) and as wide as its block (set the Shorthand section to full
+width). The canvas is centred and scaled — `contain`: all of it shows, and the bands left on screens of a different shape
+take the background colour; `cover`: it fills edge to edge and the edges are cropped, so keep text away from them. The
+phone layout is used whenever the screen is taller than it is wide (`mobile.below` is ignored). Text keeps its tags, so
+headings and paragraphs read in order as in any other piece. The editor previews it as a plain canvas.
 
 ## Elements
 Common fields:

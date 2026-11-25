@@ -285,3 +285,9 @@ button.sw:hover { transform: scale(1.15); }
   padding: 6px 8px; border-radius: 6px; font: 13px/1.3 system-ui, sans-serif; z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
 .brush-tools button { font: inherit; padding: 3px 9px; border-radius: 4px; border: 0; background: #fff; color: #031041; cursor: pointer; }
 .brush-tools button[data-brush="done"] { background: #FBC54F; }
+/* New piece: choose full-screen section or column piece */
+.new-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.new-kind { display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; cursor: pointer; font: inherit; color: inherit; }
+.new-kind span { font-size: 13px; color: var(--muted); line-height: 1.4; }
+.new-kind:hover, .new-kind:focus-visible { border-color: currentColor; outline: none; box-shadow: 0 0 0 2px rgba(0,0,0,.08); }
+@media (max-width: 560px) { .new-kinds { grid-template-columns: 1fr; } }

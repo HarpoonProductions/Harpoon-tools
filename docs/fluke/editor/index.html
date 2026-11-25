@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Fluke</title>
 <link rel="icon" type="image/png" href="brand/harpoon-roundel.png" />
-<link rel="stylesheet" href="editor.css?v=09e0dde" />
+<link rel="stylesheet" href="editor.css?v=c3de504" />
 <style id="runtimeCss"></style>
 <style id="selStyle"></style>
-<script src="../runtime/ha.js?v=09e0dde"></script>
+<script src="../runtime/ha.js?v=c3de504"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
 <script>
   // If the editor's core doesn't arrive, say so instead of showing an empty editor
@@ -21,7 +21,7 @@
   };
   setTimeout(function () { window.flukeLoadFailed(); }, 12000);
 </script>
-<script type="module" src="editor.js?v=09e0dde" onerror="flukeLoadFailed()"></script>
+<script type="module" src="editor.js?v=c3de504" onerror="flukeLoadFailed()"></script>
 </head>
 <body>
 <header class="top">
@@ -30,7 +30,7 @@
     <span class="brand__name">Fluke</span>
     <span class="brand__by">by</span>
     <img class="brand__wordmark" src="brand/harpoon-wordmark.png" alt="Harpoon" />
-    <span class="brand__ver">v0.10.1</span>
+    <span class="brand__ver">v0.11</span>
   </h1>
   <div class="top-actions">
     <button type="button" class="secondary" id="newBtn">New</button>
@@ -91,6 +91,20 @@
 </main>
 
 <div id="measure" aria-hidden="true"></div>
+
+<!-- New -->
+<div class="modal" id="newModal" aria-hidden="true">
+  <div class="modal__box" role="dialog" aria-modal="true" aria-labelledby="newTitle">
+    <div class="modal__head"><h2 id="newTitle">Start a new piece</h2><button type="button" class="secondary mini" data-close>Cancel</button></div>
+    <div class="modal__body">
+      <p class="helper">This replaces the piece you're editing — you can undo it.</p>
+      <div class="new-kinds">
+        <button type="button" class="new-kind" data-new="screen"><strong>Full-screen section</strong><span>2560 × 1440, with a 1440 × 2560 layout for phones. Fills the screen — for a whole Shorthand section.</span></button>
+        <button type="button" class="new-kind" data-new="column"><strong>Piece in the column</strong><span>1000 × 543. Scales with the column it sits in — quotes, stats, titles.</span></button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Open / import -->
 <div class="modal" id="openModal" aria-hidden="true">

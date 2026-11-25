@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD } from "../src/render.js?v=09e0dde";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=09e0dde";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=09e0dde";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit } from "../src/render.js?v=c3de504";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=c3de504";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=c3de504";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=09e0dde"), import("./fonts.js?v=09e0dde"), import("./library.js?v=09e0dde")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=c3de504"), import("./fonts.js?v=c3de504"), import("./library.js?v=c3de504")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,13 +24,14 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=09e0dde"); }
+  try { mod = await import("../src/import-infogram.js?v=c3de504"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
 
 const DRAFT_KEY = "harpoon-animate-draft-v1";
 const LASTKIT_KEY = "harpoon-animate-last-kit";
+const LASTKIND_KEY = "fluke-last-new-kind";
 const PHONE_PREVIEW = 375;
 const DESKTOP_MEASURE = 760;
 
@@ -70,7 +71,18 @@ let kit = null, kitId = null; // the loaded client kit for scene.kit
 let scrubT = null; // seconds: the moment shown while scrubbing the timeline (null = not scrubbing)
 const runtime = { css: "", js: "" };
 
-const blankScene = () => ({
+// kind "screen": a whole Shorthand section — 2560×1440, with a 1440×2560 layout for upright phones
+const blankScene = (kind = "column") => kind === "screen" ? {
+  format: "harpoon-animate/1", id: "new-section", title: "New full-screen section", root: "section",
+  canvas: { width: 2560, height: 1440, background: null, fit: "contain" },
+  mobile: { below: 560, width: 1440, height: 2560 },
+  trigger: { on: "view", threshold: 0.5, replay: true },
+  styles: {
+    heading: { family: "", source: "story", weight: 600, size: 144, lineHeight: 1.1, color: "#000000" },
+    body: { family: "", source: "story", weight: 400, size: 48, lineHeight: 1.35, color: "#000000" },
+  },
+  elements: [],
+} : ({
   format: "harpoon-animate/1", id: "new-piece", title: "New piece", root: "div",
   canvas: { width: 1000, height: 543, background: null },
   trigger: { on: "view", threshold: 0.25, replay: true },
@@ -186,7 +198,7 @@ function addElement(type) {
 
 // ---------------------------------------------------------------- preview
 function previewHtml(s) {
-  try { return renderScene(s, { allowInvalid: true, includeRuntime: false, fontInfo: googleFont }); }
+  try { return renderScene(s, { allowInvalid: true, includeRuntime: false, fontInfo: googleFont, asColumn: true }); }
   catch (e) { return `<p style="color:#b3261e">Can't draw this scene: ${e.message}</p>`; }
 }
 function renderPreview() {
@@ -194,12 +206,18 @@ function renderPreview() {
   // while drawing a brush path, show the finished frame so the whole image is there to trace
   p.className = `preview ${view === "phone" ? "phone" : ""} f-${isBrushing() ? "end" : frame}`;
   p.innerHTML = previewHtml(scene);
+  // preview only: the story's page colour behind the piece (the checkerboard means "transparent")
+  $("#stage").style.background = scene.page || "";
   highlight();
   setOverlayHidden(false);
   if (scrubT != null) applyScrub();
   const M = scene.mobile;
+  const scr = isScreenFit(scene), crop = scene.canvas.fit === "cover";
   $("#stageNote").textContent = view === "phone"
-    ? (M ? `Phone layout: below ${M.below}px wide the ${M.width}×${M.height} canvas is used. Position fields now edit the phone layout.` : "No phone layout: the desktop design is scaled down. Turn one on in Scene settings.")
+    ? (M ? (scr ? `Phone layout: on screens taller than they are wide the ${M.width}×${M.height} canvas is used${crop ? ", filling the screen (edges may be cropped)" : ""}. Position fields now edit the phone layout.`
+              : `Phone layout: below ${M.below}px wide the ${M.width}×${M.height} canvas is used. Position fields now edit the phone layout.`)
+         : "No phone layout: the desktop design is scaled down. Turn one on in Scene settings.")
+    : scr ? `Full screen: ${scene.canvas.width}×${scene.canvas.height} canvas, ${crop ? "scaled to fill the window — on screens of a different shape the edges are cropped, so keep text away from them" : "scaled to fit inside the window, with bands of background on screens of a different shape"}.`
     : `Desktop layout: ${scene.canvas.width}×${scene.canvas.height} canvas, scaled to fit the column. Story fonts show here only if installed on this computer.`;
   scheduleMeasure();
 }
@@ -462,10 +480,24 @@ function sceneProps() {
     select("Wrapper element", S, "root", [{ value: "div", label: "div — no special meaning" }, { value: "figure", label: "figure — quote or image with caption" }, { value: "section", label: "section" }, { value: "header", label: "header — e.g. an animated title" },
       { value: "h1", label: "H1 heading — words are parts of one title" }, { value: "h2", label: "H2 heading — words are parts of one heading" }, { value: "h3", label: "H3 heading" }], { fallback: "div" }),
     text("Label for screen readers (optional)", S, "label", { optional: true, placeholder: "e.g. Quote from Cyrus Ardalan" })));
+  const scr = isScreenFit(scene);
   out.push(section("Canvas",
+    select("Size on the page", C, "fit", [{ value: "column", label: "Fits the column it sits in" },
+      { value: "contain", label: "Full screen — all of it shows (bands take the background colour)" }, { value: "cover", label: "Full screen — fills edge to edge, edges may crop" }],
+      { fallback: "column", rerender: true, apply: (v) => {
+        if (v === "column") delete scene.canvas.fit; else scene.canvas.fit = v;
+        // going full screen: give it an upright layout for phones, if it has none
+        if (v !== "column" && !scene.mobile) scene.mobile = { below: 560, width: scene.canvas.height, height: scene.canvas.width };
+      } }),
     grid(2, num("Width", C, "width", { min: 1 }), num("Height", C, "height", { min: 1 })),
     colour("Background", C, "background", { optional: true, placeholder: "transparent" }),
-    h("p", { class: "helper" }, "Canvas units, not pixels: the piece scales to the width of the column it sits in.")));
+    h("div", { class: "actions" }, h("button", { type: "button", class: "secondary mini", disabled: !scene.canvas.background,
+      onclick: () => { delete scene.canvas.background; commit(); renderProps(); } }, "Make transparent")),
+    h("p", { class: "helper" }, scene.canvas.background ? "The piece has its own background colour." : "Transparent: the story's page colour shows through."),
+    colour("Preview on page colour", S, "page", { optional: true, placeholder: "white" }),
+    h("p", { class: "helper" }, "Editor only — set it to the story's page tint to see how the piece sits on it. Not part of the code."),
+    h("p", { class: "helper" }, scr ? "Canvas units, not pixels: the piece fills the screen height and the width of its block — set the Shorthand section to full width."
+      : "Canvas units, not pixels: the piece scales to the width of the column it sits in.")));
   out.push(section("Animation trigger",
     select("Play", T, "on", [{ value: "view", label: "When scrolled into view" }, { value: "load", label: "As soon as the page loads" }], { rerender: true }),
     T().on === "view" ? grid(2,
@@ -474,10 +506,13 @@ function sceneProps() {
   const hasM = !!scene.mobile;
   out.push(section("Phone layout",
     check("Use a separate phone layout", S, "mobile", { apply: (on) => {
-      if (on) scene.mobile = { below: 560, width: 375, height: Math.round(scene.canvas.height / scene.canvas.width * 375 * 1.5) };
+      if (on) scene.mobile = isScreenFit(scene) ? { below: 560, width: scene.canvas.height, height: scene.canvas.width }
+        : { below: 560, width: 375, height: Math.round(scene.canvas.height / scene.canvas.width * 375 * 1.5) };
       else { delete scene.mobile; scene.elements.forEach((e) => delete e.m); }
     }, rerender: true }),
-    hasM ? [grid(3, num("Below (px)", () => scene.mobile, "below", { min: 200 }), num("Width", () => scene.mobile, "width", { min: 1 }), num("Height", () => scene.mobile, "height", { min: 1 })),
+    hasM ? [scr ? grid(2, num("Width", () => scene.mobile, "width", { min: 1 }), num("Height", () => scene.mobile, "height", { min: 1 }))
+        : grid(3, num("Below (px)", () => scene.mobile, "below", { min: 200 }), num("Width", () => scene.mobile, "width", { min: 1 }), num("Height", () => scene.mobile, "height", { min: 1 })),
+      scr ? h("p", { class: "helper" }, "Full screen: used whenever the screen is taller than it is wide (phones held upright).") : null,
       h("p", { class: "helper" }, "Switch the preview to Phone to arrange it. Layers you don't move keep their desktop position, scaled."),
       h("div", { class: "actions" }, h("button", { type: "button", class: "secondary mini", onclick: copyDesktopToPhone }, "Copy desktop positions to phone"))]
       : h("p", { class: "helper" }, "Without one, the desktop design is scaled down on phones — fine for big type, too small for long quotes.")));
@@ -880,15 +915,19 @@ function wire() {
   $("#playBtn").addEventListener("click", play);
   $("#undoBtn").addEventListener("click", undo);
   $("#redoBtn").addEventListener("click", redo);
-  $("#newBtn").addEventListener("click", async () => {
-    if (!confirm("Start a new piece? You can undo this.")) return;
-    const s = blankScene(), last = store.get(LASTKIT_KEY);
+  $("#newBtn").addEventListener("click", () => {
+    // the kind picked last time is the default
+    openModal("#newModal"); $(`#newModal [data-new="${store.get(LASTKIND_KEY) || "screen"}"]`)?.focus();
+  });
+  $$("[data-new]").forEach((b) => b.addEventListener("click", async () => {
+    closeModals(); store.set(LASTKIND_KEY, b.dataset.new);
+    const s = blankScene(b.dataset.new), last = store.get(LASTKIT_KEY);
     if (last) {
       try { const k = await loadKit(last); s.kit = { id: k.id, label: k.label }; s.styles = kitStyles(k, s.canvas.width); toast(`New piece with the ${k.label} kit`); }
       catch { /* kit gone: plain piece */ }
     }
     setScene(s);
-  });
+  }));
   $("#openBtn").addEventListener("click", () => openModal("#openModal"));
   $("#libraryBtn").addEventListener("click", () => openLibrary());
   $("#exportBtn").addEventListener("click", () => { openModal("#exportModal"); showTab(validate(scene).errors.length ? "json" : tab); });
@@ -971,7 +1010,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=09e0dde").then((r) => r.text()), fetch("../runtime/ha.js?v=09e0dde").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=c3de504").then((r) => r.text()), fetch("../runtime/ha.js?v=c3de504").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

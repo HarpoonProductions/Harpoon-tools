@@ -305,3 +305,9 @@ button.lib-status { border: 0; cursor: pointer; font: inherit; font-size: 12px; 
 fieldset.flash { animation: flashFs 1.6s ease-out; border-radius: 8px; }
 /* a placed piece's bar in the timeline */
 .tl-bar.group { background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.18) 0 6px, transparent 6px 12px); }
+/* Place a piece: the library as a chooser; the file input tucked away */
+.lib-placing { margin: 0 0 10px; }
+.lib-card .lib-open:disabled { cursor: not-allowed; opacity: .5; }
+.place-file { margin-top: 8px; font-size: 13px; }
+.place-file summary { cursor: pointer; color: #555; }
+.place-file input { margin-top: 6px; }

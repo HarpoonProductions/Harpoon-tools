@@ -216,13 +216,15 @@ export function forgetRef() { setRef(null); }
 
 // ---------------------------------------------------------------- the library window
 let modal = null;
+let placing = false; // the library opened to choose a piece to place inside this one
 function closeLibrary() { modal?.remove(); modal = null; }
-export async function openLibrary() {
+export async function openLibrary({ place = false } = {}) {
   closeLibrary();
+  placing = !!place;
   const body = h("div", { class: "modal__body lib-body" }, h("p", { class: "helper" }, "Loading…"));
   modal = h("div", { class: "modal open", "aria-hidden": "false", onclick: (e) => { if (e.target === modal) closeLibrary(); } },
     h("div", { class: "modal__box wide lib-box", role: "dialog", "aria-modal": "true", "aria-label": "Library" },
-      h("div", { class: "modal__head" }, h("h2", {}, "Library"), h("button", { type: "button", class: "secondary mini", onclick: closeLibrary }, "Close")),
+      h("div", { class: "modal__head" }, h("h2", {}, placing ? "Place a piece inside this one" : "Library"), h("button", { type: "button", class: "secondary mini", onclick: closeLibrary }, "Close")),
       body));
   document.body.append(modal);
   await render(body);
@@ -302,7 +304,8 @@ async function libraryView(body) {
     h("div", { class: "lib-bar" },
       h("span", { class: "helper" }, `Signed in as ${me.email}${backend.kind === "mock" ? " (test library)" : ""}`),
       h("button", { type: "button", class: "link-btn", onclick: async () => { await backend.signOut(); me = null; render(body); } }, "Sign out")),
-    currentView(current, body),
+    placing ? h("p", { class: "helper lib-placing" }, `Choose a piece to add to “${api.getScene().title || "this piece"}” as one movable, resizable layer. It's a copy: changing the original later won't change it.`)
+      : currentView(current, body),
     h("div", { class: "lib-tools" }, search, pickClient),
     grid,
   ];
@@ -356,6 +359,15 @@ function card(r, body) {
   const thumb = h("div", { class: "lib-thumb f-end" });
   thumb.innerHTML = api.renderStatic(thumbScene);
   const isCurrent = ref && ref.id === r.id;
+  const place = () => { closeLibrary(); api.placeScene(r.scene); };
+  if (placing) return h("article", { class: `lib-card${isCurrent ? " current" : ""}` },
+    h("button", { type: "button", class: "lib-open", title: isCurrent ? "This is the piece you're editing" : "Place this piece", disabled: isCurrent || !r.scene, onclick: place }, thumb),
+    h("div", { class: "lib-meta" },
+      h("b", {}, r.title),
+      h("span", {}, [r.client_label, r.story].filter(Boolean).join(" · ") || "No client"),
+      h("span", { class: "helper" }, `${ago(r.updated_at)}${isCurrent ? " · open now" : ""}`)),
+    h("div", { class: "lib-actions" }, isCurrent ? h("span", { class: "helper" }, "Can't place a piece inside itself")
+      : h("button", { type: "button", class: "primary mini", onclick: place }, "Place")));
   return h("article", { class: `lib-card${isCurrent ? " current" : ""}` },
     h("button", { type: "button", class: "lib-open", title: "Open this piece", onclick: () => openRow(r.id) }, thumb),
     h("div", { class: "lib-meta" },

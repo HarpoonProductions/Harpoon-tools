@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan } from "../src/render.js?v=7de185a";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=7de185a";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=7de185a";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan } from "../src/render.js?v=18bfa7f";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=18bfa7f";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=18bfa7f";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=7de185a"), import("./fonts.js?v=7de185a"), import("./library.js?v=7de185a")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=18bfa7f"), import("./fonts.js?v=18bfa7f"), import("./library.js?v=18bfa7f")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=7de185a"); }
+  try { mod = await import("../src/import-infogram.js?v=18bfa7f"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -1001,6 +1001,7 @@ function wire() {
   }));
   $("#openBtn").addEventListener("click", () => openModal("#openModal"));
   $("#libraryBtn").addEventListener("click", () => openLibrary());
+  $("#placeFromLibrary").addEventListener("click", () => { closeModals(); openLibrary({ place: true }); });
   $("#exportBtn").addEventListener("click", () => { openModal("#exportModal"); showTab(validate(scene).errors.length ? "json" : tab); });
   $$("[data-close]").forEach((b) => b.addEventListener("click", closeModals));
   $$(".modal").forEach((m) => m.addEventListener("click", (e) => { if (e.target === m) closeModals(); }));
@@ -1086,7 +1087,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=7de185a").then((r) => r.text()), fetch("../runtime/ha.js?v=7de185a").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=18bfa7f").then((r) => r.text()), fetch("../runtime/ha.js?v=18bfa7f").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

@@ -2,10 +2,10 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=53efcc8";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=53efcc8";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=53efcc8";
-import { richText } from "./richtext.js?v=53efcc8";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=84f9a1b";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=84f9a1b";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=84f9a1b";
+import { richText } from "./richtext.js?v=84f9a1b";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -17,7 +17,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=53efcc8"), import("./fonts.js?v=53efcc8"), import("./library.js?v=53efcc8")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=84f9a1b"), import("./fonts.js?v=84f9a1b"), import("./library.js?v=84f9a1b")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -25,7 +25,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=53efcc8"); }
+  try { mod = await import("../src/import-infogram.js?v=84f9a1b"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -487,9 +487,20 @@ function rtFonts() {
   Object.values(scene.styles || {}).forEach((st) => add(st, st.family));
   return [...out.values()];
 }
+// The kit's sizes and weights for the word toolbar. units: the width of the canvas the layer's size is measured in;
+// styles(): the type styles that apply to it (the piece's own, for a layer inside a placed piece).
+function rtType(get, units, styles) {
+  const SIZE_NAMES = { display: "Display", heading: "Heading", body: "Body", caption: "Caption", kicker: "Kicker" };
+  return {
+    baseSize: () => { const e = get(); return e.size ?? (styles() || {})[e.style]?.size ?? 16; },
+    sizes: () => (kit ? Object.entries(kitStyles(kit, units)).map(([n, s]) => ({ label: `${SIZE_NAMES[n] || n} ${s.size}`, size: s.size })) : []),
+    weights: () => (kit ? Object.entries(kit.weights).map(([n, v]) => ({ label: `${n.charAt(0).toUpperCase() + n.slice(1)} ${v}`, value: v }))
+      : [300, 400, 500, 600, 700, 800].map((v) => ({ label: String(v), value: v }))),
+  };
+}
 // The words of a text layer, with a toolbar for styling some of them
-function richField(get, label = "Text", undoKey = "rt") {
-  const r = richText({ get, label, swatches: rtSwatches, fonts: rtFonts, commit: (typing) => commit(typing ? undoKey : undefined) });
+function richField(get, label = "Text", undoKey = "rt", units = scene.canvas.width, styles = () => scene.styles) {
+  const r = richText({ get, label, swatches: rtSwatches, fonts: rtFonts, ...rtType(get, units, styles), commit: (typing) => commit(typing ? undoKey : undefined) });
   return h("div", { class: "f rt-field" }, h("span", {}, label), r.el,
     h("span", { class: "helper" }, "Select words to make them bold, italic, another colour, font or size."));
 }
@@ -837,7 +848,7 @@ function groupTextSection(g) {
           h("b", {}, path.join(" › ")),
           h("button", { type: "button", class: "danger mini", title: "Take this text out of this copy",
             onclick: () => { if (removeInGroup(elById(gid), path)) { commit(); renderProps(); toast(`Removed “${path.join(" › ")}”`); } } }, "Remove")),
-        richField(G, "Text", "rt-" + gid + "-" + path.join("-")),
+        richField(G, "Text", "rt-" + gid + "-" + path.join("-"), (findHolder(elById(gid), path)?.canvas || {}).width || 1000, () => findStyles(elById(gid), path)),
         h("details", { class: "group-look", open: own || null },
           h("summary", {}, own ? "Styling (changed in this copy)" : "Styling"),
           h("p", { class: "helper" }, `Blank = the piece's ${el.style ? `“${el.style}” ` : ""}type style.`),
@@ -1380,7 +1391,7 @@ const api = {
   scrubTo, endScrub, getScrub: () => scrubT,
   loadScene: (s) => setScene(s, [], { keepLibrary: true }),
   renderStatic: (s) => previewHtml(s),
-  renderPreview, brushOf, brushPathD, placeScene, groupSpan, groupPhoneBox, rtSwatches, rtFonts,
+  renderPreview, brushOf, brushPathD, placeScene, groupSpan, groupPhoneBox, rtSwatches, rtFonts, rtType,
 };
 async function start() {
   await loadOptionalParts();
@@ -1388,7 +1399,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=53efcc8").then((r) => r.text()), fetch("../runtime/ha.js?v=53efcc8").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=84f9a1b").then((r) => r.text()), fetch("../runtime/ha.js?v=84f9a1b").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

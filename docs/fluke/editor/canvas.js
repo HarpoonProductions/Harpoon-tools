@@ -1,7 +1,7 @@
 // Fluke editor — on-canvas editing: selection box, move / resize / rotate handles, snapping guides.
 // Works in canvas units. In Phone or Square view (with that layout on) it edits the layer's overrides for it (e.m / e.s).
 
-import { richText } from "./richtext.js?v=53efcc8";
+import { richText } from "./richtext.js?v=84f9a1b";
 
 let api = null;
 const SNAP_PX = 6;          // snap distance on screen
@@ -253,7 +253,7 @@ export function initCanvas(a) {
       .filter((n) => n.classList?.contains("ha-text") && n.closest("#preview")).map(elementIdFromNode).filter(Boolean);
     const cur = selected();
     const id = cur?.type === "text" && (under.includes(cur.id) || ev.target.closest(".sel-box")) ? cur.id : under[0];
-    if (id) { ev.preventDefault(); startTextEdit(id); }
+    if (id) { ev.preventDefault(); startTextEdit(id, { x: ev.clientX, y: ev.clientY }); }
   });
   new ResizeObserver(() => drawOverlay()).observe($("#preview"));
   addEventListener("resize", () => drawOverlay());
@@ -262,7 +262,7 @@ export function initCanvas(a) {
 // ---------------------------------------------------------------- edit text in place
 // A textarea laid exactly over the layer, in the layer's own font, size, spacing, colour and alignment, so it wraps
 // the way the piece will. The real text is hidden underneath while you type; each keystroke updates the scene.
-export function startTextEdit(id) {
+export function startTextEdit(id, at = null) {
   if (editing) finishTextEdit();
   const e = api.scene.elements.find((x) => x.id === id);
   if (!e || e.type !== "text") return;
@@ -279,7 +279,7 @@ export function startTextEdit(id) {
   // the words, in the layer's own font, with the word-styling toolbar just above
   const key = "g:text-" + id + "-" + ++gestureId;
   const get = () => api.scene.elements.find((x) => x.id === id) || {};
-  const rt = richText({ get, label: `Text of ${id}`, swatches: api.rtSwatches, fonts: api.rtFonts, compact: true,
+  const rt = richText({ get, label: `Text of ${id}`, swatches: api.rtSwatches, fonts: api.rtFonts, ...api.rtType(get, api.scene.canvas.width, () => api.scene.styles), compact: true,
     commit: (typing) => { if (!api.scene.elements.some((x) => x.id === id)) return finishTextEdit(); api.commit(typing ? key : undefined); } });
   const ta = rt.box;
   ta.classList.add("text-edit");
@@ -317,7 +317,7 @@ export function startTextEdit(id) {
   requestAnimationFrame(placeBar);
   editing = id;
   setOverlayHidden(true);
-  rt.focus(true);
+  if (at) rt.focusAt(at.x, at.y); else rt.focus(true);
 }
 export function finishTextEdit() {
   if (!editing) return;

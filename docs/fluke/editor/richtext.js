@@ -3,7 +3,7 @@
 // colour, another font or another size. The layer keeps `text` (the plain words, used everywhere else) and, only when
 // some words are styled, `runs`: the same words in pieces, each with its own look (see RUN_KEYS in src/render.js).
 
-import { RUN_KEYS, runsOf } from "../src/render.js?v=53efcc8";
+import { RUN_KEYS, runsOf } from "../src/render.js?v=84f9a1b";
 
 const SIZES = [0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 2, 2.5, 3];
 
@@ -117,7 +117,7 @@ const h = (tag, attrs = {}, ...kids) => {
  *   fonts()      → [{ family, source, fallback, label }] fonts to offer
  * Returns { el (box + toolbar), box, bar, focus(all) }.
  */
-export function richText({ get, commit, swatches = () => [], fonts = () => [], label = "Text", compact = false }) {
+export function richText({ get, commit, swatches = () => [], fonts = () => [], sizes = () => [], baseSize = () => 0, weights = () => [], label = "Text", compact = false }) {
   const box = h("div", { class: "rt-box", contenteditable: "true", role: "textbox", "aria-multiline": "true", "aria-label": label, spellcheck: "true" });
   paint(box, runsFor(get()));
   let last = null; // the selection when the box last had it, for toolbar controls that take focus
@@ -161,14 +161,15 @@ export function richText({ get, commit, swatches = () => [], fonts = () => [], l
   pickColour.addEventListener("input", () => apply({ color: pickColour.value.toUpperCase() }));
   const font = h("select", { class: "rt-select", "aria-label": "Font of the selected words", title: "Font" });
   font.addEventListener("change", () => { const f = font.value ? JSON.parse(font.value) : null; apply(f ? { family: f.family, source: f.source, fallback: f.fallback } : { family: null, source: null, fallback: null }); });
-  const size = h("select", { class: "rt-select", "aria-label": "Size of the selected words", title: "Size, compared with the rest of the text" },
-    SIZES.map((v) => h("option", { value: v }, v === 1 ? "Size: as the text" : `${Math.round(v * 100)}%`)));
+  const size = h("select", { class: "rt-select", "aria-label": "Size of the selected words", title: "Size of the selected words" });
   size.addEventListener("change", () => apply({ size: +size.value === 1 ? null : +size.value }));
+  const weight = h("select", { class: "rt-select", "aria-label": "Weight of the selected words", title: "Weight of the selected words" });
+  weight.addEventListener("change", () => apply({ weight: weight.value ? +weight.value : null }));
   const clear = h("button", { type: "button", class: "rt-btn", title: "Take the styling off the selected words", onmousedown: keep,
     onclick: () => apply(Object.fromEntries(RUN_KEYS.map((k) => [k, null]))) }, "Clear");
   const note = h("span", { class: "rt-note" });
   const bar = h("div", { class: `rt-bar${compact ? " compact" : ""}`, role: "toolbar", "aria-label": "Style the selected words" },
-    btnB, btnI, colours, pickColour, font, size, clear, note);
+    btnB, btnI, colours, pickColour, font, weight, size, clear, note);
 
   function fillChoices() {
     colours.replaceChildren(...swatches().map((s) => h("button", { type: "button", class: "sw rt-sw", style: `background:${s.value}`, title: s.name, "aria-label": s.name,
@@ -176,11 +177,21 @@ export function richText({ get, commit, swatches = () => [], fonts = () => [], l
       h("button", { type: "button", class: "rt-btn rt-x", title: "Back to the text's own colour", "aria-label": "Text's own colour", onmousedown: keep, onclick: () => apply({ color: null }) }, "×"));
     font.replaceChildren(h("option", { value: "" }, "Font: as the text"),
       ...fonts().map((f) => h("option", { value: JSON.stringify({ family: f.family, source: f.source || "story", fallback: f.fallback || "" }) }, f.label || f.family)));
+    // sizes: the kit's type sizes (shown in canvas units, stored as a multiple of this text's size), then relative ones
+    const base = baseSize(), mult = (v) => String(Math.round(v * 1000) / 1000);
+    const kitSizes = base > 0 ? sizes().filter((s) => s.size > 0) : [];
+    size.replaceChildren(h("option", { value: "1" }, "Size: as the text"),
+      kitSizes.length ? h("optgroup", { label: "Kit sizes" }, kitSizes.map((s) => h("option", { value: mult(s.size / base) }, s.label))) : null,
+      h("optgroup", { label: "Compared with the text" }, SIZES.filter((v) => v !== 1).map((v) => h("option", { value: mult(v) }, `${Math.round(v * 100)}%`))));
+    const ws = weights();
+    weight.replaceChildren(h("option", { value: "" }, "Weight: as the text"), ...ws.map((w) => h("option", { value: w.value }, w.label)));
   }
   function refresh() {
     const sel = offsets(box) || last; const st = sel ? styleAt(read(box), sel[0], sel[1]) : {};
     btnB.setAttribute("aria-pressed", !!st.b); btnI.setAttribute("aria-pressed", !!st.i);
-    size.value = String(st.size || 1);
+    const sv = String(Math.round((st.size || 1) * 1000) / 1000);
+    size.value = [...size.querySelectorAll("option")].some((o) => o.value === sv) ? sv : "1";
+    weight.value = st.weight && [...weight.options].some((o) => o.value === String(st.weight)) ? String(st.weight) : "";
     const fv = [...font.options].find((o) => o.value && JSON.parse(o.value).family === st.family);
     font.value = st.family ? (fv ? fv.value : "") : "";
   }
@@ -192,5 +203,16 @@ export function richText({ get, commit, swatches = () => [], fonts = () => [], l
   return {
     el, box, bar,
     focus(all = false) { box.focus(); if (all) select(box, 0, box.textContent.length); },
+    // put the caret where the screen point is and select the word there (opening by double-click)
+    focusAt(x, y) {
+      box.focus();
+      const pos = document.caretPositionFromPoint ? document.caretPositionFromPoint(x, y) : null;
+      const r = pos ? (() => { const q = document.createRange(); q.setStart(pos.offsetNode, pos.offset); return q; })() : document.caretRangeFromPoint?.(x, y);
+      if (!r || !box.contains(r.startContainer)) { select(box, box.textContent.length, box.textContent.length); return; }
+      const pre = document.createRange(); pre.selectNodeContents(box); pre.setEnd(r.startContainer, r.startOffset);
+      const at = pre.toString().length, txt = box.textContent;
+      let a = at, b = at; while (a > 0 && /[\p{L}\p{N}'’-]/u.test(txt[a - 1])) a--; while (b < txt.length && /[\p{L}\p{N}'’-]/u.test(txt[b])) b++;
+      select(box, a, b); last = [a, b]; refresh();
+    },
   };
 }

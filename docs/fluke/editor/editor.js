@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan } from "../src/render.js?v=18bfa7f";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=18bfa7f";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=18bfa7f";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan } from "../src/render.js?v=45953f3";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=45953f3";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=45953f3";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=18bfa7f"), import("./fonts.js?v=18bfa7f"), import("./library.js?v=18bfa7f")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=45953f3"), import("./fonts.js?v=45953f3"), import("./library.js?v=45953f3")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=18bfa7f"); }
+  try { mod = await import("../src/import-infogram.js?v=45953f3"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -971,14 +971,84 @@ function showTab(t) {
   $("#exportSize").textContent = `${(new Blob([txt]).size / 1024).toFixed(1)} KB`;
 }
 
+
+// ---------------------------------------------------------------- zoom (editor only: the piece itself doesn't change)
+// "Fit" is the normal view. Zooming widens the preview and the stage scrolls; the overlay works from screen positions,
+// so selecting, dragging and brush drawing carry on working at any zoom.
+const ZOOMS = [1, 1.5, 2, 3, 4, 6, 8], ZMAX = 8;
+let zoom = 1;
+function fitWidth() {
+  const st = $("#stage"), cs = getComputedStyle(st);
+  return Math.min(st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), view === "phone" ? 375 : 900);
+}
+function applyZoom() {
+  const p = $("#preview"), inner = $("#stageInner");
+  $("#stage").classList.toggle("zoomed", zoom > 1);
+  if (zoom === 1) { p.style.width = p.style.maxWidth = inner.style.width = ""; }
+  else { const w = Math.round(fitWidth() * zoom); p.style.width = w + "px"; p.style.maxWidth = "none"; inner.style.width = w + "px"; }
+  $("#zoomLabel").textContent = zoom === 1 ? "Fit" : `${Math.round(zoom * 100)}%`;
+  $("#zoomOut").disabled = zoom <= 1; $("#zoomIn").disabled = zoom >= ZMAX;
+}
+// at: the screen point that should stay put (or, with `to`, end up at `to`)
+function setZoom(z, at = null, to = at) {
+  z = Math.max(1, Math.min(ZMAX, Math.round(z * 100) / 100));
+  if (z === zoom) return;
+  const st = $("#stage"), sr = st.getBoundingClientRect();
+  const mid = { x: sr.left + st.clientWidth / 2, y: sr.top + Math.min(st.clientHeight, innerHeight - sr.top) / 2 };
+  if (!at) {
+    // buttons and keys zoom in on the selected layer, if there is one
+    const node = sel.kind === "element" ? $(`#preview .ha-e-${slug(sel.id)}`) : null, r = node?.getBoundingClientRect();
+    if (r && r.width) { at = { x: r.left + r.width / 2, y: r.top + r.height / 2 }; to = mid; } else at = to = mid;
+  }
+  const p0 = $("#preview").getBoundingClientRect();
+  const fx = (at.x - p0.left) / p0.width, fy = (at.y - p0.top) / p0.height;
+  zoom = z; applyZoom();
+  const p1 = $("#preview").getBoundingClientRect();
+  st.scrollLeft += p1.left + fx * p1.width - to.x;
+  st.scrollTop += p1.top + fy * p1.height - to.y;
+  drawOverlay();
+}
+const zoomStep = (dir) => setZoom(dir > 0 ? ZOOMS.find((z) => z > zoom + 0.01) ?? ZMAX : [...ZOOMS].reverse().find((z) => z < zoom - 0.01) ?? 1);
+function wireZoom() {
+  const st = $("#stage");
+  $("#zoomIn").addEventListener("click", () => zoomStep(1));
+  $("#zoomOut").addEventListener("click", () => zoomStep(-1));
+  $("#zoomLabel").addEventListener("click", () => setZoom(1));
+  // pinch on a trackpad, or Cmd/Ctrl + scroll wheel, zooms around the pointer
+  st.addEventListener("wheel", (ev) => {
+    if (!ev.ctrlKey && !ev.metaKey) return;
+    ev.preventDefault();
+    setZoom(zoom * Math.exp(-ev.deltaY * (ev.ctrlKey && !ev.metaKey ? 0.01 : 0.002)), { x: ev.clientX, y: ev.clientY });
+  }, { passive: false });
+  // hold Space and drag to move around
+  let space = false;
+  const typingIn = (t) => t instanceof Element && t.closest("input, textarea, select, button, [contenteditable], .anim-pop");
+  document.addEventListener("keydown", (ev) => {
+    if (ev.code === "Space" && zoom > 1 && !typingIn(ev.target) && !$(".modal.open")) { ev.preventDefault(); if (!space) { space = true; st.classList.add("panning"); } }
+  });
+  document.addEventListener("keyup", (ev) => { if (ev.code === "Space") { space = false; st.classList.remove("panning"); } });
+  st.addEventListener("pointerdown", (ev) => {
+    if (!space) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const x0 = ev.clientX, y0 = ev.clientY, l0 = st.scrollLeft, t0 = st.scrollTop;
+    st.setPointerCapture(ev.pointerId); st.classList.add("grabbing");
+    const move = (m) => { st.scrollLeft = l0 - (m.clientX - x0); st.scrollTop = t0 - (m.clientY - y0); };
+    const up = () => { st.classList.remove("grabbing"); st.removeEventListener("pointermove", move); st.removeEventListener("pointerup", up); st.removeEventListener("pointercancel", up); };
+    st.addEventListener("pointermove", move); st.addEventListener("pointerup", up); st.addEventListener("pointercancel", up);
+  }, true);
+  addEventListener("resize", () => { if (zoom > 1) { applyZoom(); drawOverlay(); } });
+  applyZoom();
+}
+
 // ---------------------------------------------------------------- wiring
 function wire() {
+  wireZoom();
   $("#sceneBtn").addEventListener("click", () => choose({ kind: "scene" }, { reveal: true }));
   $("#libStatus").addEventListener("click", () => saveToLibrary());
   $("#addStyleBtn").addEventListener("click", addStyle);
   $$("[data-add]").forEach((b) => b.addEventListener("click", () => addElement(b.dataset.add)));
   $$("[data-view]").forEach((b) => b.addEventListener("click", () => {
-    view = b.dataset.view; $$("[data-view]").forEach((x) => x.setAttribute("aria-pressed", x === b)); renderPreview(); renderProps();
+    view = b.dataset.view; $$("[data-view]").forEach((x) => x.setAttribute("aria-pressed", x === b)); renderPreview(); applyZoom(); renderProps();
   }));
   $$("[data-frame]").forEach((b) => b.addEventListener("click", () => {
     frame = b.dataset.frame; scrubT = null; hidePlayhead(); $$("[data-frame]").forEach((x) => x.setAttribute("aria-pressed", x === b)); renderPreview();
@@ -1051,6 +1121,10 @@ function wire() {
     const typing = ev.target instanceof Element && ev.target.closest("input, textarea, select, [contenteditable], .anim-pop");
     if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "z" && !typing) { ev.preventDefault(); ev.shiftKey ? redo() : undo(); return; }
     if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "s") { ev.preventDefault(); saveToLibrary(); return; }
+    // Cmd+ / Cmd- / Cmd0 zoom the canvas, not the whole page
+    if ((ev.metaKey || ev.ctrlKey) && !typing && !$(".modal.open") && ["=", "+", "-", "_", "0"].includes(ev.key)) {
+      ev.preventDefault(); if (ev.key === "0") setZoom(1); else zoomStep(ev.key === "-" || ev.key === "_" ? -1 : 1); return;
+    }
     if (!typing && sel.kind === "element" && (ev.key === "Delete" || ev.key === "Backspace") && !$(".modal.open")) {
       ev.preventDefault(); scene.elements = scene.elements.filter((x) => x.id !== sel.id); sel = { kind: "scene" }; commit(); renderProps(); drawOverlay(); return;
     }
@@ -1087,7 +1161,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=18bfa7f").then((r) => r.text()), fetch("../runtime/ha.js?v=18bfa7f").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=45953f3").then((r) => r.text()), fetch("../runtime/ha.js?v=45953f3").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

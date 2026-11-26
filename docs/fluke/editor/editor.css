@@ -311,3 +311,12 @@ fieldset.flash { animation: flashFs 1.6s ease-out; border-radius: 8px; }
 .place-file { margin-top: 8px; font-size: 13px; }
 .place-file summary { cursor: pointer; color: #555; }
 .place-file input { margin-top: 6px; }
+/* zoom (editor only) */
+.preview-bar .zoom { margin-left: auto; }
+.zoom .seg-btn { min-width: 30px; font-variant-numeric: tabular-nums; }
+.zoom #zoomLabel { min-width: 52px; }
+.zoom .seg-btn:disabled { opacity: .35; cursor: default; }
+.stage.zoomed { overflow: auto; max-height: 72vh; overscroll-behavior: contain; }
+.stage.zoomed .stage-inner { margin: 0 auto; }
+.stage.panning, .stage.panning * { cursor: grab !important; }
+.stage.grabbing, .stage.grabbing * { cursor: grabbing !important; }

@@ -2,9 +2,10 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=243e3bf";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=243e3bf";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=243e3bf";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=53efcc8";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=53efcc8";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=53efcc8";
+import { richText } from "./richtext.js?v=53efcc8";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +17,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=243e3bf"), import("./fonts.js?v=243e3bf"), import("./library.js?v=243e3bf")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=53efcc8"), import("./fonts.js?v=53efcc8"), import("./library.js?v=53efcc8")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +25,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=243e3bf"); }
+  try { mod = await import("../src/import-infogram.js?v=53efcc8"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -474,6 +475,24 @@ function pieceColours() {
   add(scene.canvas?.background);
   return [...seen].slice(0, 18);
 }
+// What the word-styling toolbar offers: the kit's colours and fonts first, then what the piece already uses
+function rtSwatches() {
+  const kitOnes = kit ? kit.swatches.map((sw) => ({ value: `var(--hse-${sw.token}, ${sw.hex})`, name: `${sw.name} ${sw.hex}` })) : [];
+  return [...kitOnes, ...pieceColours().filter((v) => !(kit && linkedToken(v))).map((v) => ({ value: v, name: v }))];
+}
+function rtFonts() {
+  const out = new Map();
+  const add = (f, label) => { if (f?.family && !out.has(f.family)) out.set(f.family, { family: f.family, source: f.source || "story", fallback: f.fallback || "", label }); };
+  if (kit) { add({ ...kit.fonts.display, source: kit.fontSource(kit.fonts.display.family) }, `${kit.fonts.display.family} (kit display)`); add({ ...kit.fonts.body, source: kit.fontSource(kit.fonts.body.family) }, `${kit.fonts.body.family} (kit body)`); }
+  Object.values(scene.styles || {}).forEach((st) => add(st, st.family));
+  return [...out.values()];
+}
+// The words of a text layer, with a toolbar for styling some of them
+function richField(get, label = "Text", undoKey = "rt") {
+  const r = richText({ get, label, swatches: rtSwatches, fonts: rtFonts, commit: (typing) => commit(typing ? undoKey : undefined) });
+  return h("div", { class: "f rt-field" }, h("span", {}, label), r.el,
+    h("span", { class: "helper" }, "Select words to make them bold, italic, another colour, font or size."));
+}
 const linkedToken = (v) => (String(v || "").match(/^var\(--hse-([a-z0-9-]+)\s*,/) || [])[1] || null;
 function colour(label, getObj, key, opts = {}) {
   const v = getObj()[key] || "";
@@ -670,7 +689,7 @@ function elementProps(id) {
       : num("Size", E, "size", { optional: true, step: 0.5, placeholder: st.size ?? "" });
     out.push(section("Text",
       lk ? h("p", { class: "phone-flag" }, `${lk === "m" ? "📱 Size changes here apply to phones only" : "◻︎ Size changes here apply to the square layout only"}. The words, weight, colour and line height are shared with desktop.`) : null,
-      text("Text", E, "text", { multiline: true }),
+      richField(E, "Text", "rt-" + e.id),
       grid(2, select("What it is", E, "tag", TAGS, { fallback: "p" }), select("Align", E, "align", ["left", "center", "right"], { fallback: "left", optional: true })),
       select("Type style", E, "style", [{ value: "", label: "(none)" }, ...Object.keys(scene.styles || {})], { optional: true, rerender: true }),
       h("p", { class: "helper" }, "Leave these blank to use the type style."),
@@ -818,7 +837,7 @@ function groupTextSection(g) {
           h("b", {}, path.join(" › ")),
           h("button", { type: "button", class: "danger mini", title: "Take this text out of this copy",
             onclick: () => { if (removeInGroup(elById(gid), path)) { commit(); renderProps(); toast(`Removed “${path.join(" › ")}”`); } } }, "Remove")),
-        text("Text", G, "text", { multiline: true }),
+        richField(G, "Text", "rt-" + gid + "-" + path.join("-")),
         h("details", { class: "group-look", open: own || null },
           h("summary", {}, own ? "Styling (changed in this copy)" : "Styling"),
           h("p", { class: "helper" }, `Blank = the piece's ${el.style ? `“${el.style}” ` : ""}type style.`),
@@ -1361,7 +1380,7 @@ const api = {
   scrubTo, endScrub, getScrub: () => scrubT,
   loadScene: (s) => setScene(s, [], { keepLibrary: true }),
   renderStatic: (s) => previewHtml(s),
-  renderPreview, brushOf, brushPathD, placeScene, groupSpan, groupPhoneBox,
+  renderPreview, brushOf, brushPathD, placeScene, groupSpan, groupPhoneBox, rtSwatches, rtFonts,
 };
 async function start() {
   await loadOptionalParts();
@@ -1369,7 +1388,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=243e3bf").then((r) => r.text()), fetch("../runtime/ha.js?v=243e3bf").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=53efcc8").then((r) => r.text()), fetch("../runtime/ha.js?v=53efcc8").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

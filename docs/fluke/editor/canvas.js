@@ -1,6 +1,8 @@
 // Fluke editor — on-canvas editing: selection box, move / resize / rotate handles, snapping guides.
 // Works in canvas units. In Phone or Square view (with that layout on) it edits the layer's overrides for it (e.m / e.s).
 
+import { richText } from "./richtext.js?v=53efcc8";
+
 let api = null;
 const SNAP_PX = 6;          // snap distance on screen
 const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
@@ -9,7 +11,8 @@ let gestureId = 0;
 let dragging = false;
 let hidden = false;
 let cycleTimer = 0;   // a second click picks the layer underneath — unless it turns out to be a double-click
-let editing = null;   // id of the text layer being edited in place
+let editing = null;
+let barPlacer = null; // keeps the word-styling toolbar next to the text being edited   // id of the text layer being edited in place
 let brushing = null;  // id of the image layer whose brush path is being drawn
 let draft = [];       // the brush points being drawn, as fractions of the layer's box
 
@@ -273,34 +276,55 @@ export function startTextEdit(id) {
   const hide = document.createElement("style");
   hide.id = "editHide"; hide.textContent = `#preview .ha-e-${api.slug(id)}{visibility:hidden!important}`;
   document.head.append(hide);
-  const ta = document.createElement("textarea");
-  ta.className = "text-edit"; ta.value = e.text || ""; ta.spellcheck = true;
-  ta.setAttribute("aria-label", `Text of ${id}`);
+  // the words, in the layer's own font, with the word-styling toolbar just above
+  const key = "g:text-" + id + "-" + ++gestureId;
+  const get = () => api.scene.elements.find((x) => x.id === id) || {};
+  const rt = richText({ get, label: `Text of ${id}`, swatches: api.rtSwatches, fonts: api.rtFonts, compact: true,
+    commit: (typing) => { if (!api.scene.elements.some((x) => x.id === id)) return finishTextEdit(); api.commit(typing ? key : undefined); } });
+  const ta = rt.box;
+  ta.classList.add("text-edit");
   const minH = b.h * g.sy;
   Object.assign(ta.style, {
-    left: b.x * g.sx + "px", top: b.y * g.sy + "px", width: b.w * g.sx + "px", height: minH + "px", rotate: b.r + "deg",
+    left: 0, top: 0, width: "100%", minHeight: minH + "px",
     fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight, fontStyle: cs.fontStyle,
     lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing, color: cs.color, textAlign: cs.textAlign,
   });
-  const grow = () => { ta.style.height = "auto"; ta.style.height = Math.max(minH, ta.scrollHeight) + "px"; };
-  const key = "g:text-" + id + "-" + ++gestureId;
-  ta.addEventListener("input", () => {
-    const el = api.scene.elements.find((x) => x.id === id); if (!el) return finishTextEdit();
-    el.text = ta.value; api.commit(key); grow();
+  const wrap = document.createElement("div");
+  wrap.className = "text-edit-wrap";
+  Object.assign(wrap.style, { left: b.x * g.sx + "px", top: b.y * g.sy + "px", width: b.w * g.sx + "px", rotate: b.r + "deg" });
+  wrap.append(ta);
+  // the toolbar floats in the window just above the words (or below, near the top), never cut off by the stage
+  const bar = rt.bar; bar.classList.add("text-edit-bar"); document.body.append(bar);
+  const placeBar = () => {
+    if (!bar.isConnected) return;
+    const r = ta.getBoundingClientRect(), bh = bar.offsetHeight, bw = bar.offsetWidth, top0 = 64;
+    let y = r.top - bh - 8; if (y < top0) y = Math.min(innerHeight - bh - 8, r.bottom + 8);
+    bar.style.top = Math.max(top0, y) + "px"; bar.style.left = Math.max(8, Math.min(innerWidth - bw - 8, r.left)) + "px";
+  };
+  barPlacer = placeBar;
+  const inside = (n) => wrap.contains(n) || bar.contains(n);
+  [wrap, bar].forEach((el) => {
+    el.addEventListener("keydown", (k) => {
+      if (k.key === "Escape" && /^(SELECT|INPUT)$/.test(k.target.tagName)) { k.stopPropagation(); ta.focus(); return; } // closes the menu, not the editing
+      if (k.key === "Escape" || (k.key === "Enter" && (k.metaKey || k.ctrlKey))) { k.preventDefault(); k.stopPropagation(); finishTextEdit(); }
+    });
+    // finish when the focus leaves both the words and their toolbar
+    el.addEventListener("focusout", (ev) => { if (!inside(ev.relatedTarget)) setTimeout(() => { if (!inside(document.activeElement)) finishTextEdit(); }, 0); });
   });
-  ta.addEventListener("keydown", (k) => {
-    if (k.key === "Escape" || (k.key === "Enter" && (k.metaKey || k.ctrlKey))) { k.preventDefault(); k.stopPropagation(); finishTextEdit(); }
-  });
-  ta.addEventListener("blur", () => finishTextEdit());
-  layer.replaceChildren(ta);
+  ta.addEventListener("input", placeBar);
+  addEventListener("scroll", placeBar, true); addEventListener("resize", placeBar);
+  layer.replaceChildren(wrap);
+  requestAnimationFrame(placeBar);
   editing = id;
   setOverlayHidden(true);
-  grow(); ta.focus(); ta.select();
+  rt.focus(true);
 }
 export function finishTextEdit() {
   if (!editing) return;
   editing = null;
   $("#editHide")?.remove();
+  $(".text-edit-bar")?.remove();
+  if (barPlacer) { removeEventListener("scroll", barPlacer, true); removeEventListener("resize", barPlacer); barPlacer = null; }
   const layer = $("#editLayer"); if (layer) layer.replaceChildren();
   setOverlayHidden(false);
   api.renderProps();

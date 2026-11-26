@@ -66,6 +66,11 @@ element. `text` is plain text; a newline is a line break. `align`: `left` | `cen
 `nowrap: true` keeps the text on one line (Infogram one-line boxes are exactly as wide as their text, so the
 importer sets this for them). `stretch` (optional, default 1) scales the letters sideways relative to their height, as Infogram allows when a text
 box is resized unevenly: `1.065` is 6.5% wider. The box still occupies `w`.
+Styled words (v0.16): `runs` (optional) splits the same words into pieces with their own look —
+`[{ "text": "Thank " }, { "text": "you", "b": true, "i": true }, { "text": "!", "color": "var(--hse-accent, #993BFF)" }]`.
+Each run may have `b` (bold, drawn as `<strong>`), `i` (italic, `<em>`), `color`, `family` + `source` + `fallback`,
+`weight`, and `size` (a multiple of the layer's size, e.g. `1.5`). `text` must always hold the plain words: runs are
+used only while their texts join up to exactly `text`, otherwise they're ignored (with a warning) and the plain text is drawn.
 If the scene's `root` is a heading (`h1`–`h3`), its text layers must be `span` (or `decorative`): the words are parts of
 one heading, read as one ("It's a" + "gut" + "feeling" → "It's a gut feeling").
 H1 is allowed (e.g. an animated story title); validation only warns when a scene has more than one.

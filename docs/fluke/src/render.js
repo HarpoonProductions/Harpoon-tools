@@ -82,6 +82,7 @@ export function validate(scene) {
       if (tag === "figcaption" && (scene.root || "div") !== "figure") warnings.push(`${where}: figcaption only means something inside root "figure"`);
       if (e.style && !(scene.styles || {})[e.style]) errors.push(`${where}: unknown style "${e.style}"`);
       if (!String(e.text || "").trim()) warnings.push(`${where}: empty text`);
+      if (e.runs && !runsOf(e)) warnings.push(`${where}: the styled words no longer match the text, so their styling is ignored — restyle them`);
     }
     if (e.type === "image") {
       if (!e.src) errors.push(`${where}: image needs src`);
@@ -108,6 +109,32 @@ function textStyle(scene, e) {
 }
 const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
 
+// ---- styled words: a text layer may carry `runs`, the same words split into pieces that each have their own look:
+// { text, b (bold → <strong>), i (italic → <em>), color, family, source, fallback, weight, size (× the layer's size) }.
+// `text` always holds the plain words; runs are used only while their texts join up to exactly that.
+export const RUN_KEYS = ["b", "i", "color", "family", "source", "fallback", "weight", "size"];
+export function runsOf(e) {
+  const r = e?.runs;
+  if (!Array.isArray(r) || !r.length || !r.every((x) => x && typeof x.text === "string")) return null;
+  return r.map((x) => x.text).join("") === String(e.text ?? "") ? r : null;
+}
+function runRules(r) {
+  const out = [];
+  if (r.color) out.push(`color:${cssVal(r.color)}`);
+  if (r.family) out.push(`font-family:"${cssVal(r.family).replace(/"/g, "")}",${cssVal(r.fallback || "system-ui, sans-serif")}`);
+  if (r.weight) out.push(`font-weight:${num(r.weight, 0)}`);
+  if (r.size && r.size !== 1) out.push(`font-size:${num(r.size, 3)}em`);
+  return out;
+}
+function runsHtml(runs) {
+  return runs.map((r, n) => {
+    let t = esc(r.text).replace(/\r?\n/g, "<br>");
+    if (r.i) t = `<em>${t}</em>`;
+    if (r.b) t = `<strong>${t}</strong>`;
+    return runRules(r).length ? `<span class="ha-r${n + 1}">${t}</span>` : t;
+  }).join("");
+}
+
 // Google Fonts refuses the whole request if it asks for a weight or italic a family doesn't have, and then nothing
 // loads. fontInfo(family) → { weights: [...], italic: bool } (the editor passes its Google Fonts list) lets each
 // request be snapped to the nearest weight the family really has.
@@ -126,7 +153,14 @@ export function googleFontsUrl(scene, fontInfo = null) {
     fams.set(s.family, f);
   };
   // only fonts that text in the piece actually uses (a kit may bring styles nobody uses)
-  (scene.elements || []).filter((e) => e.type === "text").forEach((e) => add(textStyle(scene, e)));
+  (scene.elements || []).filter((e) => e.type === "text").forEach((e) => {
+    const st = textStyle(scene, e);
+    add(st);
+    (runsOf(e) || []).forEach((r) => {
+      if (r.family) add({ source: r.source, family: r.family, weight: r.weight || (r.b ? 700 : st.weight), italic: r.i || st.italic });
+      else if (r.b || r.i || r.weight) add({ ...st, weight: r.weight || (r.b ? 700 : st.weight), italic: r.i || st.italic });
+    });
+  });
   if (!fams.size) return null;
   const parts = [...fams].map(([fam, set]) => {
     const axes = [...set].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
@@ -249,7 +283,8 @@ function elementHtml(e, cls, inline = false, sid = "") {
   const box = inline ? "span" : "div";
   const out = e.animate && OUT_ANIMATIONS.has(e.animate.name) ? " data-ha-out" : "";
   if (e.type === "text") {
-    const body = esc(e.text).replace(/\r?\n/g, "<br>");
+    const runs = runsOf(e);
+    const body = runs ? runsHtml(runs) : esc(e.text).replace(/\r?\n/g, "<br>");
     const tag = e.tag || "p";
     if (tag === "decorative") return `<${box} class="${cls} ha-text" aria-hidden="true"${out}>${body}</${box}>`;
     return `<${tag} class="${cls} ha-text"${out}>${body}</${tag}>`;
@@ -301,6 +336,7 @@ export function renderScene(source, opts = {}) {
   css.push(`${S} .ha-scene{aspect-ratio:${num(W)}/${num(H)};--ha-u:${num(100 / W, 5)}cqi${bg}}`);
   els.forEach((e, i) => {
     css.push(`${S} .ha-e-${slug(e.id)}{${elementRules(scene, e, i).join(";")}}`);
+    if (e.type === "text") (runsOf(e) || []).forEach((r, n) => { const rr = runRules(r); if (rr.length) css.push(`${S} .ha-e-${slug(e.id)} .ha-r${n + 1}{${rr.join(";")}}`); });
     if (isBrush(e) && !HEADING_ROOTS.has(scene.root || "div")) css.push(`${S} .ha-e-${slug(e.id)} .ha-brush{${brushRule(e)}}`);
   });
   const Q = layoutCanvas(scene, "s");

@@ -2,10 +2,10 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=a35c7f4";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=a35c7f4";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=a35c7f4";
-import { richText } from "./richtext.js?v=a35c7f4";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback, groupLayers } from "../src/render.js?v=600dd1e";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=600dd1e";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=600dd1e";
+import { richText } from "./richtext.js?v=600dd1e";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -17,7 +17,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=a35c7f4"), import("./fonts.js?v=a35c7f4"), import("./library.js?v=a35c7f4")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=600dd1e"), import("./fonts.js?v=600dd1e"), import("./library.js?v=600dd1e")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -25,7 +25,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=a35c7f4"); }
+  try { mod = await import("../src/import-infogram.js?v=600dd1e"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -126,7 +126,14 @@ function setScene(s, notes = [], { keepLibrary = false } = {}) {
 const elById = (id) => (scene.elements || []).find((e) => e.id === id);
 function fixSel() {
   if (sel.kind === "element" && !elById(sel.id)) sel = { kind: "scene" };
+  if (sel.kind === "elements") { const ids = sel.ids.filter(elById); sel = ids.length > 1 ? { kind: "elements", ids } : ids.length ? { kind: "element", id: ids[0] } : { kind: "scene" }; }
   if (sel.kind === "style" && !(scene.styles || {})[sel.name]) sel = { kind: "scene" };
+}
+// Several layers at once: Shift- or ⌘-click adds a layer to the selection, or takes it out
+const selectedIds = () => (sel.kind === "elements" ? sel.ids : sel.kind === "element" ? [sel.id] : []);
+function toggleSelect(id) {
+  const ids = selectedIds().includes(id) ? selectedIds().filter((x) => x !== id) : [...selectedIds(), id];
+  choose(ids.length > 1 ? { kind: "elements", ids } : ids.length ? { kind: "element", id: ids[0] } : { kind: "scene" });
 }
 // reveal: when the panels are stacked (narrow windows) the settings panel is below the timeline — bring it into view
 function choose(s, { reveal = false } = {}) {
@@ -170,7 +177,8 @@ function renderLayers() {
   els.forEach((e, i) => {
     const out = e.animate && ANIMATIONS.out.includes(e.animate.name);
     ll.append(h("div", { class: "row" },
-      h("button", { type: "button", class: "row-btn", "aria-current": sel.kind === "element" && sel.id === e.id, onclick: () => choose({ kind: "element", id: e.id }, { reveal: true }) },
+      h("button", { type: "button", class: "row-btn", "aria-current": selectedIds().includes(e.id), title: "Shift- or ⌘-click to select several",
+        onclick: (ev) => (ev.shiftKey || ev.metaKey || ev.ctrlKey ? toggleSelect(e.id) : choose({ kind: "element", id: e.id }, { reveal: true })) },
         h("span", { class: "icon", "aria-hidden": "true" }, ICON[e.type] || "?"),
         h("span", { class: "name" }, e.id),
         h("span", { class: "zbadge", title: `In front/behind: ${stackPos(e.id)} of ${els.length} (1 = at the back). Click to change.`,
@@ -539,7 +547,36 @@ function renderProps() {
   const p = $("#props"); p.replaceChildren(); p.className = "panel right props";
   if (sel.kind === "style") return p.append(...styleProps(sel.name));
   if (sel.kind === "element" && elById(sel.id)) return p.append(...elementProps(sel.id));
+  if (sel.kind === "elements") return p.append(...multiProps(sel.ids));
   p.append(...sceneProps());
+}
+
+function multiProps(ids) {
+  const els = ids.map(elById).filter(Boolean);
+  let check = null; try { check = groupLayers(scene, ids, "x"); } catch { /* fewer than two */ }
+  const notes = [];
+  if (check?.between.length) notes.push(`${check.between.map((x) => `“${x}”`).join(", ")} ${check.between.length === 1 ? "sits" : "sit"} in the stack between these layers. Grouped, they stay together, so ${check.between.length === 1 ? "it" : "they"} will end up behind them all.`);
+  if (check?.arranged.length) notes.push(`Some of these layers have their own ${check.arranged.join(" and ")} arrangement. The group gets one box there instead, fitted round where they were; inside it they keep their desktop arrangement.`);
+  if (check?.sizes) notes.push("Text sizes set for phones or the square layout give way to the group's own scaling.");
+  return [
+    h("p", { class: "title" }, `${els.length} layers selected`),
+    h("p", { class: "sub" }, "Shift- or ⌘-click layers (here or in the list) to add or take them out. Click one on its own to select just that one."),
+    section("Layers", h("ul", { class: "multi-list" }, els.map((e) => h("li", {}, h("span", { class: "icon" }, ICON[e.type] || "?"), " ", e.id)))),
+    section("Group",
+      h("p", { class: "helper" }, "Grouping makes them one placed piece: move and resize them together (Shift keeps the proportions), give them one box on phones, and still change their words, styling, colours and pictures inside. Nothing moves when you group, and Ungroup turns them back into separate layers."),
+      ...notes.map((n) => h("p", { class: "phone-flag" }, n)),
+      h("div", { class: "actions" }, h("button", { type: "button", class: "primary mini", onclick: groupSelected }, "Group them (⌘G)"))),
+  ];
+}
+function groupSelected() {
+  if (sel.kind !== "elements") return;
+  try {
+    const res = groupLayers(scene, sel.ids, uniqueId("group"));
+    scene.elements = res.scene.elements;
+    sel = { kind: "element", id: res.group.id };
+    commit(); renderProps(); drawOverlay();
+    toast(`Grouped ${res.group.elements.length} layers as “${res.group.id}” — rename it under Layer name`, 3500);
+  } catch (e) { toast(e.message); }
 }
 
 function sceneProps() {
@@ -959,12 +996,13 @@ function placeScene(src) {
 function ungroup(id) {
   const g = elById(id); if (!g) return;
   const kids = flattenGroups({ ...scene, elements: [g] }).elements.map(({ group, ...k }) => k);
-  kids.forEach((k) => { k.id = uniqueId(k.id); });
+  // layers get their own names back ("group-quote" → "quote") unless that name is already taken
+  kids.forEach((k) => { const own = k.id.startsWith(`${g.id}-`) ? k.id.slice(g.id.length + 1) : k.id; k.id = uniqueId(own); });
   const order = stackOrder().flatMap((e) => (e === g ? [...kids].sort((a, b) => a.z - b.z) : [e]));
   const i = scene.elements.indexOf(g);
   scene.elements.splice(i, 1, ...kids);
   order.forEach((e, k) => { e.z = k + 1; });
-  sel = { kind: "scene" }; commit(); renderProps();
+  sel = kids.length > 1 ? { kind: "elements", ids: kids.map((k) => k.id) } : { kind: "scene" }; commit(); renderProps(); drawOverlay();
   toast(`Ungrouped into ${kids.length} layers`);
 }
 const BLEND_LABELS = { normal: "Normal", multiply: "Multiply (white disappears)", screen: "Screen (black disappears)", darken: "Darken",
@@ -1374,6 +1412,10 @@ function wire() {
     const typing = ev.target instanceof Element && ev.target.closest("input, textarea, select, [contenteditable], .anim-pop");
     if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "z" && !typing) { ev.preventDefault(); ev.shiftKey ? redo() : undo(); return; }
     if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "s") { ev.preventDefault(); saveToLibrary(); return; }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "g" && !typing && !$(".modal.open")) {
+      if (ev.shiftKey && sel.kind === "element" && elById(sel.id)?.type === "group") { ev.preventDefault(); ungroup(sel.id); return; }
+      if (!ev.shiftKey && sel.kind === "elements") { ev.preventDefault(); groupSelected(); return; }
+    }
     // Cmd+ / Cmd- / Cmd0 zoom the canvas, not the whole page
     if ((ev.metaKey || ev.ctrlKey) && !typing && !$(".modal.open") && ["=", "+", "-", "_", "0"].includes(ev.key)) {
       ev.preventDefault(); if (ev.key === "0") setZoom(1); else zoomStep(ev.key === "-" || ev.key === "_" ? -1 : 1); return;
@@ -1400,7 +1442,7 @@ function wire() {
 
 // ---------------------------------------------------------------- start
 const api = {
-  get scene() { return scene; }, get sel() { return sel; }, get view() { return view; }, layoutKey, layoutCanvas, layoutFallback, groupBoxIn,
+  get scene() { return scene; }, get sel() { return sel; }, get view() { return view; }, toggleSelect, selectedIds, layoutKey, layoutCanvas, layoutFallback, groupBoxIn,
   choose, commit, renderProps, slug, stack, stackPos, toast,
   getScene: () => scene,
   scrubTo, endScrub, getScrub: () => scrubT,
@@ -1414,7 +1456,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=a35c7f4").then((r) => r.text()), fetch("../runtime/ha.js?v=a35c7f4").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=600dd1e").then((r) => r.text()), fetch("../runtime/ha.js?v=600dd1e").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

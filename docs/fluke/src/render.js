@@ -473,6 +473,70 @@ export function flattenGroups(scene) {
   return { ...scene, elements };
 }
 
+/** Group some of a scene's layers into one placed piece (the editor's "Group"). The group's box fits snugly round them
+ *  (rotated layers by their turned outline) and its canvas is that box, one unit for one unit, so nothing moves or
+ *  resizes; timings are kept (start 0). The group takes the front-most member's place in the stack and the first
+ *  member's place in reading order, and gets a copy of the type styles its text uses.
+ *  In a phone / square layout where any member was arranged, the group's box there is fitted round where they were
+ *  (keeping the group's proportions); otherwise it follows the usual default.
+ *  Returns { scene, group, between: ids stacked between the members (they'll now be behind or in front of all of
+ *  them), arranged: layout names whose own arrangement is replaced by one box, sizes: true if phone/square text
+ *  sizes were set on members (inside a group they scale with it instead) }. */
+export function groupLayers(scene, ids, gid) {
+  const members = (scene.elements || []).filter((e) => ids.includes(e.id));
+  if (members.length < 2) throw new Error("Choose at least two layers to group");
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const outline = (b, rot = 0) => {
+    const a = (rot || 0) * Math.PI / 180, c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
+    const w = b.w * c + b.h * s, h = b.w * s + b.h * c, cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    return { l: cx - w / 2, t: cy - h / 2, r: cx + w / 2, b: cy + h / 2 };
+  };
+  const around = (os) => ({ l: Math.min(...os.map((o) => o.l)), t: Math.min(...os.map((o) => o.t)), r: Math.max(...os.map((o) => o.r)), b: Math.max(...os.map((o) => o.b)) });
+  const box = around(members.map((e) => outline(e, e.type === "group" ? 0 : e.rotate)));
+  const w = r2(box.r - box.l), h = r2(box.b - box.t);
+
+  const order = stackRank(scene.elements);
+  const ranks = members.map((e) => order.indexOf(e));
+  const lo = Math.min(...ranks), hi = Math.max(...ranks);
+  const between = order.slice(lo, hi + 1).filter((e) => !members.includes(e)).map((e) => e.id);
+  const memberRank = stackRank(members);
+
+  const styles = {};
+  members.forEach((e) => { if (e.type === "text" && e.style && scene.styles?.[e.style]) styles[e.style] = structuredClone(scene.styles[e.style]); });
+  const kids = members.map((e) => {
+    const c = structuredClone(e);
+    c.x = r2(e.x - box.l); c.y = r2(e.y - box.t); c.z = memberRank.indexOf(e) + 1;
+    delete c.m; delete c.s;
+    return c;
+  });
+  const group = { id: gid, type: "group", title: gid, x: r2(box.l), y: r2(box.t), w, h, canvas: { width: w, height: h }, styles, elements: kids };
+  if (scene.kit?.id) group.kit = { id: scene.kit.id, label: scene.kit.label };
+
+  const arranged = []; let sizes = false;
+  for (const key of ["m", "s"]) {
+    if (!layoutCanvas(scene, key) || !members.some((e) => e[key])) continue;
+    if (members.some((e) => e.type === "text" && e[key]?.size != null)) sizes = true;
+    if (members.every((e) => e[key]?.hidden)) { group[key] = { hidden: true }; continue; }
+    arranged.push(key === "m" ? "phone" : "square");
+    const where = around(members.filter((e) => !e[key]?.hidden).map((e) => {
+      const b = e.type === "group" ? groupBoxIn(scene, e, key) : { ...layoutFallback(scene, key, e), ...pick(e[key] || {}, ["x", "y", "w", "h"]) };
+      return outline(b, e.type === "group" ? 0 : e.rotate);
+    }));
+    const bw = where.r - where.l, bh = bw * h / w, cy = (where.t + where.b) / 2;
+    group[key] = { x: r2(where.l), y: r2(cy - bh / 2), w: r2(bw), h: r2(bh) };
+  }
+
+  // reading order: the group where the first member was; stacking: where the front-most member was
+  const first = scene.elements.findIndex((e) => members.includes(e));
+  const elements = scene.elements.filter((e) => !members.includes(e));
+  elements.splice(first, 0, group);
+  const stack = order.filter((e) => !members.includes(e));
+  stack.splice(hi - (ranks.length - 1), 0, group);
+  const zs = new Map(stack.map((e, k) => [e, k + 1]));
+  const out = elements.map((e) => (e === group ? { ...e, z: zs.get(e) } : { ...e, z: zs.get(e) }));
+  return { scene: { ...scene, elements: out }, group: out.find((e) => e.id === gid), between, arranged, sizes };
+}
+
 /** When a group's animations run, in seconds from the start of the piece: { from, to } (null if nothing animates). */
 export function groupSpan(g) {
   const kids = flattenGroups({ canvas: g.canvas, styles: g.styles || {}, elements: g.elements || [] }).elements.filter((c) => c.animate?.name);

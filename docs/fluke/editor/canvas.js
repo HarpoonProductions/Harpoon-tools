@@ -1,7 +1,7 @@
 // Fluke editor — on-canvas editing: selection box, move / resize / rotate handles, snapping guides.
 // Works in canvas units. In Phone or Square view (with that layout on) it edits the layer's overrides for it (e.m / e.s).
 
-import { richText } from "./richtext.js?v=a35c7f4";
+import { richText } from "./richtext.js?v=600dd1e";
 
 let api = null;
 const SNAP_PX = 6;          // snap distance on screen
@@ -72,6 +72,21 @@ export function drawOverlay(guides = []) {
     if (gd.axis === "v") d.style.left = gd.at * g.sx + "px"; else d.style.top = gd.at * g.sy + "px";
     kids.push(d);
   });
+  if (api.sel.kind === "elements") {
+    const boxes = api.sel.ids.map((id) => api.scene.elements.find((x) => x.id === id)).filter(Boolean).map(boxOf).filter((b) => !b.hidden);
+    boxes.forEach((b) => {
+      const d = document.createElement("div"); d.className = "multi-box";
+      Object.assign(d.style, { left: b.x * g.sx + "px", top: b.y * g.sy + "px", width: b.w * g.sx + "px", height: b.h * g.sy + "px", rotate: b.r + "deg" });
+      kids.push(d);
+    });
+    if (boxes.length) {
+      const a = boxes.map(aabb), l = Math.min(...a.map((x) => x.l)), t = Math.min(...a.map((x) => x.t)), r = Math.max(...a.map((x) => x.r)), bt = Math.max(...a.map((x) => x.b));
+      const all = document.createElement("div"); all.className = "multi-all";
+      Object.assign(all.style, { left: l * g.sx + "px", top: t * g.sy + "px", width: (r - l) * g.sx + "px", height: (bt - t) * g.sy + "px" });
+      const tag = document.createElement("div"); tag.className = "sel-size"; tag.textContent = `${boxes.length} layers · ⌘G to group`;
+      all.append(tag); kids.push(all);
+    }
+  }
   if (g.e) {
     const b = boxOf(g.e);
     if (!b.hidden) {
@@ -240,6 +255,7 @@ export function initCanvas(a) {
     if (node) {
       const id = elementIdFromNode(node); if (!id) return;
       ev.preventDefault();
+      if (ev.shiftKey || ev.metaKey || ev.ctrlKey) return api.toggleSelect(id); // add to / take out of the selection
       const was = api.sel.kind === "element" && api.sel.id === id;
       if (!was) api.choose({ kind: "element", id });
       return startGesture("move", ev, api.scene.elements.find((x) => x.id === id), was);

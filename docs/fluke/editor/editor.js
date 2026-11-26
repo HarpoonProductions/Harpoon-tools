@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan } from "../src/render.js?v=aef8d5b";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=aef8d5b";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=aef8d5b";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan } from "../src/render.js?v=3c7fa68";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=3c7fa68";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=3c7fa68";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=aef8d5b"), import("./fonts.js?v=aef8d5b"), import("./library.js?v=aef8d5b")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=3c7fa68"), import("./fonts.js?v=3c7fa68"), import("./library.js?v=3c7fa68")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=aef8d5b"); }
+  try { mod = await import("../src/import-infogram.js?v=3c7fa68"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -316,11 +316,22 @@ function fontNotes() {
   });
   return notes;
 }
+// "element portrait-1-relic: …" → the layer to select (a layer inside a placed piece selects the piece)
+function layerOfIssue(text) {
+  const m = /^element ([^:]+):/.exec(text); if (!m) return null;
+  if (elById(m[1])) return m[1];
+  try { const k = flattenGroups(scene).elements.find((x) => x.id === m[1]); return k?.group && elById(k.group) ? k.group : null; }
+  catch { return null; }
+}
 function renderIssues(desk = [], phone = []) {
   const { errors, warnings } = validate(scene);
   const list = $("#issues"); list.replaceChildren();
-  const row = (cls, label, text, onx) => list.append(h("div", { class: `issue ${cls}` }, h("b", {}, label), h("span", {}, text),
-    onx ? h("button", { type: "button", class: "x", "aria-label": "Dismiss", onclick: onx }, "×") : null));
+  const row = (cls, label, text, onx) => {
+    const id = layerOfIssue(text);
+    list.append(h("div", { class: `issue ${cls}` }, h("b", {}, label),
+      id ? h("button", { type: "button", class: "issue-go", title: "Select this layer", onclick: () => choose({ kind: "element", id }, { reveal: true }) }, text) : h("span", {}, text),
+      onx ? h("button", { type: "button", class: "x", "aria-label": "Dismiss", onclick: onx }, "×") : null));
+  };
   errors.forEach((e) => row("err", "Fix", e));
   warnings.forEach((w) => row("warn", "Check", w));
   fontNotes().forEach((n) => row("warn", "Check", n));
@@ -700,10 +711,25 @@ function findInGroup(g, path) {
   for (const id of path) { hit = (els || []).find((x) => x.id === id); if (!hit) return null; els = hit.elements; }
   return hit;
 }
+// Take a layer out of a placed piece (this copy, or every copy of the same piece)
+function removeInGroup(g, path) {
+  const parent = path.length > 1 ? findInGroup(g, path.slice(0, -1)) : g;
+  const els = parent?.elements; if (!els) return false;
+  const i = els.findIndex((x) => x.id === path[path.length - 1]); if (i < 0) return false;
+  els.splice(i, 1); return true;
+}
+// other placed copies of the same piece that have a layer at the same place
+const copiesWith = (g, path) => scene.elements.filter((x) => x.type === "group" && x !== g && x.title === g.title && findInGroup(x, path));
 function groupImagesSection(g) {
   const imgs = imagesIn(g.elements);
   if (!imgs.length) return null;
   const gid = g.id;
+  const remove = (path, all) => {
+    const gs = [elById(gid), ...(all ? copiesWith(elById(gid), path) : [])];
+    const n = gs.filter((x) => removeInGroup(x, path)).length;
+    commit(); renderProps();
+    toast(n > 1 ? `Removed “${path.join(" › ")}” from ${n} copies` : `Removed “${path.join(" › ")}”`);
+  };
   return section("Images inside",
     h("p", { class: "helper" }, "Swap a picture here to change it in this copy only. Everything else about the sequence stays the same."),
     ...imgs.map(({ path, el }) => {
@@ -711,8 +737,11 @@ function groupImagesSection(g) {
       return h("div", { class: "group-img" },
         h("div", { class: "group-img__head" },
           el.src ? h("img", { class: "img-thumb small", src: el.src, alt: "" }) : null,
-          h("b", {}, path.join(" › ")),
-          h("button", { type: "button", class: "secondary mini", onclick: () => openUploader({ group: gid, path }) }, "Replace…")),
+          h("b", {}, path.join(" › "), el.src ? null : h("span", { class: "phone-flag inline" }, " no image — replace or remove")),
+          h("button", { type: "button", class: "secondary mini", onclick: () => openUploader({ group: gid, path }) }, "Replace…"),
+          h("button", { type: "button", class: "danger mini", title: "Take this image out of this copy", onclick: () => remove(path, false) }, "Remove")),
+        (() => { const others = copiesWith(g, path).length;
+          return others ? h("button", { type: "button", class: "link-btn", onclick: () => remove(path, true) }, `Remove it from all ${others + 1} copies of “${g.title}”`) : null; })(),
         text("Image URL", G, "src", { apply: (v) => { G().src = v.trim(); } }),
         check("Decorative (no alt text needed)", G, "decorative", { optional: true, rerender: true }),
         el.decorative ? null : text("Alt text", G, "alt", { placeholder: "Describe what the image shows" }));
@@ -1197,7 +1226,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=aef8d5b").then((r) => r.text()), fetch("../runtime/ha.js?v=aef8d5b").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=3c7fa68").then((r) => r.text()), fetch("../runtime/ha.js?v=3c7fa68").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox } from "../src/render.js?v=927550f";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=927550f";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=927550f";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox } from "../src/render.js?v=3c7bd1b";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=3c7bd1b";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=3c7bd1b";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=927550f"), import("./fonts.js?v=927550f"), import("./library.js?v=927550f")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=3c7bd1b"), import("./fonts.js?v=3c7bd1b"), import("./library.js?v=3c7bd1b")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=927550f"); }
+  try { mod = await import("../src/import-infogram.js?v=3c7bd1b"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -563,6 +563,7 @@ function styleProps(name) {
   return [
     h("p", { class: "title" }, `Type style: ${name}`),
     h("p", { class: "sub" }, `How text looks. Used by ${used} layer${used === 1 ? "" : "s"}. What the text is (heading, quote…) is set on each layer.`),
+    view === "phone" && scene.mobile ? h("p", { class: "phone-flag" }, "📱 A type style is shared by desktop and phones. To change one layer's size on phones only, select that layer.") : null,
     section("Style",
       text("Name", () => ({ name }), "name", { onChangeOnly: true, apply: (v, inp) => {
         const nn = slug(v); if (!nn || nn === name || scene.styles[nn]) { inp.value = name; return; }
@@ -605,12 +606,20 @@ function elementProps(id) {
   if (e.type === "group") out.push(...[groupFields(e, E), groupImagesSection(e)].filter(Boolean));
   if (e.type === "text") {
     const st = (scene.styles || {})[e.style] || {};
+    const onPhone = view === "phone" && !!scene.mobile;
+    const deskSize = e.size ?? st.size;
+    const sizeField = onPhone
+      ? num("Size on phones", () => (E().m ||= {}), "size", { optional: true, step: 0.5,
+          cleanup: () => { const el = E(); if (el.m && !Object.keys(el.m).length) delete el.m; },
+          placeholder: deskSize != null ? String(round(deskSize * scene.mobile.width / scene.canvas.width)) : "" })
+      : num("Size", E, "size", { optional: true, step: 0.5, placeholder: st.size ?? "" });
     out.push(section("Text",
+      onPhone ? h("p", { class: "phone-flag" }, "📱 Size changes here apply to phones only. The words, weight, colour and line height are shared with desktop.") : null,
       text("Text", E, "text", { multiline: true }),
       grid(2, select("What it is", E, "tag", TAGS, { fallback: "p" }), select("Align", E, "align", ["left", "center", "right"], { fallback: "left", optional: true })),
       select("Type style", E, "style", [{ value: "", label: "(none)" }, ...Object.keys(scene.styles || {})], { optional: true, rerender: true }),
       h("p", { class: "helper" }, "Leave these blank to use the type style."),
-      grid(3, num("Size", E, "size", { optional: true, step: 0.5, placeholder: st.size ?? "" }),
+      grid(3, sizeField,
         select("Weight", E, "weight", [{ value: "", label: st.weight ? `(${st.weight})` : "(style)" }, ...WEIGHTS], { optional: true, number: false, apply: (v) => { if (v === "") delete E().weight; else E().weight = +v; } }),
         num("Line height", E, "lineHeight", { optional: true, step: 0.05, placeholder: st.lineHeight ?? "" })),
       num("Stretch sideways (1 = none)", E, "stretch", { optional: true, step: 0.01, min: 0.2, max: 5, placeholder: "1" }),
@@ -649,8 +658,7 @@ function elementProps(id) {
       h("p", { class: "phone-flag" }, "📱 Editing the phone layout. Blank = keep the desktop position, scaled."),
       check("Hide on phones", M, "hidden", { optional: true, cleanup: tidy, apply: (on) => { if (on) M().hidden = true; else { delete M().hidden; tidy(); } }, rerender: true }),
       e.m?.hidden ? null : [grid(2, num("X", M, "x", { optional: true, cleanup: tidy, placeholder: ph("x", M2.width, W) }), num("Y", M, "y", { optional: true, cleanup: tidy, placeholder: ph("y", M2.height, H) })),
-        grid(2, num("Width", M, "w", { optional: true, cleanup: tidy, placeholder: ph("w", M2.width, W) }), num("Height", M, "h", { optional: true, cleanup: tidy, placeholder: ph("h", M2.height, H) })),
-        e.type === "text" ? num("Text size on phones", M, "size", { optional: true, cleanup: tidy, step: 0.5 }) : null]));
+        grid(2, num("Width", M, "w", { optional: true, cleanup: tidy, placeholder: ph("w", M2.width, W) }), num("Height", M, "h", { optional: true, cleanup: tidy, placeholder: ph("h", M2.height, H) }))]));
   } else {
     out.push(section("Position",
       grid(2, num("X", E, "x"), num("Y", E, "y")),
@@ -1229,7 +1237,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=927550f").then((r) => r.text()), fetch("../runtime/ha.js?v=927550f").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=3c7bd1b").then((r) => r.text()), fetch("../runtime/ha.js?v=3c7bd1b").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

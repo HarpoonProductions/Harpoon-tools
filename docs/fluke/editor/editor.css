@@ -320,3 +320,8 @@ fieldset.flash { animation: flashFs 1.6s ease-out; border-radius: 8px; }
 .stage.zoomed .stage-inner { margin: 0 auto; }
 .stage.panning, .stage.panning * { cursor: grab !important; }
 .stage.grabbing, .stage.grabbing * { cursor: grabbing !important; }
+/* images inside a placed piece */
+.group-img { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
+.group-img__head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 13px; }
+.group-img__head b { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.img-thumb.small { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; margin: 0; }

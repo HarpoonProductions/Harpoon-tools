@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan } from "../src/render.js?v=45953f3";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=45953f3";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=45953f3";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan } from "../src/render.js?v=aef8d5b";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=aef8d5b";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=aef8d5b";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=45953f3"), import("./fonts.js?v=45953f3"), import("./library.js?v=45953f3")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=aef8d5b"), import("./fonts.js?v=aef8d5b"), import("./library.js?v=aef8d5b")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=45953f3"); }
+  try { mod = await import("../src/import-infogram.js?v=aef8d5b"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -590,7 +590,7 @@ function elementProps(id) {
     E().id = nid; sel = { kind: "element", id: nid }; inp.value = nid;
   } }));
 
-  if (e.type === "group") out.push(groupFields(e, E));
+  if (e.type === "group") out.push(...[groupFields(e, E), groupImagesSection(e)].filter(Boolean));
   if (e.type === "text") {
     const st = (scene.styles || {})[e.style] || {};
     out.push(section("Text",
@@ -689,6 +689,36 @@ function groupFields(e, E) {
 }
 const fmtS = (n) => `${Math.round(n * 100) / 100}s`;
 
+// The images inside a placed piece (and inside pieces placed in it), so each copy can show a different picture
+// while keeping the same sequence: brush path, timings, blend and opacity all stay as they are.
+function imagesIn(els, path = []) {
+  return (els || []).flatMap((c) => c.type === "group" ? imagesIn(c.elements, [...path, c.id])
+    : c.type === "image" ? [{ path: [...path, c.id], el: c }] : []);
+}
+function findInGroup(g, path) {
+  let els = g?.elements, hit = null;
+  for (const id of path) { hit = (els || []).find((x) => x.id === id); if (!hit) return null; els = hit.elements; }
+  return hit;
+}
+function groupImagesSection(g) {
+  const imgs = imagesIn(g.elements);
+  if (!imgs.length) return null;
+  const gid = g.id;
+  return section("Images inside",
+    h("p", { class: "helper" }, "Swap a picture here to change it in this copy only. Everything else about the sequence stays the same."),
+    ...imgs.map(({ path, el }) => {
+      const G = () => findInGroup(elById(gid), path) || {};
+      return h("div", { class: "group-img" },
+        h("div", { class: "group-img__head" },
+          el.src ? h("img", { class: "img-thumb small", src: el.src, alt: "" }) : null,
+          h("b", {}, path.join(" › ")),
+          h("button", { type: "button", class: "secondary mini", onclick: () => openUploader({ group: gid, path }) }, "Replace…")),
+        text("Image URL", G, "src", { apply: (v) => { G().src = v.trim(); } }),
+        check("Decorative (no alt text needed)", G, "decorative", { optional: true, rerender: true }),
+        el.decorative ? null : text("Alt text", G, "alt", { placeholder: "Describe what the image shows" }));
+    }));
+}
+
 // Place another piece inside this one, as a group: a copy of its layers in one movable, resizable box
 function placeScene(src) {
   if (!src?.canvas?.width || !src?.canvas?.height || !Array.isArray(src.elements)) { toast("That isn't a Fluke piece"); return; }
@@ -760,6 +790,12 @@ addEventListener("message", (ev) => {
   const d = ev.data || {};
   if (d.type !== "harpoon-upload:picked" || typeof d.url !== "string") return;
   if (!/^https:\/\//.test(d.url) && !/^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(d.url)) return;
+  if (pickTarget && typeof pickTarget === "object") {
+    const inner = findInGroup(elById(pickTarget.group), pickTarget.path);
+    if (!inner) return toast("That image no longer exists");
+    inner.src = d.url; commit(); renderProps();
+    return toast(`Image swapped${d.name ? ": " + d.name : ""}${inner.alt || inner.decorative ? " — check the alt text still fits" : " — now add alt text"}`, 3000);
+  }
   const e = elById(pickTarget);
   if (!e) return toast("That image layer no longer exists");
   const wasEmpty = !e.src;
@@ -1161,7 +1197,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=45953f3").then((r) => r.text()), fetch("../runtime/ha.js?v=45953f3").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=aef8d5b").then((r) => r.text()), fetch("../runtime/ha.js?v=aef8d5b").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

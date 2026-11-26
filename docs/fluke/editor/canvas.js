@@ -1,5 +1,5 @@
 // Fluke editor — on-canvas editing: selection box, move / resize / rotate handles, snapping guides.
-// Works in canvas units. In Phone view (with a phone layout) it edits the element's phone overrides (e.m).
+// Works in canvas units. In Phone or Square view (with that layout on) it edits the layer's overrides for it (e.m / e.s).
 
 let api = null;
 const SNAP_PX = 6;          // snap distance on screen
@@ -15,22 +15,24 @@ let draft = [];       // the brush points being drawn, as fractions of the layer
 
 const $ = (s, r = document) => r.querySelector(s);
 
-export function phoneMode() { return api.view === "phone" && !!api.scene.mobile; }
+export function phoneMode() { return !!api.layoutKey(); } // editing a layout other than desktop
 
 // Effective box of an element in the units of the canvas being edited
 export function boxOf(e) {
   const s = api.scene, W = s.canvas.width, H = s.canvas.height;
-  if (phoneMode()) {
-    const M = s.mobile, m = e.m || {};
-    if (e.type === "group") { const b = api.groupPhoneBox(s, e); return { ...b, r: 0, cw: M.width, ch: M.height, hidden: !!m.hidden }; }
-    return { x: m.x ?? e.x * M.width / W, y: m.y ?? e.y * M.height / H, w: m.w ?? e.w * M.width / W, h: m.h ?? e.h * M.height / H,
-      r: e.rotate || 0, cw: M.width, ch: M.height, hidden: !!m.hidden };
+  const lk = api.layoutKey();
+  if (lk) {
+    const L = api.layoutCanvas(s, lk), m = e[lk] || {};
+    if (e.type === "group") { const b = api.groupBoxIn(s, e, lk); return { ...b, r: 0, cw: L.width, ch: L.height, hidden: !!m.hidden }; }
+    const f = api.layoutFallback(s, lk, e);
+    return { x: m.x ?? f.x, y: m.y ?? f.y, w: m.w ?? f.w, h: m.h ?? f.h, r: e.rotate || 0, cw: L.width, ch: L.height, hidden: !!m.hidden };
   }
   return { x: e.x, y: e.y, w: e.w, h: e.h, r: e.rotate || 0, cw: W, ch: H, hidden: false };
 }
 function setBox(e, b) {
   const r = (n) => Math.round(n * 10) / 10;
-  if (phoneMode()) e.m = { ...(e.m || {}), x: r(b.x), y: r(b.y), w: r(Math.max(1, b.w)), h: r(Math.max(1, b.h)) };
+  const lk = api.layoutKey();
+  if (lk) e[lk] = { ...(e[lk] || {}), x: r(b.x), y: r(b.y), w: r(Math.max(1, b.w)), h: r(Math.max(1, b.h)) };
   else { e.x = r(b.x); e.y = r(b.y); e.w = r(Math.max(1, b.w)); e.h = r(Math.max(1, b.h)); }
 }
 // Axis-aligned bounds of a (possibly rotated) box
@@ -45,8 +47,8 @@ function geometry() {
   if (!sceneEl || !host) return null;
   const sr = sceneEl.getBoundingClientRect(), hr = host.getBoundingClientRect();
   const e = selected();
-  const cw = phoneMode() ? api.scene.mobile.width : api.scene.canvas.width;
-  const ch = phoneMode() ? api.scene.mobile.height : api.scene.canvas.height;
+  const L = api.layoutKey() ? api.layoutCanvas(api.scene, api.layoutKey()) : api.scene.canvas;
+  const cw = L.width, ch = L.height;
   return { left: sr.left - hr.left, top: sr.top - hr.top, width: sr.width, height: sr.height, sx: sr.width / cw, sy: sr.height / ch, sr, e };
 }
 function selected() { return api.sel.kind === "element" ? api.scene.elements.find((x) => x.id === api.sel.id) : null; }
@@ -314,7 +316,7 @@ export const isBrushing = () => brushing;
 export function startBrushDraw(id) {
   const e = api.scene.elements.find((x) => x.id === id);
   if (!e || e.type !== "image") return;
-  if (phoneMode()) { api.toast("Draw the brush path in Desktop view — it's used for phones too"); return; }
+  if (phoneMode()) { api.toast("Draw the brush path in Desktop view — it's used for every layout"); return; }
   if (editing) finishTextEdit();
   brushing = id;
   draft = (e.brush?.points || []).map((p) => [...p]);

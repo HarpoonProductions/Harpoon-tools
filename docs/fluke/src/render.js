@@ -20,6 +20,25 @@ export const BLENDS = ["normal", "multiply", "screen", "darken", "lighten", "ove
 export const FITS = ["column", "cover", "contain"];
 export const isScreenFit = (scene) => scene?.canvas?.fit === "cover" || scene?.canvas?.fit === "contain";
 export const IMAGE_ONLY_ANIMATIONS = new Set(["brushIn"]);
+// Layouts besides desktop. Each layer keeps its own arrangement for a layout under `key`; the scene's setting is `prop`.
+//  m  phone: column pieces below `below` px wide; full-screen pieces on screens taller than they are wide
+//  s  square (full-screen pieces only): screens between 3:4 and 4:3 — near-square windows, tablets
+export const SQUARE_RANGE = [3 / 4, 4 / 3];
+export function layoutCanvas(scene, key) {
+  if (key === "m") return scene?.mobile || null;
+  if (key === "s") return isScreenFit(scene) && scene?.square?.width > 0 && scene?.square?.height > 0 ? scene.square : null;
+  return null;
+}
+/** Where a layer sits in a layout when it hasn't been arranged there (k: how much its sizes scale).
+ *  Phone: the desktop box scaled to the phone canvas. Square: the whole desktop design, kept in proportion and centred. */
+export function layoutFallback(scene, key, e) {
+  const L = layoutCanvas(scene, key), W = scene.canvas.width, H = scene.canvas.height;
+  if (key === "s") {
+    const k = Math.min(L.width / W, L.height / H), ox = (L.width - W * k) / 2, oy = (L.height - H * k) / 2;
+    return { x: ox + e.x * k, y: oy + e.y * k, w: e.w * k, h: e.h * k, k };
+  }
+  return { x: e.x * L.width / W, y: e.y * L.height / H, w: e.w * L.width / W, h: e.h * L.height / H, k: L.width / W };
+}
 const isBrush = (e) => e.type === "image" && e.animate?.name === "brushIn";
 
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -43,6 +62,8 @@ export function validate(scene) {
   if (c.fit !== undefined && !FITS.includes(c.fit)) errors.push(`canvas.fit must be one of ${FITS.join(", ")}`);
   if (scene.mobile && !((isScreenFit(scene) || scene.mobile.below > 0) && scene.mobile.width > 0 && scene.mobile.height > 0))
     errors.push(isScreenFit(scene) ? "mobile needs width and height" : "mobile needs below, width and height");
+  if (scene.square && !(scene.square.width > 0 && scene.square.height > 0)) errors.push("square needs width and height");
+  if (scene.square && !isScreenFit(scene)) warnings.push("The square layout is only used by full-screen pieces");
   const seen = new Set();
   let h1 = 0;
   (scene.elements || []).forEach((e, i) => {
@@ -208,16 +229,18 @@ function brushImageHtml(e, cls, sid, out) {
     `</mask></defs><image href="${esc(e.src)}" width="${w}" height="${h}" preserveAspectRatio="${par}" mask="url(#${id})"/></svg>`;
 }
 
-function mobileRules(scene, e) {
-  const m = e.m;
-  if (!m) return null;
-  if (m.hidden) return ["display:none"];
-  const M = scene.mobile, W = scene.canvas.width, H = scene.canvas.height;
-  // anything not set for phones keeps its desktop position, scaled to the phone canvas
-  const scaled = { x: e.x * M.width / W, y: e.y * M.height / H, w: e.w * M.width / W, h: e.h * M.height / H };
-  const r = boxRules(e, M.width, M.height, { ...scaled, ...pick(m, ["x", "y", "w", "h"]) });
-  if (e.type === "text" && m.size) r.push(`font-size:${num(m.size / M.width * 100)}cqi`);
-  if (e.type === "line" && m.strokeWidth) r.push(`height:max(1px,${num(m.strokeWidth / M.width * 100)}cqi)`);
+function layoutRules(scene, e, key) {
+  const o = e[key];
+  // phone: a layer not arranged there needs nothing — the desktop rules already scale it to the phone canvas
+  if (!o && key === "m") return null;
+  if (o?.hidden) return ["display:none"];
+  const L = layoutCanvas(scene, key), f = layoutFallback(scene, key, e);
+  // square: every layer is placed, and sized by the same amount as its box when not set
+  const sw = o?.strokeWidth ?? (key === "s" && e.type === "line" ? (e.strokeWidth ?? 2) * f.k : null);
+  const r = boxRules(sw != null ? { ...e, strokeWidth: sw } : e, L.width, L.height, { ...f, ...pick(o || {}, ["x", "y", "w", "h"]) });
+  const size = o?.size ?? (key === "s" && e.type === "text" ? textStyle(scene, e).size * f.k : null);
+  if (e.type === "text" && size) r.push(`font-size:${num(size / L.width * 100)}cqi`);
+  if (key === "m" && e.type === "line" && o.strokeWidth) r.push(`height:max(1px,${num(o.strokeWidth / L.width * 100)}cqi)`);
   return r;
 }
 
@@ -280,13 +303,21 @@ export function renderScene(source, opts = {}) {
     css.push(`${S} .ha-e-${slug(e.id)}{${elementRules(scene, e, i).join(";")}}`);
     if (isBrush(e) && !HEADING_ROOTS.has(scene.root || "div")) css.push(`${S} .ha-e-${slug(e.id)} .ha-brush{${brushRule(e)}}`);
   });
-  if (scene.mobile) {
-    const M = scene.mobile;
-    const mob = [`${S} .ha-scene{aspect-ratio:${num(M.width)}/${num(M.height)};--ha-u:${num(100 / M.width, 5)}cqi${screen ? ";" + screenBox(M.width, M.height) : ""}}`];
-    els.forEach((e) => { const r = mobileRules(scene, e); if (r) mob.push(`${S} .ha-e-${slug(e.id)}{${r.join(";")}}`); });
-    // full screen: the phone layout is used whenever the screen is taller than it is wide
-    css.push(screen ? `@container ${cname} (orientation:portrait){${mob.join("")}}` : `@container (max-width:${num((M.below || 560) - 0.02, 2)}px){${mob.join("")}}`);
+  const Q = layoutCanvas(scene, "s");
+  const previewSquare = opts.asColumn && opts.layout === "s" && Q; // editor: draw the square layout as a plain canvas
+  const rulesFor = (key, L) => {
+    const out = [`${S} .ha-scene{aspect-ratio:${num(L.width)}/${num(L.height)};--ha-u:${num(100 / L.width, 5)}cqi${screen ? ";" + screenBox(L.width, L.height) : ""}}`];
+    els.forEach((e) => { const r = layoutRules(scene, e, key); if (r) out.push(`${S} .ha-e-${slug(e.id)}{${r.join(";")}}`); });
+    return out.join("");
+  };
+  if (scene.mobile && !previewSquare) {
+    // full screen: the phone layout is used whenever the screen is taller than it is wide (narrower than 3:4 when
+    // there's a square layout, which takes the near-square shapes)
+    const portrait = Q ? `(aspect-ratio < 3/4)` : "(orientation:portrait)";
+    css.push(screen ? `@container ${cname} ${portrait}{${rulesFor("m", scene.mobile)}}` : `@container (max-width:${num((scene.mobile.below || 560) - 0.02, 2)}px){${rulesFor("m", scene.mobile)}}`);
   }
+  if (previewSquare) css.push(rulesFor("s", Q));
+  else if (Q && screen) css.push(`@container ${cname} (aspect-ratio >= 3/4) and (aspect-ratio <= 4/3){${rulesFor("s", Q)}}`);
 
   const include = opts.includeRuntime !== false && opts.runtimeCss && opts.runtimeJs;
   const root = scene.root || "div";
@@ -345,14 +376,15 @@ function expandGroup(scene, g) {
   const gc = g.canvas, inner = flattenGroups({ canvas: gc, styles: g.styles || {}, elements: g.elements || [] }).elements;
   const ranked = stackRank(inner);
   const sx = g.w / gc.width, sy = g.h / gc.height;
-  const M = scene.mobile, W = scene.canvas.width, H = scene.canvas.height;
-  const pb = M ? groupPhoneBox(scene, g) : null;
-  const px = pb && pb.w / gc.width, py = pb && pb.h / gc.height;
+  const boxes = ["m", "s"].filter((key) => layoutCanvas(scene, key)).map((key) => {
+    const b = groupBoxIn(scene, g, key);
+    return { key, b, px: b.w / gc.width, py: b.h / gc.height, hidden: !!g[key]?.hidden };
+  });
   const r = (n) => Math.round(n * 1000) / 1000;
   return inner.map((c) => {
     const k = { ...c, id: `${g.id}-${c.id}`, group: g.id, _rank: ranked.indexOf(c),
       x: r(g.x + c.x * sx), y: r(g.y + c.y * sy), w: r(c.w * sx), h: r(c.h * sy) };
-    delete k.z; delete k.m;
+    delete k.z; delete k.m; delete k.s;
     if (c.type === "text") {
       // the placed piece's type style travels with the text, sized to the group
       const st = textStyle({ styles: g.styles || {} }, c);
@@ -363,13 +395,11 @@ function expandGroup(scene, g) {
     if (c.strokeWidth != null) k.strokeWidth = r(c.strokeWidth * sx);
     if (c.radius != null) k.radius = r(c.radius * sx);
     if (c.animate) k.animate = { ...c.animate, delay: r((c.animate.delay || 0) + (g.start || 0)) };
-    if (pb) {
-      if (g.m?.hidden) k.m = { hidden: true };
-      else {
-        k.m = { x: r(pb.x + c.x * px), y: r(pb.y + c.y * py), w: r(c.w * px), h: r(c.h * py) };
-        if (c.type === "text") k.m.size = r(textStyle({ styles: g.styles || {} }, c).size * px);
-        if (c.type === "line" && c.strokeWidth != null) k.m.strokeWidth = r(c.strokeWidth * px);
-      }
+    for (const { key, b, px, py, hidden } of boxes) {
+      if (hidden) { k[key] = { hidden: true }; continue; }
+      const o = k[key] = { x: r(b.x + c.x * px), y: r(b.y + c.y * py), w: r(c.w * px), h: r(c.h * py) };
+      if (c.type === "text") o.size = r(textStyle({ styles: g.styles || {} }, c).size * px);
+      if (c.type === "line") o.strokeWidth = r((c.strokeWidth ?? 2) * px);
     }
     return k;
   });
@@ -378,13 +408,19 @@ function expandGroup(scene, g) {
 /** A placed piece's box in the phone layout: its own `m`, or else the desktop box scaled to the phone canvas
  *  KEEPING ITS PROPORTIONS (a 2560×1440 → 1440×2560 switch would otherwise stretch it and pull its layers apart),
  *  centred where the desktop box's centre lands. */
-export function groupPhoneBox(scene, g) {
-  const M = scene.mobile, W = scene.canvas.width, H = scene.canvas.height, m = g.m || {};
+export function groupBoxIn(scene, g, key) {
+  const L = layoutCanvas(scene, key), W = scene.canvas.width, H = scene.canvas.height, m = g[key] || {};
   const ratio = g.h / g.w;
-  const w = m.w ?? (m.h != null ? m.h / ratio : g.w * M.width / W);
+  if (key === "s") { // the desktop design kept in proportion, so the piece's box already has its shape
+    const f = layoutFallback(scene, key, g);
+    const w = m.w ?? (m.h != null ? m.h / ratio : f.w), h = m.h ?? w * ratio;
+    return { x: m.x ?? f.x + (f.w - w) / 2, y: m.y ?? f.y + (f.h - h) / 2, w, h };
+  }
+  const w = m.w ?? (m.h != null ? m.h / ratio : g.w * L.width / W);
   const h = m.h ?? w * ratio;
-  return { x: m.x ?? (g.x + g.w / 2) * M.width / W - w / 2, y: m.y ?? (g.y + g.h / 2) * M.height / H - h / 2, w, h };
+  return { x: m.x ?? (g.x + g.w / 2) * L.width / W - w / 2, y: m.y ?? (g.y + g.h / 2) * L.height / H - h / 2, w, h };
 }
+export const groupPhoneBox = (scene, g) => groupBoxIn(scene, g, "m");
 
 /** The scene with every group replaced by its layers (reading order kept; stacking: a group's layers sit together at
  *  the group's place in the stack). Scenes without groups come back unchanged. */

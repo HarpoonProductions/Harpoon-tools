@@ -42,6 +42,7 @@ button:disabled { opacity: .45; cursor: default; }
 .stage { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 28px; background-image: linear-gradient(45deg, #f7f7f5 25%, transparent 25%, transparent 75%, #f7f7f5 75%), linear-gradient(45deg, #f7f7f5 25%, transparent 25%, transparent 75%, #f7f7f5 75%); background-size: 20px 20px; background-position: 0 0, 10px 10px; }
 .preview { margin: 0 auto; max-width: 900px; transition: max-width .2s ease; font-family: "UCL Sans", system-ui, sans-serif; }
 .preview.phone { max-width: 375px; }
+.preview.square { max-width: 600px; }
 .preview .ha { outline: 1px solid rgba(0,0,0,.12); }
 .preview .ha-el { cursor: pointer; }
 /* Frame modes (editor only) */

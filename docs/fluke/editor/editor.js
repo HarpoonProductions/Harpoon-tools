@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox } from "../src/render.js?v=3c7bd1b";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=3c7bd1b";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=3c7bd1b";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=5795e3b";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=5795e3b";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=5795e3b";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=3c7bd1b"), import("./fonts.js?v=3c7bd1b"), import("./library.js?v=3c7bd1b")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=5795e3b"), import("./fonts.js?v=5795e3b"), import("./library.js?v=5795e3b")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=3c7bd1b"); }
+  try { mod = await import("../src/import-infogram.js?v=5795e3b"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -34,6 +34,11 @@ const LASTKIT_KEY = "harpoon-animate-last-kit";
 const LASTKIND_KEY = "fluke-last-new-kind";
 const PHONE_PREVIEW = 375;
 const DESKTOP_MEASURE = 760;
+const SQUARE_PREVIEW = 600;
+// The layout being edited: "m" (phone), "s" (square) or null (desktop). A view whose layout is off shows the desktop design.
+const layoutKey = () => (view === "phone" && scene?.mobile ? "m" : view === "square" && layoutCanvas(scene, "s") ? "s" : null);
+const LAYOUT_NAME = { m: "phone", s: "square" };
+const viewCls = () => (view === "desktop" ? "" : view);
 
 // ---------------------------------------------------------------- helpers
 const $ = (s, r = document) => r.querySelector(s);
@@ -213,15 +218,15 @@ function addElement(type) {
 }
 
 // ---------------------------------------------------------------- preview
-function previewHtml(s) {
-  try { return renderScene(s, { allowInvalid: true, includeRuntime: false, fontInfo: googleFont, asColumn: true }); }
+function previewHtml(s, layout) {
+  try { return renderScene(s, { allowInvalid: true, includeRuntime: false, fontInfo: googleFont, asColumn: true, layout }); }
   catch (e) { return `<p style="color:#b3261e">Can't draw this scene: ${e.message}</p>`; }
 }
 function renderPreview() {
   const p = $("#preview");
   // while drawing a brush path, show the finished frame so the whole image is there to trace
-  p.className = `preview ${view === "phone" ? "phone" : ""} f-${isBrushing() ? "end" : frame}`;
-  p.innerHTML = previewHtml(scene);
+  p.className = `preview ${viewCls()} f-${isBrushing() ? "end" : frame}`;
+  p.innerHTML = previewHtml(scene, layoutKey() === "s" ? "s" : undefined);
   // preview only: the story's page colour behind the piece (the checkerboard means "transparent")
   $("#stage").style.background = scene.page || "";
   highlight();
@@ -229,8 +234,12 @@ function renderPreview() {
   if (scrubT != null) applyScrub();
   const M = scene.mobile;
   const scr = isScreenFit(scene), crop = scene.canvas.fit === "cover";
-  $("#stageNote").textContent = view === "phone"
-    ? (M ? (scr ? `Phone layout: on screens taller than they are wide the ${M.width}×${M.height} canvas is used${crop ? ", filling the screen (edges may be cropped)" : ""}. Position fields now edit the phone layout.`
+  const Q = layoutCanvas(scene, "s");
+  $("#stageNote").textContent = view === "square"
+    ? (Q ? `Square layout: on screens between 3:4 and 4:3 (near-square windows, tablets) the ${Q.width}×${Q.height} canvas is used. Layers you haven't moved sit where they are in the desktop design. Position fields now edit the square layout.`
+         : scr ? "No square layout: near-square screens show the desktop or phone design with bands. Turn one on in Scene settings." : "Square layouts are for full-screen pieces. This piece fits its column, so it simply scales.")
+    : view === "phone"
+    ? (M ? (scr ? `Phone layout: on screens ${Q ? "narrower than 3:4" : "taller than they are wide"} the ${M.width}×${M.height} canvas is used${crop ? ", filling the screen (edges may be cropped)" : ""}. Position fields now edit the phone layout.`
               : `Phone layout: below ${M.below}px wide the ${M.width}×${M.height} canvas is used. Position fields now edit the phone layout.`)
          : "No phone layout: the desktop design is scaled down. Turn one on in Scene settings.")
     : scr ? `Full screen: ${scene.canvas.width}×${scene.canvas.height} canvas, ${crop ? "scaled to fill the window — on screens of a different shape the edges are cropped, so keep text away from them" : "scaled to fit inside the window, with bands of background on screens of a different shape"}.`
@@ -243,7 +252,7 @@ function highlight() {
 // Scrubbing: every layer paused at the same moment, so the canvas shows exactly that frame of the animation
 function applyScrub() {
   const p = $("#preview");
-  p.className = `preview ${view === "phone" ? "phone" : ""} f-scrub`;
+  p.className = `preview ${viewCls()} f-scrub`;
   p.querySelector(".ha")?.classList.add("ha-run");
   setOverlayHidden(true);
   p.querySelectorAll(".ha-el").forEach((el) => el.getAnimations().forEach((an) => { an.pause(); an.currentTime = scrubT * 1000; }));
@@ -255,7 +264,7 @@ function play() {
   stopBrushDraw();
   scrubT = null; hidePlayhead();
   const p = $("#preview");
-  p.className = `preview ${view === "phone" ? "phone" : ""}`;
+  p.className = `preview ${viewCls()}`;
   const piece = p.querySelector(".ha");
   if (!piece) return;
   setOverlayHidden(true);
@@ -289,14 +298,18 @@ function overflowing(container) {
 async function measure() {
   const box = $("#measure");
   const html = previewHtml(scene);
-  box.replaceChildren(h("div", { class: "f-layout", style: `width:${DESKTOP_MEASURE}px` }), h("div", { class: "f-layout", style: `width:${PHONE_PREVIEW}px` }));
+  const hasQ = !!layoutCanvas(scene, "s");
+  box.replaceChildren(h("div", { class: "f-layout", style: `width:${DESKTOP_MEASURE}px` }), h("div", { class: "f-layout", style: `width:${PHONE_PREVIEW}px` }),
+    h("div", { class: "f-layout", style: `width:${SQUARE_PREVIEW}px` }));
   box.children[0].innerHTML = html; box.children[1].innerHTML = html;
+  if (hasQ) box.children[2].innerHTML = previewHtml(scene, "s");
   try { await document.fonts.ready; } catch { /* old browsers */ }
   const nameOf = (s) => (scene.elements.find((e) => slug(e.id) === s) || {}).id || s;
   const desk = overflowing(box.children[0]).map(nameOf);
   const phone = scene.mobile ? overflowing(box.children[1]).map(nameOf) : [];
+  const square = hasQ ? overflowing(box.children[2]).map(nameOf) : [];
   box.replaceChildren();
-  renderIssues(desk, phone);
+  renderIssues(desk, phone, square);
 }
 // Fonts the preview can't show as chosen: unknown Google names, missing weights, story fonts not installed here
 function fontNotes() {
@@ -323,7 +336,7 @@ function layerOfIssue(text) {
   try { const k = flattenGroups(scene).elements.find((x) => x.id === m[1]); return k?.group && elById(k.group) ? k.group : null; }
   catch { return null; }
 }
-function renderIssues(desk = [], phone = []) {
+function renderIssues(desk = [], phone = [], square = []) {
   const { errors, warnings } = validate(scene);
   const list = $("#issues"); list.replaceChildren();
   const row = (cls, label, text, onx) => {
@@ -337,7 +350,8 @@ function renderIssues(desk = [], phone = []) {
   fontNotes().forEach((n) => row("warn", "Check", n));
   desk.forEach((id) => row("warn", "Check", `“${id}” text overflows its box on desktop — make the box bigger or the text smaller`));
   phone.forEach((id) => row("warn", "Check", `“${id}” text overflows its box on phones — adjust it in the Phone layout`));
-  importNotes.forEach((n, i) => row("note", "Import", n, () => { importNotes.splice(i, 1); renderIssues(desk, phone); }));
+  square.forEach((id) => row("warn", "Check", `“${id}” text overflows its box on square screens — adjust it in the Square layout`));
+  importNotes.forEach((n, i) => row("note", "Import", n, () => { importNotes.splice(i, 1); renderIssues(desk, phone, square); }));
   if (!list.children.length) row("ok", "Ready", "No problems found.");
   $("#exportBtn").title = errors.length ? "Fix the problems listed under the preview first" : "";
 }
@@ -363,8 +377,8 @@ function previewAnimation(name) {
   const t = copy.elements.find((x) => x.id === e.id);
   if (!name) delete t.animate; else t.animate = { duration: 0.8, ...(e.animate || {}), name, delay: 0 };
   const p = $("#preview");
-  p.className = `preview ${view === "phone" ? "phone" : ""} f-solo`;
-  p.innerHTML = previewHtml(copy);
+  p.className = `preview ${viewCls()} f-solo`;
+  p.innerHTML = previewHtml(copy, layoutKey() === "s" ? "s" : undefined);
   p.querySelector(`.ha-e-${slug(e.id)}`)?.classList.add("solo");
   p.querySelector(".ha")?.classList.add("ha-run");
   setOverlayHidden(true);
@@ -540,10 +554,23 @@ function sceneProps() {
     }, rerender: true }),
     hasM ? [scr ? grid(2, num("Width", () => scene.mobile, "width", { min: 1 }), num("Height", () => scene.mobile, "height", { min: 1 }))
         : grid(3, num("Below (px)", () => scene.mobile, "below", { min: 200 }), num("Width", () => scene.mobile, "width", { min: 1 }), num("Height", () => scene.mobile, "height", { min: 1 })),
-      scr ? h("p", { class: "helper" }, "Full screen: used whenever the screen is taller than it is wide (phones held upright).") : null,
+      scr ? h("p", { class: "helper" }, scene.square ? "Full screen: used on screens narrower than 3:4 (phones held upright). Near-square screens use the square layout." : "Full screen: used whenever the screen is taller than it is wide (phones held upright).") : null,
       h("p", { class: "helper" }, "Switch the preview to Phone to arrange it. Layers you don't move keep their desktop position, scaled."),
       h("div", { class: "actions" }, h("button", { type: "button", class: "secondary mini", onclick: copyDesktopToPhone }, "Copy desktop positions to phone"))]
       : h("p", { class: "helper" }, "Without one, the desktop design is scaled down on phones — fine for big type, too small for long quotes.")));
+  if (scr || scene.square) {
+    const hasQ = !!scene.square;
+    out.push(section("Square layout",
+      check("Use a square layout for near-square screens", S, "square", { apply: (on) => {
+        if (on) { const side = Math.round(Math.sqrt(scene.canvas.width * scene.canvas.height)); scene.square = { width: side, height: side }; }
+        else { delete scene.square; scene.elements.forEach((e) => delete e.s); }
+      }, rerender: true }),
+      hasQ ? [grid(2, num("Width", () => scene.square, "width", { min: 1 }), num("Height", () => scene.square, "height", { min: 1 })),
+        h("p", { class: "helper" }, scr ? "Used on screens between 3:4 and 4:3 — near-square browser windows and tablets. Wider screens get the desktop layout; taller ones the phone layout."
+          : "Only full-screen pieces use it: this piece fits its column, so it's ignored."),
+        h("p", { class: "helper" }, "Switch the preview to Square to arrange it. Layers you don't move stay where they are in the desktop design, which sits in the middle of the square.")]
+        : h("p", { class: "helper" }, "Without one, screens close to square show the desktop or phone design with bands of background.")));
+  }
   return out;
 }
 function copyDesktopToPhone() {
@@ -563,7 +590,7 @@ function styleProps(name) {
   return [
     h("p", { class: "title" }, `Type style: ${name}`),
     h("p", { class: "sub" }, `How text looks. Used by ${used} layer${used === 1 ? "" : "s"}. What the text is (heading, quote…) is set on each layer.`),
-    view === "phone" && scene.mobile ? h("p", { class: "phone-flag" }, "📱 A type style is shared by desktop and phones. To change one layer's size on phones only, select that layer.") : null,
+    layoutKey() ? h("p", { class: "phone-flag" }, `${layoutKey() === "m" ? "📱" : "◻︎"} A type style is shared by every layout. To change one layer's size in the ${LAYOUT_NAME[layoutKey()]} layout only, select that layer.`) : null,
     section("Style",
       text("Name", () => ({ name }), "name", { onChangeOnly: true, apply: (v, inp) => {
         const nn = slug(v); if (!nn || nn === name || scene.styles[nn]) { inp.value = name; return; }
@@ -606,15 +633,15 @@ function elementProps(id) {
   if (e.type === "group") out.push(...[groupFields(e, E), groupImagesSection(e)].filter(Boolean));
   if (e.type === "text") {
     const st = (scene.styles || {})[e.style] || {};
-    const onPhone = view === "phone" && !!scene.mobile;
+    const lk = layoutKey();
     const deskSize = e.size ?? st.size;
-    const sizeField = onPhone
-      ? num("Size on phones", () => (E().m ||= {}), "size", { optional: true, step: 0.5,
-          cleanup: () => { const el = E(); if (el.m && !Object.keys(el.m).length) delete el.m; },
-          placeholder: deskSize != null ? String(round(deskSize * scene.mobile.width / scene.canvas.width)) : "" })
+    const sizeField = lk
+      ? num(lk === "m" ? "Size on phones" : "Size in square", () => (E()[lk] ||= {}), "size", { optional: true, step: 0.5,
+          cleanup: () => { const el = E(); if (el[lk] && !Object.keys(el[lk]).length) delete el[lk]; },
+          placeholder: deskSize != null ? String(round(deskSize * layoutFallback(scene, lk, e).k)) : "" })
       : num("Size", E, "size", { optional: true, step: 0.5, placeholder: st.size ?? "" });
     out.push(section("Text",
-      onPhone ? h("p", { class: "phone-flag" }, "📱 Size changes here apply to phones only. The words, weight, colour and line height are shared with desktop.") : null,
+      lk ? h("p", { class: "phone-flag" }, `${lk === "m" ? "📱 Size changes here apply to phones only" : "◻︎ Size changes here apply to the square layout only"}. The words, weight, colour and line height are shared with desktop.`) : null,
       text("Text", E, "text", { multiline: true }),
       grid(2, select("What it is", E, "tag", TAGS, { fallback: "p" }), select("Align", E, "align", ["left", "center", "right"], { fallback: "left", optional: true })),
       select("Type style", E, "style", [{ value: "", label: "(none)" }, ...Object.keys(scene.styles || {})], { optional: true, rerender: true }),
@@ -647,18 +674,18 @@ function elementProps(id) {
       h("p", { class: "helper" }, "Drawn across the box. Rotate 90° for a vertical rule.")));
   }
 
-  // Position: desktop or phone, following the preview toggle
-  const phone = view === "phone" && scene.mobile;
-  if (phone) {
-    const M = () => { const el = E(); return (el.m ||= {}); };
-    const tidy = () => { const el = E(); if (el.m && !Object.keys(el.m).length) delete el.m; };
-    const M2 = scene.mobile, W = scene.canvas.width, H = scene.canvas.height;
-    const ph = (k, total, full) => String(round(e[k] * total / full));
-    out.push(section("Position — phone layout",
-      h("p", { class: "phone-flag" }, "📱 Editing the phone layout. Blank = keep the desktop position, scaled."),
-      check("Hide on phones", M, "hidden", { optional: true, cleanup: tidy, apply: (on) => { if (on) M().hidden = true; else { delete M().hidden; tidy(); } }, rerender: true }),
-      e.m?.hidden ? null : [grid(2, num("X", M, "x", { optional: true, cleanup: tidy, placeholder: ph("x", M2.width, W) }), num("Y", M, "y", { optional: true, cleanup: tidy, placeholder: ph("y", M2.height, H) })),
-        grid(2, num("Width", M, "w", { optional: true, cleanup: tidy, placeholder: ph("w", M2.width, W) }), num("Height", M, "h", { optional: true, cleanup: tidy, placeholder: ph("h", M2.height, H) }))]));
+  // Position: desktop, phone or square, following the preview toggle
+  const lk = layoutKey();
+  if (lk) {
+    const M = () => { const el = E(); return (el[lk] ||= {}); };
+    const tidy = () => { const el = E(); if (el[lk] && !Object.keys(el[lk]).length) delete el[lk]; };
+    const fb = e.type === "group" ? groupBoxIn(scene, { ...e, [lk]: null }, lk) : layoutFallback(scene, lk, e);
+    const ph = (k) => String(round(fb[k]));
+    out.push(section(`Position — ${LAYOUT_NAME[lk]} layout`,
+      h("p", { class: "phone-flag" }, lk === "m" ? "📱 Editing the phone layout. Blank = keep the desktop position, scaled." : "◻︎ Editing the square layout. Blank = where it sits in the desktop design."),
+      check(lk === "m" ? "Hide on phones" : "Hide in the square layout", M, "hidden", { optional: true, cleanup: tidy, apply: (on) => { if (on) M().hidden = true; else { delete M().hidden; tidy(); } }, rerender: true }),
+      e[lk]?.hidden ? null : [grid(2, num("X", M, "x", { optional: true, cleanup: tidy, placeholder: ph("x") }), num("Y", M, "y", { optional: true, cleanup: tidy, placeholder: ph("y") })),
+        grid(2, num("Width", M, "w", { optional: true, cleanup: tidy, placeholder: ph("w") }), num("Height", M, "h", { optional: true, cleanup: tidy, placeholder: ph("h") }))]));
   } else {
     out.push(section("Position",
       grid(2, num("X", E, "x"), num("Y", E, "y")),
@@ -697,16 +724,16 @@ function layerActions(e) {
 function groupFields(e, E) {
   const n = (e.elements || []).length, span = groupSpan(e), gc = e.canvas || {};
   const ratio = gc.width && gc.height ? gc.height / gc.width : null;
-  const onPhone = view === "phone" && !!scene.mobile;
-  const box = onPhone ? groupPhoneBox(scene, e) : e;
+  const lk = layoutKey();
+  const box = lk ? groupBoxIn(scene, e, lk) : e;
   const off = ratio && Math.abs(box.h - box.w * ratio) > Math.max(1, box.h * 0.01);
   return section("Placed piece",
     h("p", { class: "helper" }, `A copy of “${e.title || e.id}” — ${n} layer${n === 1 ? "" : "s"}, moved and sized as one. Changing the original later won't change this copy.`),
     num("Start after (seconds)", E, "start", { optional: true, min: 0, step: 0.1, placeholder: "0" }),
     h("p", { class: "helper" }, span ? `Delays everything inside it: it plays from ${fmtS(span.from)} to ${fmtS(span.to)}. Give each placed piece a later start to play them in turn.` : "Nothing inside it animates."),
-    off ? h("p", { class: "phone-flag" }, `Its ${onPhone ? "phone " : ""}box has been stretched out of proportion, which pulls its layers out of line.`) : null,
+    off ? h("p", { class: "phone-flag" }, `Its ${lk ? LAYOUT_NAME[lk] + " " : ""}box has been stretched out of proportion, which pulls its layers out of line.`) : null,
     h("div", { class: "actions" },
-      ratio ? h("button", { type: "button", class: "secondary mini", disabled: !off, onclick: () => { const g = E(); if (onPhone) { const b = groupPhoneBox(scene, g); g.m = { ...(g.m || {}), x: round(b.x), y: round(b.y), w: round(b.w), h: round(b.w * ratio) }; } else g.h = round(g.w * ratio); commit(); renderProps(); drawOverlay(); } }, "Restore its proportions") : null,
+      ratio ? h("button", { type: "button", class: "secondary mini", disabled: !off, onclick: () => { const g = E(); if (lk) { const b = groupBoxIn(scene, g, lk); g[lk] = { ...(g[lk] || {}), x: round(b.x), y: round(b.y), w: round(b.w), h: round(b.w * ratio) }; } else g.h = round(g.w * ratio); commit(); renderProps(); drawOverlay(); } }, "Restore its proportions") : null,
       h("button", { type: "button", class: "secondary mini", title: "Turn it back into separate layers you can edit one by one", onclick: () => ungroup(e.id) }, "Ungroup")));
 }
 const fmtS = (n) => `${Math.round(n * 100) / 100}s`;
@@ -1055,7 +1082,7 @@ const ZOOMS = [1, 1.5, 2, 3, 4, 6, 8], ZMAX = 8;
 let zoom = 1;
 function fitWidth() {
   const st = $("#stage"), cs = getComputedStyle(st);
-  return Math.min(st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), view === "phone" ? 375 : 900);
+  return Math.min(st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), view === "phone" ? 375 : view === "square" ? SQUARE_PREVIEW : 900);
 }
 function applyZoom() {
   const p = $("#preview"), inner = $("#stageInner");
@@ -1212,9 +1239,9 @@ function wire() {
     const e = elById(sel.id); if (!e) return;
     ev.preventDefault();
     const step = ev.shiftKey ? 10 : 1;
-    const t = view === "phone" && scene.mobile ? (e.m ||= {}) : e;
-    const M = scene.mobile, W = scene.canvas.width, H = scene.canvas.height;
-    if (t === e.m) { const b = e.type === "group" ? groupPhoneBox(scene, e) : { x: e.x * M.width / W, y: e.y * M.height / H }; t.x ??= round(b.x); t.y ??= round(b.y); }
+    const lk = layoutKey();
+    const t = lk ? (e[lk] ||= {}) : e;
+    if (lk) { const b = e.type === "group" ? groupBoxIn(scene, e, lk) : layoutFallback(scene, lk, e); t.x ??= round(b.x); t.y ??= round(b.y); }
     if (ev.key === "ArrowLeft") t.x = round(t.x - step); if (ev.key === "ArrowRight") t.x = round(t.x + step);
     if (ev.key === "ArrowUp") t.y = round(t.y - step); if (ev.key === "ArrowDown") t.y = round(t.y + step);
     commit("nudge"); renderProps();
@@ -1223,7 +1250,7 @@ function wire() {
 
 // ---------------------------------------------------------------- start
 const api = {
-  get scene() { return scene; }, get sel() { return sel; }, get view() { return view; },
+  get scene() { return scene; }, get sel() { return sel; }, get view() { return view; }, layoutKey, layoutCanvas, layoutFallback, groupBoxIn,
   choose, commit, renderProps, slug, stack, stackPos, toast,
   getScene: () => scene,
   scrubTo, endScrub, getScrub: () => scrubT,
@@ -1237,7 +1264,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=3c7bd1b").then((r) => r.text()), fetch("../runtime/ha.js?v=3c7bd1b").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=5795e3b").then((r) => r.text()), fetch("../runtime/ha.js?v=5795e3b").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

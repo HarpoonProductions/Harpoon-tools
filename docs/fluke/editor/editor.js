@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=07878da";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=07878da";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=07878da";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=0f551a2";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=0f551a2";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=0f551a2";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=07878da"), import("./fonts.js?v=07878da"), import("./library.js?v=07878da")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=0f551a2"), import("./fonts.js?v=0f551a2"), import("./library.js?v=0f551a2")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=07878da"); }
+  try { mod = await import("../src/import-infogram.js?v=0f551a2"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -630,7 +630,7 @@ function elementProps(id) {
     E().id = nid; sel = { kind: "element", id: nid }; inp.value = nid;
   } }));
 
-  if (e.type === "group") out.push(...[groupFields(e, E), groupTextSection(e), groupImagesSection(e)].filter(Boolean));
+  if (e.type === "group") out.push(...[groupFields(e, E), groupTextSection(e), groupShapesSection(e), groupImagesSection(e)].filter(Boolean));
   if (e.type === "text") {
     const st = (scene.styles || {})[e.style] || {};
     const lk = layoutKey();
@@ -763,20 +763,71 @@ function textsIn(els, path = []) {
   return (els || []).flatMap((c) => c.type === "group" ? textsIn(c.elements, [...path, c.id])
     : c.type === "text" ? [{ path: [...path, c.id], el: c }] : []);
 }
+// The styling a layer inside a placed piece can have of its own (on top of the piece's type styles)
+const TEXT_LOOK = ["size", "weight", "lineHeight", "color", "align", "italic", "letterSpacing"];
+const SHAPE_LOOK = ["fill", "stroke", "strokeWidth", "opacity"];
+// copy one layer's styling to the same layer in every other copy of the piece
+function styleAllCopies(g, path, keys) {
+  const src = findInGroup(g, path), others = copiesWith(g, path);
+  others.forEach((x) => { const t = findInGroup(x, path); keys.forEach((k) => { if (src[k] === undefined) delete t[k]; else t[k] = src[k]; }); });
+  commit(); renderProps(); toast(`Styling copied to ${others.length} other cop${others.length === 1 ? "y" : "ies"}`);
+}
 function groupTextSection(g) {
   const texts = textsIn(g.elements);
   if (!texts.length) return null;
   const gid = g.id;
   return section("Text inside",
-    h("p", { class: "helper" }, "Change the words here for this copy only. The type style, position and animation stay as they are."),
-    ...texts.map(({ path }) => {
+    h("p", { class: "helper" }, "Change the words and look here for this copy only. Position and animation stay as they are. Sizes are in the placed piece's own units."),
+    ...texts.map(({ path, el }) => {
       const G = () => findInGroup(elById(gid), path) || {};
+      const st = (findStyles(elById(gid), path) || {})[el.style] || {};
+      const others = copiesWith(g, path).length;
+      const own = TEXT_LOOK.some((k) => el[k] !== undefined);
       return h("div", { class: "group-img" },
         h("div", { class: "group-img__head" },
           h("b", {}, path.join(" › ")),
           h("button", { type: "button", class: "danger mini", title: "Take this text out of this copy",
             onclick: () => { if (removeInGroup(elById(gid), path)) { commit(); renderProps(); toast(`Removed “${path.join(" › ")}”`); } } }, "Remove")),
-        text("Text", G, "text", { multiline: true }));
+        text("Text", G, "text", { multiline: true }),
+        h("details", { class: "group-look", open: own || null },
+          h("summary", {}, own ? "Styling (changed in this copy)" : "Styling"),
+          h("p", { class: "helper" }, `Blank = the piece's ${el.style ? `“${el.style}” ` : ""}type style.`),
+          grid(3, num("Size", G, "size", { optional: true, step: 0.5, placeholder: st.size ?? "" }),
+            select("Weight", G, "weight", [{ value: "", label: st.weight ? `(${st.weight})` : "(style)" }, ...WEIGHTS], { optional: true, apply: (v) => { if (v === "") delete G().weight; else G().weight = +v; } }),
+            num("Line height", G, "lineHeight", { optional: true, step: 0.05, placeholder: st.lineHeight ?? "" })),
+          grid(2, select("Align", G, "align", [{ value: "", label: "(as placed)" }, "left", "center", "right"], { optional: true, apply: (v) => { if (v === "") delete G().align; else G().align = v; } }),
+            h("div", {}, h("span", { class: "f" }, " "), check("Italic", G, "italic", { optional: true }))),
+          colour("Colour", G, "color", { optional: true, placeholder: st.color || "style colour" }),
+          h("div", { class: "actions" },
+            h("button", { type: "button", class: "secondary mini", disabled: !own, onclick: () => { const t = G(); TEXT_LOOK.forEach((k) => delete t[k]); commit(); renderProps(); } }, "Back to the type style"),
+            others ? h("button", { type: "button", class: "secondary mini", onclick: () => styleAllCopies(elById(gid), path, TEXT_LOOK) }, `Use this styling in all ${others + 1} copies`) : null)));
+    }));
+}
+// the type styles that apply to a layer inside a placed piece: those of the innermost piece that holds it
+function findStyles(g, path) {
+  let holder = g, els = g?.elements;
+  for (const id of path.slice(0, -1)) { holder = (els || []).find((x) => x.id === id); els = holder?.elements; }
+  return holder?.styles;
+}
+function shapesIn(els, path = []) {
+  return (els || []).flatMap((c) => c.type === "group" ? shapesIn(c.elements, [...path, c.id])
+    : ["rect", "ellipse", "line"].includes(c.type) ? [{ path: [...path, c.id], el: c }] : []);
+}
+function groupShapesSection(g) {
+  const shapes = shapesIn(g.elements);
+  if (!shapes.length) return null;
+  const gid = g.id;
+  return section("Shapes inside",
+    h("p", { class: "helper" }, "Recolour boxes, circles and lines for this copy only."),
+    ...shapes.map(({ path, el }) => {
+      const G = () => findInGroup(elById(gid), path) || {};
+      const others = copiesWith(g, path).length;
+      return h("div", { class: "group-img" },
+        h("div", { class: "group-img__head" }, h("b", {}, path.join(" › "))),
+        el.type === "line" ? grid(2, colour("Colour", G, "stroke"), num("Thickness", G, "strokeWidth", { min: 0.5, step: 0.5 }))
+          : [colour("Fill", G, "fill", { optional: true }), grid(2, colour("Border", G, "stroke", { optional: true }), num("Border width", G, "strokeWidth", { optional: true, min: 0, placeholder: "0" }))],
+        num("Opacity", G, "opacity", { optional: true, min: 0, max: 1, step: 0.05, placeholder: "1" }),
+        others ? h("div", { class: "actions" }, h("button", { type: "button", class: "secondary mini", onclick: () => styleAllCopies(elById(gid), path, SHAPE_LOOK) }, `Use these colours in all ${others + 1} copies`)) : null);
     }));
 }
 function groupImagesSection(g) {
@@ -1285,7 +1336,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=07878da").then((r) => r.text()), fetch("../runtime/ha.js?v=07878da").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=0f551a2").then((r) => r.text()), fetch("../runtime/ha.js?v=0f551a2").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

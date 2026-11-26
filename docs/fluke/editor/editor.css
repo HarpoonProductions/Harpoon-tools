@@ -329,3 +329,6 @@ fieldset.flash { animation: flashFs 1.6s ease-out; border-radius: 8px; }
 .phone-flag.inline { display: inline; padding: 1px 5px; margin-left: 4px; font-weight: 400; }
 /* a problem about a layer: click to select it */
 .issue-go { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+/* styling of a layer inside a placed piece */
+.group-look { margin: 4px 0 2px; }
+.group-look > summary { cursor: pointer; font-size: 12px; font-weight: 600; padding: 4px 0; }

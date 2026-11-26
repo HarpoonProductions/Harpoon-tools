@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=5795e3b";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=5795e3b";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=5795e3b";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=07878da";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=07878da";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=07878da";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=5795e3b"), import("./fonts.js?v=5795e3b"), import("./library.js?v=5795e3b")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=07878da"), import("./fonts.js?v=07878da"), import("./library.js?v=07878da")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=5795e3b"); }
+  try { mod = await import("../src/import-infogram.js?v=07878da"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -630,7 +630,7 @@ function elementProps(id) {
     E().id = nid; sel = { kind: "element", id: nid }; inp.value = nid;
   } }));
 
-  if (e.type === "group") out.push(...[groupFields(e, E), groupImagesSection(e)].filter(Boolean));
+  if (e.type === "group") out.push(...[groupFields(e, E), groupTextSection(e), groupImagesSection(e)].filter(Boolean));
   if (e.type === "text") {
     const st = (scene.styles || {})[e.style] || {};
     const lk = layoutKey();
@@ -758,6 +758,27 @@ function removeInGroup(g, path) {
 }
 // other placed copies of the same piece that have a layer at the same place
 const copiesWith = (g, path) => scene.elements.filter((x) => x.type === "group" && x !== g && x.title === g.title && findInGroup(x, path));
+// The text inside a placed piece (and inside pieces placed in it): change the words in this copy, keeping its look and timing
+function textsIn(els, path = []) {
+  return (els || []).flatMap((c) => c.type === "group" ? textsIn(c.elements, [...path, c.id])
+    : c.type === "text" ? [{ path: [...path, c.id], el: c }] : []);
+}
+function groupTextSection(g) {
+  const texts = textsIn(g.elements);
+  if (!texts.length) return null;
+  const gid = g.id;
+  return section("Text inside",
+    h("p", { class: "helper" }, "Change the words here for this copy only. The type style, position and animation stay as they are."),
+    ...texts.map(({ path }) => {
+      const G = () => findInGroup(elById(gid), path) || {};
+      return h("div", { class: "group-img" },
+        h("div", { class: "group-img__head" },
+          h("b", {}, path.join(" › ")),
+          h("button", { type: "button", class: "danger mini", title: "Take this text out of this copy",
+            onclick: () => { if (removeInGroup(elById(gid), path)) { commit(); renderProps(); toast(`Removed “${path.join(" › ")}”`); } } }, "Remove")),
+        text("Text", G, "text", { multiline: true }));
+    }));
+}
 function groupImagesSection(g) {
   const imgs = imagesIn(g.elements);
   if (!imgs.length) return null;
@@ -1264,7 +1285,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=5795e3b").then((r) => r.text()), fetch("../runtime/ha.js?v=5795e3b").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=07878da").then((r) => r.text()), fetch("../runtime/ha.js?v=07878da").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

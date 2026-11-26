@@ -332,3 +332,11 @@ fieldset.flash { animation: flashFs 1.6s ease-out; border-radius: 8px; }
 /* styling of a layer inside a placed piece */
 .group-look { margin: 4px 0 2px; }
 .group-look > summary { cursor: pointer; font-size: 12px; font-weight: 600; padding: 4px 0; }
+/* the client kit's type values under the type fields */
+.kit-type { margin: 2px 0 10px; padding: 6px 8px; background: #f6f4ee; border-radius: 8px; display: grid; gap: 4px; }
+.kit-type__title { font-size: 11px; font-weight: 600; color: var(--muted); }
+.kit-type__row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.kit-type__row .sw-label { min-width: 66px; }
+.kit-type .chip { font: inherit; font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid rgba(0,0,0,.15); background: #fff; cursor: pointer; }
+.kit-type .chip:hover { border-color: rgba(0,0,0,.4); }
+.kit-type .chip.on { background: #1d2340; color: #fff; border-color: #1d2340; }

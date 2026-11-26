@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=0f551a2";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=0f551a2";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=0f551a2";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=243e3bf";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=243e3bf";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=243e3bf";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=0f551a2"), import("./fonts.js?v=0f551a2"), import("./library.js?v=0f551a2")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=243e3bf"), import("./fonts.js?v=243e3bf"), import("./library.js?v=243e3bf")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=0f551a2"); }
+  try { mod = await import("../src/import-infogram.js?v=243e3bf"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -584,6 +584,32 @@ function copyDesktopToPhone() {
 }
 
 const WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900].map((w) => ({ value: w, label: String(w) }));
+// The client kit's own type values (from its HSE tokens), as one-click choices under the size / weight / spacing fields,
+// the way its colours sit beside the colour picker. rows: [{ kind: size|weight|leading|tracking, get, key, units }]
+// units: the width of the canvas the size is measured in, so kit sizes come out the same on screen as kit type styles.
+const capWord = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+function kitTypeChips(rows) {
+  if (!kit) return null;
+  const options = (r) => {
+    if (r.kind === "weight") return Object.entries(kit.weights).map(([n, v]) => ({ label: `${capWord(n)} ${v}`, value: v }));
+    if (r.kind === "leading") return Object.entries(kit.leading).map(([n, v]) => ({ label: `${capWord(n)} ${v}`, value: v }));
+    if (r.kind === "tracking") return kit.tracking ? [{ label: `Kicker ${kit.tracking}em`, value: kit.tracking }] : [];
+    const seen = new Set();
+    return Object.entries(kitStyles(kit, r.units)).map(([n, s]) => ({ label: `${capWord(n)} ${s.size}`, value: s.size }))
+      .filter((o) => !seen.has(o.value) && seen.add(o.value));
+  };
+  const NAMES = { size: "Size", weight: "Weight", leading: "Line height", tracking: "Spacing" };
+  return h("div", { class: "kit-type" },
+    h("span", { class: "kit-type__title" }, `From the ${kit.label} kit`),
+    rows.map((r) => {
+      const opts = options(r); if (!opts.length) return null;
+      const cur = r.get()?.[r.key];
+      return h("div", { class: "kit-type__row", role: "group", "aria-label": `${kit.label} ${NAMES[r.kind].toLowerCase()}` },
+        h("span", { class: "sw-label" }, NAMES[r.kind]),
+        opts.map((o) => h("button", { type: "button", class: `chip${cur === o.value ? " on" : ""}`, "aria-pressed": cur === o.value,
+          onclick: () => { r.get()[r.key] = o.value; if (r.after) r.after(); commit(); renderProps(); } }, o.label)));
+    }));
+}
 function styleProps(name) {
   const St = () => scene.styles[name];
   const used = scene.elements.filter((e) => e.style === name).length;
@@ -602,6 +628,8 @@ function styleProps(name) {
       select("Font comes from", St, "source", [{ value: "story", label: "The story (already loaded)" }, { value: "google", label: "Google Fonts (added automatically)" }], { fallback: "story" }),
       grid(2, select("Weight", St, "weight", weightOptions(St()), { number: true, fallback: 400 }), h("div", {}, h("span", { class: "f" }, " "), check("Italic", St, "italic", { optional: true }))),
       grid(3, num("Size", St, "size", { min: 1, step: 0.5 }), num("Line height", St, "lineHeight", { min: 0.5, step: 0.05 }), num("Spacing (em)", St, "letterSpacing", { step: 0.01, optional: true, placeholder: "0" })),
+      kitTypeChips([{ kind: "size", get: St, key: "size", units: scene.canvas.width }, { kind: "weight", get: St, key: "weight" },
+        { kind: "leading", get: St, key: "lineHeight" }, { kind: "tracking", get: St, key: "letterSpacing" }]),
       colour("Colour", St, "color", { placeholder: "#000000" }),
       text("Fallback fonts", St, "fallback", { optional: true, placeholder: "system-ui, sans-serif" })),
     h("div", { class: "actions" },
@@ -649,6 +677,8 @@ function elementProps(id) {
       grid(3, sizeField,
         select("Weight", E, "weight", [{ value: "", label: st.weight ? `(${st.weight})` : "(style)" }, ...WEIGHTS], { optional: true, number: false, apply: (v) => { if (v === "") delete E().weight; else E().weight = +v; } }),
         num("Line height", E, "lineHeight", { optional: true, step: 0.05, placeholder: st.lineHeight ?? "" })),
+      kitTypeChips([{ kind: "size", get: lk ? () => (E()[lk] ||= {}) : E, key: "size", units: lk ? layoutCanvas(scene, lk).width : scene.canvas.width },
+        { kind: "weight", get: E, key: "weight" }, { kind: "leading", get: E, key: "lineHeight" }]),
       num("Stretch sideways (1 = none)", E, "stretch", { optional: true, step: 0.01, min: 0.2, max: 5, placeholder: "1" }),
       check("Keep on one line (never wrap)", E, "nowrap", { optional: true }),
       colour("Colour", E, "color", { optional: true, placeholder: st.color || "style colour" })));
@@ -795,6 +825,8 @@ function groupTextSection(g) {
           grid(3, num("Size", G, "size", { optional: true, step: 0.5, placeholder: st.size ?? "" }),
             select("Weight", G, "weight", [{ value: "", label: st.weight ? `(${st.weight})` : "(style)" }, ...WEIGHTS], { optional: true, apply: (v) => { if (v === "") delete G().weight; else G().weight = +v; } }),
             num("Line height", G, "lineHeight", { optional: true, step: 0.05, placeholder: st.lineHeight ?? "" })),
+          kitTypeChips([{ kind: "size", get: G, key: "size", units: (findHolder(elById(gid), path)?.canvas || {}).width || 1000 },
+            { kind: "weight", get: G, key: "weight" }, { kind: "leading", get: G, key: "lineHeight" }, { kind: "tracking", get: G, key: "letterSpacing" }]),
           grid(2, select("Align", G, "align", [{ value: "", label: "(as placed)" }, "left", "center", "right"], { optional: true, apply: (v) => { if (v === "") delete G().align; else G().align = v; } }),
             h("div", {}, h("span", { class: "f" }, " "), check("Italic", G, "italic", { optional: true }))),
           colour("Colour", G, "color", { optional: true, placeholder: st.color || "style colour" }),
@@ -804,11 +836,12 @@ function groupTextSection(g) {
     }));
 }
 // the type styles that apply to a layer inside a placed piece: those of the innermost piece that holds it
-function findStyles(g, path) {
+function findHolder(g, path) {
   let holder = g, els = g?.elements;
   for (const id of path.slice(0, -1)) { holder = (els || []).find((x) => x.id === id); els = holder?.elements; }
-  return holder?.styles;
+  return holder;
 }
+const findStyles = (g, path) => findHolder(g, path)?.styles;
 function shapesIn(els, path = []) {
   return (els || []).flatMap((c) => c.type === "group" ? shapesIn(c.elements, [...path, c.id])
     : ["rect", "ellipse", "line"].includes(c.type) ? [{ path: [...path, c.id], el: c }] : []);
@@ -1336,7 +1369,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=0f551a2").then((r) => r.text()), fetch("../runtime/ha.js?v=0f551a2").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=243e3bf").then((r) => r.text()), fetch("../runtime/ha.js?v=243e3bf").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

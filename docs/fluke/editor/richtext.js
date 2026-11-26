@@ -3,7 +3,7 @@
 // colour, another font or another size. The layer keeps `text` (the plain words, used everywhere else) and, only when
 // some words are styled, `runs`: the same words in pieces, each with its own look (see RUN_KEYS in src/render.js).
 
-import { RUN_KEYS, runsOf } from "../src/render.js?v=84f9a1b";
+import { RUN_KEYS, runsOf } from "../src/render.js?v=a35c7f4";
 
 const SIZES = [0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 2, 2.5, 3];
 

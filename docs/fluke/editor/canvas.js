@@ -1,7 +1,7 @@
 // Fluke editor — on-canvas editing: selection box, move / resize / rotate handles, snapping guides.
 // Works in canvas units. In Phone or Square view (with that layout on) it edits the layer's overrides for it (e.m / e.s).
 
-import { richText } from "./richtext.js?v=84f9a1b";
+import { richText } from "./richtext.js?v=a35c7f4";
 
 let api = null;
 const SNAP_PX = 6;          // snap distance on screen
@@ -249,11 +249,14 @@ export function initCanvas(a) {
   // double-click a text layer to type straight into it
   stage.addEventListener("dblclick", (ev) => {
     clearTimeout(cycleTimer);
-    const under = document.elementsFromPoint(ev.clientX, ev.clientY)
-      .filter((n) => n.classList?.contains("ha-text") && n.closest("#preview")).map(elementIdFromNode).filter(Boolean);
-    const cur = selected();
-    const id = cur?.type === "text" && (under.includes(cur.id) || ev.target.closest(".sel-box")) ? cur.id : under[0];
-    if (id) { ev.preventDefault(); startTextEdit(id, { x: ev.clientX, y: ev.clientY }); }
+    const nodes = document.elementsFromPoint(ev.clientX, ev.clientY).filter((n) => n.classList?.contains("ha-text") && n.closest("#preview"));
+    const under = nodes.map(elementIdFromNode).filter(Boolean);
+    const cur = selected(), at = { x: ev.clientX, y: ev.clientY };
+    if (cur?.type === "text" && (under.includes(cur.id) || ev.target.closest(".sel-box"))) { ev.preventDefault(); return startTextEdit(cur.id, at); }
+    const first = nodes[0]; if (!first) return;
+    const inPiece = api.groupTextOf(first); // text inside a placed piece: edit it there, in this copy
+    ev.preventDefault();
+    startTextEdit(inPiece || elementIdFromNode(first), at);
   });
   new ResizeObserver(() => drawOverlay()).observe($("#preview"));
   addEventListener("resize", () => drawOverlay());
@@ -262,25 +265,34 @@ export function initCanvas(a) {
 // ---------------------------------------------------------------- edit text in place
 // A textarea laid exactly over the layer, in the layer's own font, size, spacing, colour and alignment, so it wraps
 // the way the piece will. The real text is hidden underneath while you type; each keystroke updates the scene.
-export function startTextEdit(id, at = null) {
+// target: a layer id, or { gid, path } for a text layer inside a placed piece
+export function startTextEdit(target, at = null) {
   if (editing) finishTextEdit();
-  const e = api.scene.elements.find((x) => x.id === id);
-  if (!e || e.type !== "text") return;
+  const inPiece = target && typeof target === "object";
+  const id = inPiece ? target.gid : target;
+  const top = () => api.scene.elements.find((x) => x.id === id);
+  const get = inPiece ? () => api.findInGroup(top(), target.path) || {} : () => top() || {};
+  if (!top() || get().type !== "text") return;
   if (!(api.sel.kind === "element" && api.sel.id === id)) api.choose({ kind: "element", id });
-  const node = $(`#preview .ha-e-${api.slug(id)}`), g = geometry();
+  const nodeSlug = api.slug(inPiece ? `${id}-${target.path.join("-")}` : id);
+  const node = $(`#preview .ha-e-${nodeSlug}`), g = geometry();
   if (!node || !g) return;
-  const b = boxOf(e), cs = getComputedStyle(node);
+  const cs = getComputedStyle(node);
+  // where the words sit, in screen pixels from the canvas's corner
+  const b = inPiece ? (() => { const r = node.getBoundingClientRect(); return { x: (r.left - g.sr.left) / g.sx, y: (r.top - g.sr.top) / g.sy, w: r.width / g.sx, h: r.height / g.sy, r: 0 }; })() : boxOf(top());
   let layer = $("#editLayer");
   if (!layer) { layer = document.createElement("div"); layer.id = "editLayer"; $("#stageInner").append(layer); }
   Object.assign(layer.style, { left: g.left + "px", top: g.top + "px", width: g.width + "px", height: g.height + "px" });
   const hide = document.createElement("style");
-  hide.id = "editHide"; hide.textContent = `#preview .ha-e-${api.slug(id)}{visibility:hidden!important}`;
+  hide.id = "editHide"; hide.textContent = `#preview .ha-e-${nodeSlug}{visibility:hidden!important}`;
   document.head.append(hide);
   // the words, in the layer's own font, with the word-styling toolbar just above
-  const key = "g:text-" + id + "-" + ++gestureId;
-  const get = () => api.scene.elements.find((x) => x.id === id) || {};
-  const rt = richText({ get, label: `Text of ${id}`, swatches: api.rtSwatches, fonts: api.rtFonts, ...api.rtType(get, api.scene.canvas.width, () => api.scene.styles), compact: true,
-    commit: (typing) => { if (!api.scene.elements.some((x) => x.id === id)) return finishTextEdit(); api.commit(typing ? key : undefined); } });
+  const key = "g:text-" + nodeSlug + "-" + ++gestureId;
+  // a layer inside a placed piece is measured in that piece's canvas, with that piece's type styles
+  const holder = () => (inPiece ? api.findHolder(top(), target.path) : api.scene);
+  const rt = richText({ get, label: `Text of ${inPiece ? target.path.join(" › ") : id}`, swatches: api.rtSwatches, fonts: api.rtFonts,
+    ...api.rtType(get, (holder()?.canvas || api.scene.canvas).width, () => holder()?.styles), compact: true,
+    commit: (typing) => { if (get().type !== "text") return finishTextEdit(); api.commit(typing ? key : undefined); } });
   const ta = rt.box;
   ta.classList.add("text-edit");
   const minH = b.h * g.sy;

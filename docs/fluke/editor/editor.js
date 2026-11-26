@@ -2,10 +2,10 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=84f9a1b";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=84f9a1b";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=84f9a1b";
-import { richText } from "./richtext.js?v=84f9a1b";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox, groupBoxIn, layoutCanvas, layoutFallback } from "../src/render.js?v=a35c7f4";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=a35c7f4";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=a35c7f4";
+import { richText } from "./richtext.js?v=a35c7f4";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -17,7 +17,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=84f9a1b"), import("./fonts.js?v=84f9a1b"), import("./library.js?v=84f9a1b")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=a35c7f4"), import("./fonts.js?v=a35c7f4"), import("./library.js?v=a35c7f4")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -25,7 +25,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=84f9a1b"); }
+  try { mod = await import("../src/import-infogram.js?v=a35c7f4"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -836,8 +836,12 @@ function groupTextSection(g) {
   const texts = textsIn(g.elements);
   if (!texts.length) return null;
   const gid = g.id;
+  const kitHint = scene.kit ? null : h("p", { class: "phone-flag" }, `This piece has no client kit, so the kit's colours, sizes and weights aren't offered.${g.kit ? ` The placed piece was made with the ${g.kit.label} kit.` : ""} `,
+    g.kit ? h("button", { type: "button", class: "link-btn", onclick: () => { scene.kit = { ...g.kit }; commit(); syncKit(); toast(`Using the ${g.kit.label} kit`); } }, `Use the ${g.kit.label} kit`)
+      : h("button", { type: "button", class: "link-btn", onclick: () => choose({ kind: "scene" }, { reveal: true }) }, "Choose one in Scene settings"));
   return section("Text inside",
-    h("p", { class: "helper" }, "Change the words and look here for this copy only. Position and animation stay as they are. Sizes are in the placed piece's own units."),
+    h("p", { class: "helper" }, "Change the words and look here for this copy only — or double-click the words on the canvas. Position and animation stay as they are. Sizes are in the placed piece's own units."),
+    kitHint,
     ...texts.map(({ path, el }) => {
       const G = () => findInGroup(elById(gid), path) || {};
       const st = (findStyles(elById(gid), path) || {})[el.style] || {};
@@ -872,6 +876,14 @@ function findHolder(g, path) {
   return holder;
 }
 const findStyles = (g, path) => findHolder(g, path)?.styles;
+// a drawn layer (".ha-g-piece .ha-e-piece-quote") → the text layer inside the placed piece, as { gid, path }
+function groupTextOf(node) {
+  const cls = [...node.classList], gk = cls.find((k) => k.startsWith("ha-g-")), ek = cls.find((k) => k.startsWith("ha-e-"));
+  if (!gk || !ek) return null;
+  const g = scene.elements.find((x) => x.type === "group" && slug(x.id) === gk.slice(5)); if (!g) return null;
+  const hit = textsIn(g.elements).find(({ path }) => slug(`${g.id}-${path.join("-")}`) === ek.slice(5));
+  return hit ? { gid: g.id, path: hit.path } : null;
+}
 function shapesIn(els, path = []) {
   return (els || []).flatMap((c) => c.type === "group" ? shapesIn(c.elements, [...path, c.id])
     : ["rect", "ellipse", "line"].includes(c.type) ? [{ path: [...path, c.id], el: c }] : []);
@@ -935,10 +947,13 @@ function placeScene(src) {
     x: round(x), y: round(y), w: round(w), h: round(hh), z, start: round(n * 0.6),
     canvas: { width: sw, height: sh }, styles: structuredClone(src.styles || {}), elements: structuredClone(src.elements) };
   if (!g.start) delete g.start;
+  if (src.kit?.id) g.kit = { id: src.kit.id, label: src.kit.label };
+  const adopt = !scene.kit && g.kit;
+  if (adopt) scene.kit = { ...g.kit };
   scene.elements = [...scene.elements, g];
   sel = { kind: "element", id: g.id };
-  commit(); renderProps();
-  toast(`Placed “${g.title}”${g.start ? ` — starts after ${g.start}s` : ""}`, 3500);
+  commit(); renderProps(); if (adopt) syncKit();
+  toast(`Placed “${g.title}”${g.start ? ` — starts after ${g.start}s` : ""}${adopt ? ` · using its ${g.kit.label} kit` : ""}`, 3500);
 }
 // A placed piece back to separate layers, where it sat in the stack and in reading order
 function ungroup(id) {
@@ -1391,7 +1406,7 @@ const api = {
   scrubTo, endScrub, getScrub: () => scrubT,
   loadScene: (s) => setScene(s, [], { keepLibrary: true }),
   renderStatic: (s) => previewHtml(s),
-  renderPreview, brushOf, brushPathD, placeScene, groupSpan, groupPhoneBox, rtSwatches, rtFonts, rtType,
+  renderPreview, brushOf, brushPathD, placeScene, groupSpan, groupPhoneBox, rtSwatches, rtFonts, rtType, groupTextOf, findInGroup, findHolder,
 };
 async function start() {
   await loadOptionalParts();
@@ -1399,7 +1414,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=84f9a1b").then((r) => r.text()), fetch("../runtime/ha.js?v=84f9a1b").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=a35c7f4").then((r) => r.text()), fetch("../runtime/ha.js?v=a35c7f4").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

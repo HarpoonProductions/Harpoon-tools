@@ -22,6 +22,7 @@ export function boxOf(e) {
   const s = api.scene, W = s.canvas.width, H = s.canvas.height;
   if (phoneMode()) {
     const M = s.mobile, m = e.m || {};
+    if (e.type === "group") { const b = api.groupPhoneBox(s, e); return { ...b, r: 0, cw: M.width, ch: M.height, hidden: !!m.hidden }; }
     return { x: m.x ?? e.x * M.width / W, y: m.y ?? e.y * M.height / H, w: m.w ?? e.w * M.width / W, h: m.h ?? e.h * M.height / H,
       r: e.rotate || 0, cw: M.width, ch: M.height, hidden: !!m.hidden };
   }

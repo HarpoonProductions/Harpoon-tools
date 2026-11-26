@@ -2,9 +2,9 @@
 // Core parts load together (without them there's no editor). Optional parts — client kits, the font picker, the
 // library and the Infogram importer — load separately: if one doesn't arrive (e.g. a hosting hiccup straight after an
 // update), only that feature is unavailable, and it says so, instead of the whole editor coming up blank.
-import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan } from "../src/render.js?v=3c7fa68";
-import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=3c7fa68";
-import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=3c7fa68";
+import { renderScene, validate, ANIMATIONS, extractScene, nearestWeight, BLENDS, IMAGE_ONLY_ANIMATIONS, brushOf, brushPathD, isScreenFit, flattenGroups, groupSpan, groupPhoneBox } from "../src/render.js?v=927550f";
+import { initCanvas, drawOverlay, setOverlayHidden, startBrushDraw, stopBrushDraw, isBrushing } from "./canvas.js?v=927550f";
+import { initTimeline, renderTimeline, runPlayhead, hidePlayhead } from "./timeline.js?v=927550f";
 window.__flukeStarted = true; // the core arrived; index.html shows a "reload" message if this never happens
 
 // Stand-ins until (or unless) each optional part loads
@@ -16,7 +16,7 @@ let initLibrary = () => {}, openLibrary = unavailable("The library"), saveToLibr
 let refreshStatus = () => {}, forgetRef = () => {};
 const failedParts = [];
 async function loadOptionalParts() {
-  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=3c7fa68"), import("./fonts.js?v=3c7fa68"), import("./library.js?v=3c7fa68")]);
+  const [k, f, l] = await Promise.allSettled([import("./kits.js?v=927550f"), import("./fonts.js?v=927550f"), import("./library.js?v=927550f")]);
   if (k.status === "fulfilled") ({ loadRegistry, loadKit, kitStyles, loadKitFonts } = k.value); else failedParts.push("client kits");
   if (f.status === "fulfilled") ({ openFontPicker, loadFontList, googleFont, fontListLoaded } = f.value); else failedParts.push("the font picker");
   if (l.status === "fulfilled") ({ initLibrary, openLibrary, save: saveToLibrary, refreshStatus, forgetRef } = l.value); else failedParts.push("the library");
@@ -24,7 +24,7 @@ async function loadOptionalParts() {
 }
 async function importInfogram(html, opts) {
   let mod;
-  try { mod = await import("../src/import-infogram.js?v=3c7fa68"); }
+  try { mod = await import("../src/import-infogram.js?v=927550f"); }
   catch { throw new Error("The Infogram importer didn't load — reload the page and try again"); }
   return mod.importInfogram(html, opts);
 }
@@ -549,6 +549,7 @@ function sceneProps() {
 function copyDesktopToPhone() {
   const M = scene.mobile, W = scene.canvas.width, H = scene.canvas.height;
   scene.elements.forEach((e) => {
+    if (e.type === "group") { const b = groupPhoneBox(scene, { ...e, m: null }); e.m = { ...(e.m || {}), x: round(b.x), y: round(b.y), w: round(b.w), h: round(b.h) }; return; }
     e.m = { ...(e.m || {}), x: round(e.x * M.width / W), y: round(e.y * M.height / H), w: round(e.w * M.width / W), h: round(e.h * M.height / H) };
     if (e.type === "text") { const st = (scene.styles || {})[e.style] || {}; e.m.size = round((e.size ?? st.size ?? 16) * M.width / W); }
   });
@@ -688,14 +689,16 @@ function layerActions(e) {
 function groupFields(e, E) {
   const n = (e.elements || []).length, span = groupSpan(e), gc = e.canvas || {};
   const ratio = gc.width && gc.height ? gc.height / gc.width : null;
-  const off = ratio && Math.abs(e.h - e.w * ratio) > Math.max(1, e.h * 0.01);
+  const onPhone = view === "phone" && !!scene.mobile;
+  const box = onPhone ? groupPhoneBox(scene, e) : e;
+  const off = ratio && Math.abs(box.h - box.w * ratio) > Math.max(1, box.h * 0.01);
   return section("Placed piece",
     h("p", { class: "helper" }, `A copy of “${e.title || e.id}” — ${n} layer${n === 1 ? "" : "s"}, moved and sized as one. Changing the original later won't change this copy.`),
     num("Start after (seconds)", E, "start", { optional: true, min: 0, step: 0.1, placeholder: "0" }),
     h("p", { class: "helper" }, span ? `Delays everything inside it: it plays from ${fmtS(span.from)} to ${fmtS(span.to)}. Give each placed piece a later start to play them in turn.` : "Nothing inside it animates."),
-    off ? h("p", { class: "phone-flag" }, "Its box has been stretched out of proportion, which pulls its layers out of line.") : null,
+    off ? h("p", { class: "phone-flag" }, `Its ${onPhone ? "phone " : ""}box has been stretched out of proportion, which pulls its layers out of line.`) : null,
     h("div", { class: "actions" },
-      ratio ? h("button", { type: "button", class: "secondary mini", disabled: !off, onclick: () => { E().h = round(E().w * ratio); commit(); renderProps(); drawOverlay(); } }, "Restore its proportions") : null,
+      ratio ? h("button", { type: "button", class: "secondary mini", disabled: !off, onclick: () => { const g = E(); if (onPhone) { const b = groupPhoneBox(scene, g); g.m = { ...(g.m || {}), x: round(b.x), y: round(b.y), w: round(b.w), h: round(b.w * ratio) }; } else g.h = round(g.w * ratio); commit(); renderProps(); drawOverlay(); } }, "Restore its proportions") : null,
       h("button", { type: "button", class: "secondary mini", title: "Turn it back into separate layers you can edit one by one", onclick: () => ungroup(e.id) }, "Ungroup")));
 }
 const fmtS = (n) => `${Math.round(n * 100) / 100}s`;
@@ -1203,7 +1206,7 @@ function wire() {
     const step = ev.shiftKey ? 10 : 1;
     const t = view === "phone" && scene.mobile ? (e.m ||= {}) : e;
     const M = scene.mobile, W = scene.canvas.width, H = scene.canvas.height;
-    if (t === e.m) { t.x ??= round(e.x * M.width / W); t.y ??= round(e.y * M.height / H); }
+    if (t === e.m) { const b = e.type === "group" ? groupPhoneBox(scene, e) : { x: e.x * M.width / W, y: e.y * M.height / H }; t.x ??= round(b.x); t.y ??= round(b.y); }
     if (ev.key === "ArrowLeft") t.x = round(t.x - step); if (ev.key === "ArrowRight") t.x = round(t.x + step);
     if (ev.key === "ArrowUp") t.y = round(t.y - step); if (ev.key === "ArrowDown") t.y = round(t.y + step);
     commit("nudge"); renderProps();
@@ -1218,7 +1221,7 @@ const api = {
   scrubTo, endScrub, getScrub: () => scrubT,
   loadScene: (s) => setScene(s, [], { keepLibrary: true }),
   renderStatic: (s) => previewHtml(s),
-  renderPreview, brushOf, brushPathD, placeScene, groupSpan,
+  renderPreview, brushOf, brushPathD, placeScene, groupSpan, groupPhoneBox,
 };
 async function start() {
   await loadOptionalParts();
@@ -1226,7 +1229,7 @@ async function start() {
   initCanvas(api);
   initTimeline(api, ANIMATIONS);
   try {
-    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=3c7fa68").then((r) => r.text()), fetch("../runtime/ha.js?v=3c7fa68").then((r) => r.text())]);
+    const [c, j] = await Promise.all([fetch("../runtime/ha.css?v=927550f").then((r) => r.text()), fetch("../runtime/ha.js?v=927550f").then((r) => r.text())]);
     runtime.css = c; runtime.js = j; $("#runtimeCss").textContent = c;
   } catch (e) { toast("Couldn't load the animation code: " + e.message); }
   let s = null;

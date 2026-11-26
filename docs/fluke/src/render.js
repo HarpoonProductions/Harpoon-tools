@@ -346,7 +346,7 @@ function expandGroup(scene, g) {
   const ranked = stackRank(inner);
   const sx = g.w / gc.width, sy = g.h / gc.height;
   const M = scene.mobile, W = scene.canvas.width, H = scene.canvas.height;
-  const pb = M ? { x: g.m?.x ?? g.x * M.width / W, y: g.m?.y ?? g.y * M.height / H, w: g.m?.w ?? g.w * M.width / W, h: g.m?.h ?? g.h * M.height / H } : null;
+  const pb = M ? groupPhoneBox(scene, g) : null;
   const px = pb && pb.w / gc.width, py = pb && pb.h / gc.height;
   const r = (n) => Math.round(n * 1000) / 1000;
   return inner.map((c) => {
@@ -373,6 +373,17 @@ function expandGroup(scene, g) {
     }
     return k;
   });
+}
+
+/** A placed piece's box in the phone layout: its own `m`, or else the desktop box scaled to the phone canvas
+ *  KEEPING ITS PROPORTIONS (a 2560×1440 → 1440×2560 switch would otherwise stretch it and pull its layers apart),
+ *  centred where the desktop box's centre lands. */
+export function groupPhoneBox(scene, g) {
+  const M = scene.mobile, W = scene.canvas.width, H = scene.canvas.height, m = g.m || {};
+  const ratio = g.h / g.w;
+  const w = m.w ?? (m.h != null ? m.h / ratio : g.w * M.width / W);
+  const h = m.h ?? w * ratio;
+  return { x: m.x ?? (g.x + g.w / 2) * M.width / W - w / 2, y: m.y ?? (g.y + g.h / 2) * M.height / H - h / 2, w, h };
 }
 
 /** The scene with every group replaced by its layers (reading order kept; stacking: a group's layers sit together at
